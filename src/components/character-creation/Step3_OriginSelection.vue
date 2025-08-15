@@ -65,6 +65,7 @@
 import { ref, onMounted, computed } from 'vue';
 import { useCharacterCreationStore, type Origin } from '../../stores/characterCreationStore';
 import { LOCAL_ORIGINS } from '../../data/localData';
+import { API_BASE_URL } from '../../services/api';
 
 const store = useCharacterCreationStore();
 const origins = ref<Origin[]>([]);
@@ -108,7 +109,7 @@ async function fetchCreationData() {
     }
 
     try {
-      const response = await fetch(`http://127.0.0.1:12345/api/v1/creation_data?world_id=${store.selectedWorld.id}`);
+      const response = await fetch(`${API_BASE_URL}/api/v1/creation_data?world_id=${store.selectedWorld.id}`);
       if (!response.ok) {
         throw new Error(`天网灵脉响应异常: ${response.status}`);
       }
@@ -192,7 +193,7 @@ async function aiGenerateOrigin() {
     isLoading.value = true;
     error.value = null;
     try {
-      const response = await fetch('http://127.0.0.1:12345/api/v1/ai/generate_origin', {
+      const response = await fetch(`${API_BASE_URL}/api/v1/ai/generate_origin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ world_id: store.selectedWorld?.id })
@@ -229,7 +230,7 @@ async function redeemCode() {
     error.value = null;
 
     try {
-        const response = await fetch('http://127.0.0.1:12345/api/v1/redeem', {
+        const response = await fetch(`${API_BASE_URL}/api/v1/redeem`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ code: redemptionCode.value })

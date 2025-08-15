@@ -57,6 +57,7 @@
 import { ref, onMounted } from 'vue';
 import { useCharacterCreationStore, type TalentTier } from '../../stores/characterCreationStore';
 import { LOCAL_TALENT_TIERS } from '../../data/localData';
+import { API_BASE_URL } from '../../services/api';
 
 const store = useCharacterCreationStore();
 const talentTiers = ref<TalentTier[]>([]);
@@ -126,7 +127,7 @@ async function fetchTalentTiers() {
   } else {
     // 联机模式请求后端
     try {
-      const response = await fetch('http://127.0.0.1:12345/api/v1/talent_tiers/');
+      const response = await fetch(`${API_BASE_URL}/api/v1/talent_tiers/`);
       if (!response.ok) {
         throw new Error(`天网灵脉响应异常: ${response.status}`);
       }

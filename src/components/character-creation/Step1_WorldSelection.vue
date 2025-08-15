@@ -36,6 +36,7 @@
 import { ref, onMounted } from 'vue';
 import { useCharacterCreationStore, type World } from '../../stores/characterCreationStore';
 import { LOCAL_WORLDS } from '../../data/localData';
+import { API_BASE_URL } from '../../services/api';
 
 const store = useCharacterCreationStore();
 const worlds = ref<World[]>([]);
@@ -72,7 +73,7 @@ async function fetchWorlds() {
   } else {
     // 联机模式才请求后端
     try {
-      const response = await fetch('http://127.0.0.1:12345/api/v1/worlds');
+      const response = await fetch(`${API_BASE_URL}/api/v1/worlds`);
       if (!response.ok) {
         throw new Error(`天网灵脉响应异常: ${response.status}`);
       }

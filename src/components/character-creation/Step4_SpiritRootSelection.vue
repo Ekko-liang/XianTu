@@ -92,6 +92,7 @@
 import { ref, onMounted, computed } from 'vue';
 import { useCharacterCreationStore, type SpiritRoot } from '../../stores/characterCreationStore';
 import { LOCAL_SPIRIT_ROOTS } from '../../data/localData';
+import { API_BASE_URL } from '../../services/api';
 
 const store = useCharacterCreationStore();
 const spiritRoots = ref<SpiritRoot[]>([]);
@@ -149,7 +150,7 @@ async function fetchSpiritRoots() {
     }
     
     try {
-      const response = await fetch(`http://127.0.0.1:12345/api/v1/creation_data?world_id=${store.selectedWorld.id}`);
+      const response = await fetch(`${API_BASE_URL}/api/v1/creation_data?world_id=${store.selectedWorld.id}`);
       if (!response.ok) {
         throw new Error(`天网灵脉响应异常: ${response.status}`);
       }

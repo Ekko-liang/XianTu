@@ -4,19 +4,33 @@
     <div v-else-if="error" class="error-state">天机紊乱，无法搜寻：{{ error }}</div>
 
     <div v-else class="talent-layout">
-      <div class="talent-list-container" :class="{ 'multi-mode': store.mode === 'multi' }">
-        <div
-          v-for="talent in talents"
-          :key="talent.id"
-          class="talent-item"
-          :class="{
-            selected: isSelected(talent),
-            disabled: !canSelect(talent) || store.mode === 'multi'
-          }"
-          @click="toggleTalent(talent)"
-        >
-          <span class="talent-name">{{ talent.name }}</span>
-          <span class="talent-cost">{{ talent.talent_cost }} 点</span>
+      <!-- 左侧面板：列表和操作按钮 -->
+      <div class="talent-left-panel">
+        <div class="talent-list-container" :class="{ 'multi-mode': store.mode === 'multi' }">
+          <div
+            v-for="talent in talents"
+            :key="talent.id"
+            class="talent-item"
+            :class="{
+              selected: isSelected(talent),
+              disabled: !canSelect(talent) || store.mode === 'multi'
+            }"
+            @click="toggleTalent(talent)"
+          >
+            <span class="talent-name">{{ talent.name }}</span>
+            <span class="talent-cost">{{ talent.talent_cost }} 点</span>
+          </div>
+        </div>
+        
+        <!-- 单机模式功能按钮 -->
+        <div v-if="store.mode === 'single'" class="single-actions-container">
+          <div class="divider"></div>
+          <button @click="customTalent" class="action-item">
+            <span class="action-name">自定义天赋</span>
+          </button>
+          <button @click="aiGenerateTalent" class="action-item">
+            <span class="action-name">AI推演</span>
+          </button>
         </div>
       </div>
 
@@ -35,12 +49,6 @@
         </div>
       </div>
     </div>
-    
-    <!-- 单机模式功能按钮 -->
-    <div v-if="store.mode === 'single'" class="special-actions">
-      <button @click="customTalent" class="btn btn-secondary">自定义天赋</button>
-      <button @click="aiGenerateTalent" class="btn">AI推演</button>
-    </div>
   </div>
 </template>
 
@@ -48,6 +56,7 @@
 import { ref, onMounted } from 'vue';
 import { useCharacterCreationStore, type Talent } from '../../stores/characterCreationStore';
 import { LOCAL_TALENTS } from '../../data/localData';
+import { API_BASE_URL } from '../../services/api';
 
 const store = useCharacterCreationStore();
 const talents = ref<Talent[]>([]);
@@ -91,7 +100,7 @@ async function fetchTalents() {
     return;
   }
   try {
-    const response = await fetch(`http://127.0.0.1:12345/api/v1/creation_data?world_id=${store.selectedWorld.id}`);
+    const response = await fetch(`${API_BASE_URL}/api/v1/creation_data?world_id=${store.selectedWorld.id}`);
     if (!response.ok) {
       throw new Error(`天网灵脉响应异常: ${response.status}`);
     }
@@ -212,10 +221,18 @@ onMounted(() => {
   overflow: hidden;
 }
 
-.talent-list-container {
-  overflow-y: auto;
+/* 左侧面板容器 */
+.talent-left-panel {
+  display: flex;
+  flex-direction: column;
   border: 1px solid var(--color-border);
   border-radius: 8px;
+  overflow: hidden;
+}
+
+.talent-list-container {
+  flex: 1;
+  overflow-y: auto;
   padding: 0.5rem;
   transition: var(--transition-fast);
 }
@@ -343,39 +360,46 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
-/* 单机模式功能按钮 */
-.special-actions {
-  margin-top: 1rem;
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
+/* 单机模式功能按钮样式 */
+.single-actions-container {
+  border-top: 1px solid var(--color-border);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 0.5rem;
 }
 
-.btn {
-  padding: 0.75rem 1.5rem;
-  background: rgba(180, 142, 173, 0.2);
-  border: 1px solid #b48ead;
-  color: #b48ead;
+.divider {
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(180, 142, 173, 0.3),
+    transparent
+  );
+  margin: 0.5rem 0;
+}
+
+.action-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.8rem 1rem;
+  margin-bottom: 0.5rem;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease-in-out;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  width: 100%;
+  text-align: left;
   font-size: 1rem;
 }
 
-.btn:hover {
-  background: rgba(180, 142, 173, 0.3);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(180, 142, 173, 0.3);
+.action-item:hover {
+  background: rgba(var(--color-primary-rgb), 0.1);
 }
 
-.btn-secondary {
-  background: rgba(136, 192, 208, 0.2);
-  border-color: #88c0d0;
-  color: #88c0d0;
-}
-
-.btn-secondary:hover {
-  background: rgba(136, 192, 208, 0.3);
-  box-shadow: 0 4px 12px rgba(136, 192, 208, 0.3);
+.action-name {
+  font-weight: 500;
+  color: var(--color-primary);
 }
 </style>
