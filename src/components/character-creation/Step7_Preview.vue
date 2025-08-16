@@ -7,18 +7,18 @@
       <!-- Character Name -->
       <div class="preview-item name-item">
         <label for="characterName">道号:</label>
-        <input type="text" id="characterName" v-model="store.characterName" />
+        <input type="text" id="characterName" class="named" v-model="store.characterName" />
       </div>
 
       <!-- Birth Age -->
       <div class="preview-item age-item">
         <label for="birthAge">转世因果·初始年龄:</label>
-        <input 
-          type="number" 
-          id="birthAge" 
-          v-model.number="store.birthAge" 
-          min="0" 
-          max="18" 
+        <input
+          type="number"
+          id="birthAge"
+          v-model.number="store.birthAge"
+          min="0"
+          max="18"
           placeholder="16"
         />
         <span class="age-hint">0-18岁</span>
@@ -37,7 +37,7 @@
           {{ store.selectedTalentTier?.name || '未选择' }}
         </p>
       </div>
-      
+
       <!-- Origin -->
       <div class="preview-item">
         <h3>出身</h3>
@@ -71,17 +71,19 @@
           <li>心性: {{ store.attributes.temperament }}</li>
         </ul>
       </div>
-
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { useCharacterCreationStore } from '../../stores/characterCreationStore';
-const store = useCharacterCreationStore();
+import { useCharacterCreationStore } from '../../stores/characterCreationStore'
+const store = useCharacterCreationStore()
 </script>
 
 <style scoped>
+.named{
+  min-wight: 0;
+}
 .preview-container {
   height: 100%;
   display: flex;
@@ -175,17 +177,18 @@ const store = useCharacterCreationStore();
   white-space: nowrap;
 }
 
-.talents-item, .attributes-item {
-    grid-row: span 2;
+.talents-item,
+.attributes-item {
+  grid-row: span 2;
 }
 
 .preview-item ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
 .preview-item li {
-    margin-bottom: 0.5rem;
+  margin-bottom: 0.5rem;
 }
 </style>
