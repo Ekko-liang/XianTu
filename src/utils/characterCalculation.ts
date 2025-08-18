@@ -16,9 +16,10 @@ interface FullAttributes {
 /**
  * 根据完整的先天六维计算角色的初始核心属性
  * @param attrs 包含所有六维属性的对象
+ * @param age 角色的当前年龄
  * @returns 包含气血、灵气、神识、寿命等核心状态的对象
  */
-export function calculateInitialCoreAttributes(attrs: FullAttributes): Omit<LocalCharacter, 'id' | 'character_name' | 'world_id' | 'talent_tier_id' | 'root_bone' | 'spirituality' | 'comprehension' | 'fortune' | 'charm' | 'temperament' | 'play_time_minutes' | 'created_at' | 'last_played' | 'source'> {
+export function calculateInitialCoreAttributes(attrs: FullAttributes, age: number = 18): Omit<LocalCharacter, 'id' | 'character_name' | 'world_id' | 'talent_tier_id' | 'root_bone' | 'spirituality' | 'comprehension' | 'fortune' | 'charm' | 'temperament' | 'play_time_minutes' | 'created_at' | 'last_played' | 'source'> {
   
   // 气血系统 (根骨为主, 心性为辅)
   const max_hp = 80 + (attrs.root_bone * 15) + (attrs.temperament * 5);
@@ -33,6 +34,7 @@ export function calculateInitialCoreAttributes(attrs: FullAttributes): Omit<Loca
   const max_lifespan = 60 + (attrs.root_bone * 8) + (attrs.fortune * 2);
 
   return {
+    current_age: age,
     realm: '凡人',
     reputation: 0,
     hp: max_hp,
@@ -42,6 +44,7 @@ export function calculateInitialCoreAttributes(attrs: FullAttributes): Omit<Loca
     spirit: max_spirit,
     spirit_max: max_spirit,
     lifespan: max_lifespan,
+    lifespan_max: max_lifespan,
     cultivation_exp: 0,
     cultivation_exp_max: 100, // 凡人突破所需修为
   };

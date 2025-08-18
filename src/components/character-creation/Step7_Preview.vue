@@ -12,15 +12,12 @@
 
       <!-- Birth Age -->
       <div class="preview-item age-item">
-        <label for="birthAge">转世因果·初始年龄:</label>
-        <input
-          type="number"
-          id="birthAge"
-          v-model="birthAge"
-          min="0"
-          max="18"
-          placeholder="0-18"
-        />
+        <h3>初始年龄</h3>
+        <div class="age-control">
+          <button type="button" @click="decrementAge" :disabled="store.characterPayload.current_age <= 0" class="age-btn">-</button>
+          <span class="age-display">{{ store.characterPayload.current_age }} 岁</span>
+          <button type="button" @click="incrementAge" :disabled="store.characterPayload.current_age >= 18" class="age-btn">+</button>
+        </div>
       </div>
 
       <!-- World -->
@@ -40,7 +37,7 @@
       <!-- Origin -->
       <div class="preview-item">
         <h3>出身</h3>
-        <p>{{ store.selectedOrigin?.name || '未选择' }}</p>
+        <p>{{ store.selectedOrigin?.name || '随机出身' }}</p>
       </div>
 
       <!-- Spirit Root -->
@@ -59,7 +56,7 @@
       </div>
 
       <!-- Attributes -->
-      <div class="preview-item attributes-item">
+      <div v-if="props.isLocalCreation" class="preview-item attributes-item">
         <h3>先天六司</h3>
         <ul>
           <li>根骨: {{ store.attributes.root_bone }}</li>
@@ -70,32 +67,37 @@
           <li>心性: {{ store.attributes.temperament }}</li>
         </ul>
       </div>
+
+      <!-- Cloud Mode Placeholder -->
+      <div v-else class="preview-item cloud-info-item">
+        <h3>命格天定</h3>
+        <p class="cloud-info-text">
+          联机模式下，角色的初始命格将由所选世界的天道法则在云端生成，以确保公平与平衡。
+        </p>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
 import { useCharacterCreationStore } from '../../stores/characterCreationStore'
 const store = useCharacterCreationStore()
 
-const birthAge = computed({
-  get: () => store.characterPayload.birth_age,
-  set: (value) => {
-    let numValue = Number(value);
-    if (isNaN(numValue)) {
-      // 如果输入无效，则暂时不更新或设置为一个默认值，例如当前值
-      // 避免输入 "abc" 时跳到0
-      return;
-    }
-    // 将值限制在0到18之间，并取整
-    const clampedValue = Math.max(0, Math.min(18, Math.floor(numValue)));
-    
-    if (store.characterPayload.birth_age !== clampedValue) {
-      store.characterPayload.birth_age = clampedValue;
-    }
+const props = defineProps<{
+  isLocalCreation: boolean
+}>()
+
+const incrementAge = () => {
+  if (store.characterPayload.current_age < 18) {
+    store.characterPayload.current_age++
   }
-});
+}
+
+const decrementAge = () => {
+  if (store.characterPayload.current_age > 0) {
+    store.characterPayload.current_age--
+  }
+}
 </script>
 
 <style scoped>
@@ -170,7 +172,50 @@ const birthAge = computed({
 }
 
 .age-item {
-  grid-column: span 1; /* 年龄项跨一列 */
+  grid-column: span 1;
+}
+
+.age-control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 0;
+}
+
+.age-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-light);
+  color: var(--color-text);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1.2rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.age-btn:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: var(--color-background);
+  border-color: var(--color-primary);
+}
+
+.age-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.age-display {
+  font-size: 1rem;
+  font-weight: bold;
+  color: var(--color-text);
+  min-width: 50px;
+  text-align: center;
 }
 
 .name-item label,
@@ -211,7 +256,8 @@ const birthAge = computed({
 }
 
 .talents-item,
-.attributes-item {
+.attributes-item,
+.cloud-info-item {
   grid-column: 1 / -1; /* 在较小屏幕上，让它们占据整行 */
 }
 
@@ -220,10 +266,26 @@ const birthAge = computed({
     grid-column: span 2;
     grid-row: span 2;
   }
-  .attributes-item {
+  .attributes-item,
+  .cloud-info-item {
     grid-column: span 1;
     grid-row: span 2;
   }
+}
+
+.cloud-info-item {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  background: rgba(var(--color-primary-rgb), 0.05);
+}
+
+.cloud-info-text {
+  font-size: 1rem;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
 }
 
 

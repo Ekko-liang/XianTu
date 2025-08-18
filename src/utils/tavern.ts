@@ -1,17 +1,33 @@
 import type { CharacterCreationData } from '../types';
 import { toast } from './toast';
 
+// 为 TavernHelper API 定义一个接口，以增强类型安全
+interface TavernHelper {
+  getVariables(options: { type: 'global' }): Promise<Record<string, any>>;
+  insertOrAssignVariables(data: Record<string, string>, options: { type: 'global' }): Promise<void>;
+  getCharData(): Promise<{ name: string } | null>;
+  substitudeMacros(macro: string): Promise<string>;
+  triggerSlash(command: string): Promise<void>;
+  getLorebooks(): Promise<string[]>;
+  createLorebook(name: string): Promise<void>;
+  getLorebookEntries(name: string): Promise<LorebookEntry[]>;
+  setLorebookEntries(name: string, entries: Partial<LorebookEntry>[]): Promise<void>;
+  createLorebookEntries(name: string, entries: any[]): Promise<void>;
+  generateRaw(prompt: string, options?: any): Promise<string>;
+  settings?: {
+    token?: string;
+  };
+}
+
 const GAME_DATA_VAR = 'DAD_gamedata';
 
 /**
  * 获取TavernHelper API，适配iframe环境。
- * @returns {any} - 返回TavernHelper对象
+ * @returns {TavernHelper | null} - 返回TavernHelper对象或null
  */
-export function getTavernHelper(): any {
-  // @ts-ignore
+export function getTavernHelper(): TavernHelper | null {
   if (window.parent?.TavernHelper) {
-    // @ts-ignore
-    return window.parent.TavernHelper;
+    return window.parent.TavernHelper as unknown as TavernHelper;
   }
   console.error('TavernHelper API not found in window.parent.');
   return null;
@@ -143,6 +159,7 @@ interface LorebookEntry {
   uid: number;
   comment: string;
   keys: string[];
+  content: string;
 }
 
 export async function createWorldLorebookEntry(worldName: string, worldDescription: string): Promise<void> {

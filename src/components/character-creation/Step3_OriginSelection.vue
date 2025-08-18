@@ -17,7 +17,7 @@
           </div>
           <div class="divider"></div>
           <div
-            v-for="origin in store.creationData.origins"
+            v-for="origin in filteredOrigins"
             :key="origin.id"
             class="origin-item"
             :class="{
@@ -86,6 +86,18 @@ const emit = defineEmits(['ai-generate'])
 const store = useCharacterCreationStore()
 const isCustomModalVisible = ref(false)
 const isGeneratingAI = ref(false)
+
+const filteredOrigins = computed(() => {
+  if (store.isLocalCreation) {
+    return store.creationData.origins.filter(origin => 
+      origin.source === 'local' || origin.source === 'tavern'
+    );
+  } else {
+    return store.creationData.origins.filter(origin => 
+      origin.source === 'cloud'
+    );
+  }
+});
 
 const customOriginFields = [
   { key: 'name', label: '出身名称', type: 'text', placeholder: '例如：山野遗孤' },

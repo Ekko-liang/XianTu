@@ -43,14 +43,14 @@
 
         <div class="character-body">
           <div class="realm-info">
-            <span class="realm-tag">{{ 'realm' in character ? character.realm : '江湖新秀' }}</span>
+            <span class="realm-tag">{{ 'realm' in character ? character.realm : '凡人' }}</span>
             <span class="reputation-tag">声望: {{ 'reputation' in character ? character.reputation : '0' }}</span>
           </div>
           <div class="core-stats-grid">
             <div class="stat-item">气血: <span>{{ 'hp' in character ? character.hp : '??' }}/{{ 'hp_max' in character ? character.hp_max : '??' }}</span></div>
             <div class="stat-item">灵力: <span>{{ 'mana' in character ? character.mana : '??' }}/{{ 'mana_max' in character ? character.mana_max : '??' }}</span></div>
             <div class="stat-item">神识: <span>{{ 'spirit' in character ? character.spirit : '??' }}/{{ 'spirit_max' in character ? character.spirit_max : '??' }}</span></div>
-            <div class="stat-item">寿元: <span>{{ 'lifespan' in character ? character.lifespan : '??' }}</span></div>
+            <div class="stat-item">寿元: <span>{{ 'lifespan' in character ? character.lifespan : '??' }}/{{ 'lifespan_max' in character ? character.lifespan_max : '??' }}</span></div>
           </div>
         </div>
 
@@ -104,12 +104,13 @@
 <script setup lang="ts">
 import HexagonChart from '@/components/common/HexagonChart.vue';
 // Logic remains the same as the original component
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { request } from '@/services/request'
 import CharacterDetailsModal from '@/components/character-creation/CharacterDetailsModal.vue'
 import { useUserStore } from '@/stores/userStore'
-import type { Character, World, TalentTier, CharacterData, LocalCharacter } from '@/types'
-import { loadLocalCharacters, deleteLocalCharacter } from '@/data/localData'
+import { useCharacterStore, type CharacterData } from '@/stores/characterStore'
+import type { World, TalentTier } from '@/types'
+import { deleteLocalCharacter } from '@/data/localData'
 import { toast } from '@/utils/toast'
 
 const emit = defineEmits<{
@@ -119,9 +120,10 @@ const emit = defineEmits<{
 
 const staticData = ref<{ worlds: World[], talentTiers: TalentTier[] }>({ worlds: [], talentTiers: [] })
 const userStore = useUserStore()
-const characters = ref<CharacterData[]>([])
+const characterStore = useCharacterStore()
+const characters = computed(() => characterStore.characters)
 const selectedCharacter = ref<CharacterData | null>(null)
-const isLoading = ref(true);
+const isLoading = computed(() => characterStore.isLoading);
 const syncStates = ref<Map<number, { has_unsaved_data: boolean, last_sync_time?: string }>>(new Map())
 
 const loadStaticData = async () => {
@@ -137,29 +139,6 @@ const loadStaticData = async () => {
   }
 }
 
-const loadCharacters = async () => {
-  const allCharacters: CharacterData[] = [];
-  const [localResult, cloudResult] = await Promise.allSettled([
-    loadLocalCharacters(),
-    request.get<Character[]>('/api/v1/characters/my')
-  ]);
-
-  if (localResult.status === 'fulfilled') {
-    const localChars = localResult.value.map(c => ({ ...c, source: 'local' as const }));
-    allCharacters.push(...localChars);
-  } else {
-    toast.error('本地洞府存档加载失败。');
-  }
-
-  if (cloudResult.status === 'fulfilled') {
-    const cloudChars = cloudResult.value.map(c => ({ ...c, source: 'cloud' as const }));
-    allCharacters.push(...cloudChars);
-  } else {
-    toast.warning('云端角色同步失败，可能无法连接仙界。');
-  }
-
-  characters.value = allCharacters;
-}
 
 const deleteCharacter = async (character: CharacterData) => {
   if (confirm(`确定要删除法身 "${character.character_name}" 吗？此操作不可恢复。`)) {
@@ -174,7 +153,7 @@ const deleteCharacter = async (character: CharacterData) => {
         console.error('删除角色失败:', error)
       }
     }
-    await loadCharacters();
+    await characterStore.fetchCharacters(true); // Force refresh
   }
 }
 
@@ -194,6 +173,14 @@ const viewCharacterDetails = (character: CharacterData) => {
 }
 
 const selectCharacter = (character: CharacterData) => {
+  // 如果是云端角色，则检查登录状态
+  if (character.source === 'cloud') {
+    if (!userStore.user) { // 修正：通过检查user对象是否存在来判断登录状态
+      toast.warning('请先登录，再选择云端角色。');
+      return; // 中断操作
+    }
+  }
+  // 本地角色或已登录的云端角色，直接触发选择事件
   emit('select', character)
 }
 
@@ -222,19 +209,25 @@ const extractSixDimensions = (character: CharacterData) => {
 };
 
 onMounted(async () => {
-  isLoading.value = true;
   try {
-    // 并行加载所有需要的数据
+    // 步骤一：优先加载角色列表和静态数据，这不会因为未登录而阻塞
     await Promise.all([
-      userStore.loadUserInfo(),
       loadStaticData(),
-      loadCharacters()
+      characterStore.fetchCharacters()
     ]);
+
+    // 步骤二：独立尝试加载用户信息，主要用于封禁状态检查
+    // 即使失败（例如未登录），也不会影响上面已加载的本地角色列表
+    try {
+      await userStore.loadUserInfo();
+    } catch (userInfoError) {
+      console.warn("无法加载用户信息（可能未登录），跳过封禁检查。");
+    }
+
   } catch (error) {
+    // 捕获加载过程中的其他致命错误
     console.error("加载角色管理数据时出错:", error);
     toast.error("数据加载失败，请稍后再试。");
-  } finally {
-    isLoading.value = false;
   }
 })
 </script>
@@ -357,7 +350,7 @@ onMounted(async () => {
   font-weight: 500;
   border: 1px solid;
 }
-.mode-cloud { 
+.mode-cloud {
   color: var(--color-info);
   border-color: var(--color-info);
   background-color: rgba(var(--color-info-rgb), 0.1);
@@ -436,8 +429,8 @@ onMounted(async () => {
 .character-info strong { color: var(--color-text); }
 
 .character-actions {
-  display: flex; 
-  gap: 0.5rem; 
+  display: flex;
+  gap: 0.5rem;
   flex-shrink: 0;
 }
 

@@ -8,7 +8,7 @@
       <div class="tier-left-panel">
         <div class="tiers-list-container">
           <div
-            v-for="tier in store.creationData.talentTiers"
+            v-for="tier in filteredTalentTiers"
             :key="tier.id"
             class="tier-item"
             :class="{ selected: store.characterPayload.talent_tier_id === tier.id }"
@@ -61,7 +61,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useCharacterCreationStore } from '../../stores/characterCreationStore'
 import type { TalentTier } from '../../types'
 import CustomCreationModal from './CustomCreationModal.vue'
@@ -81,6 +81,18 @@ const emit = defineEmits(['ai-generate'])
 const store = useCharacterCreationStore()
 const isCustomModalVisible = ref(false)
 const isGeneratingAI = ref(false)
+
+const filteredTalentTiers = computed(() => {
+  if (store.isLocalCreation) {
+    return store.creationData.talentTiers.filter(tier => 
+      tier.source === 'local' || tier.source === 'tavern'
+    );
+  } else {
+    return store.creationData.talentTiers.filter(tier => 
+      tier.source === 'cloud'
+    );
+  }
+});
 
 const customTierFields = [
   { key: 'name', label: '天资名称', type: 'text', placeholder: '例如：凡人' },

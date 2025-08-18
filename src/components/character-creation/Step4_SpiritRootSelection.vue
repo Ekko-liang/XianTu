@@ -17,7 +17,7 @@
           </div>
           <div class="divider"></div>
           <div
-            v-for="root in store.creationData.spiritRoots"
+            v-for="root in filteredSpiritRoots"
             :key="root.id"
             class="spirit-root-item"
             :class="{
@@ -86,6 +86,18 @@ const emit = defineEmits(['ai-generate'])
 const store = useCharacterCreationStore()
 const isCustomModalVisible = ref(false)
 const isGeneratingAI = ref(false)
+
+const filteredSpiritRoots = computed(() => {
+  if (store.isLocalCreation) {
+    return store.creationData.spiritRoots.filter(root => 
+      root.source === 'local' || root.source === 'tavern'
+    );
+  } else {
+    return store.creationData.spiritRoots.filter(root => 
+      root.source === 'cloud'
+    );
+  }
+});
 
 const customSpiritRootFields = [
   { key: 'name', label: '灵根名称', type: 'text', placeholder: '例如：混沌灵根' },

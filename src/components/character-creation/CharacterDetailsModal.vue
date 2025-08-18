@@ -286,6 +286,7 @@ const refreshGameState = async () => {
 const activateCharacter = async () => {
   try {
     await request.post(`/api/v1/characters/${props.character.id}/activate`)
+    toast.success('角色激活成功')
     emit('updated')
     emit('close')
   } catch (error) {

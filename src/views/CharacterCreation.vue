@@ -56,32 +56,35 @@
               @ai-generate="handleAIGenerateClick"
             />
             <Step6_AttributeAllocation v-else-if="store.currentStep === 6" />
-            <Step7_Preview v-else-if="store.currentStep === 7" />
+            <Step7_Preview
+              v-else-if="store.currentStep === 7"
+              :is-local-creation="store.isLocalCreation"
+            />
           </div>
         </transition>
       </div>
 
       <!-- 导航 -->
       <div class="navigation-buttons">
-        <button @click="handleBack" class="btn btn-secondary">
+        <button @click.prevent="handleBack" type="button" class="btn btn-secondary">
           {{ store.currentStep === 1 ? '返回道途' : '上一步' }}
         </button>
 
         <!-- 剩余点数显示 -->
-        <div class="points-display" v-if="store.currentStep < store.totalSteps">
-          <div v-if="store.currentStep >= 3 && store.currentStep <= 6" class="destiny-points">
+        <div class="points-display">
+          <div v-if="store.currentStep >= 3 && store.currentStep <= 7" class="destiny-points">
             <span class="points-label">剩余天道点:</span>
-            <span class="points-value" :class="{ low: store.remainingTalentPoints < 5 }">
+            <span class="points-value" :class="{ low: store.remainingTalentPoints < 0 }">
               {{ store.remainingTalentPoints }}
             </span>
           </div>
         </div>
-        <!-- For alignment purposes, add an empty div when points are not shown -->
-        <div class="points-display" v-else></div>
 
         <button
-          @click="handleNext"
+          type="button"
+          @click.prevent="handleNext"
           :disabled="
+            isGenerating ||
             isNextDisabled ||
             (store.currentStep === store.totalSteps && store.remainingTalentPoints < 0)
           "
@@ -122,7 +125,7 @@ import LoadingModal from '../components/LoadingModal.vue'
 import { request } from '../services/request'
 import { toast } from '../utils/toast'
 import { ref, onMounted, onUnmounted, computed } from 'vue';
-import { renameCurrentCharacter, createWorldLorebookEntry } from '../utils/tavern';
+import { renameCurrentCharacter, createWorldLorebookEntry, getCurrentCharacterName } from '../utils/tavern';
 
 import { saveLocalCharacter, type LocalCharacterWithGameData } from '../data/localData'
 import { calculateInitialCoreAttributes } from '../utils/characterCalculation'
@@ -132,7 +135,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: 'creation-complete', character: LocalCharacterWithGameData): void;
+  (e: 'creation-complete', payload: any): void;
 }>()
 const store = useCharacterCreationStore();
 const userStore = useUserStore();
@@ -144,20 +147,46 @@ onMounted(async () => {
   // 1. 模式已由外部 Store Action 设定，此处直接使用
   await store.initializeStore(store.isLocalCreation ? 'single' : 'cloud');
 
-  // 2. 获取用户名作为默认道号
-  if (!userStore.user) {
-    await userStore.loadUserInfo();
-  }
-  if (userStore.user) {
-    store.characterPayload.character_name = userStore.user.user_name;
-  } else if (store.isLocalCreation) {
-    // 仅在本地模式且无法获取用户信息时，才使用角色卡名作为备用方案
-    store.characterPayload.character_name = '无名者';
-    console.warn("无法获取用户信息，本地模式下道号设为'无名者'");
-  } else {
-    // 联机模式下获取不到用户信息是严重错误
-    store.characterPayload.character_name = '';
-    toast.error('无法获取用户信息，请重新登录！');
+  // 2. 获取角色名字作为默认道号 - 优先使用酒馆角色卡名字
+  try {
+    // 首先尝试从酒馆获取角色卡名字
+    const tavernCharacterName = await getCurrentCharacterName();
+    if (tavernCharacterName) {
+      console.log('【角色创建】成功获取酒馆角色卡名字:', tavernCharacterName);
+      store.characterPayload.character_name = tavernCharacterName;
+    } else {
+      console.log('【角色创建】无法获取酒馆角色卡名字，尝试用户信息');
+      // 备用方案：使用用户信息
+      if (!userStore.user) {
+        await userStore.loadUserInfo();
+      }
+      if (userStore.user) {
+        store.characterPayload.character_name = userStore.user.user_name;
+        console.log('【角色创建】使用用户名作为道号:', userStore.user.user_name);
+      } else if (store.isLocalCreation) {
+        // 最后的备用方案：本地模式设为"无名者"
+        store.characterPayload.character_name = '无名者';
+        console.warn("【角色创建】无法获取任何角色信息，本地模式下道号设为'无名者'");
+      } else {
+        // 联机模式下获取不到用户信息是严重错误
+        store.characterPayload.character_name = '';
+        toast.error('无法获取用户信息，请重新登录！');
+      }
+    }
+  } catch (error) {
+    console.error('【角色创建】获取角色名字时出错:', error);
+    // 如果出错，使用原来的逻辑作为后备
+    if (!userStore.user) {
+      await userStore.loadUserInfo();
+    }
+    if (userStore.user) {
+      store.characterPayload.character_name = userStore.user.user_name;
+    } else {
+      store.characterPayload.character_name = store.isLocalCreation ? '无名者' : '';
+      if (!store.isLocalCreation) {
+        toast.error('无法获取用户信息，请重新登录！');
+      }
+    }
   }
 });
 
@@ -302,7 +331,12 @@ const isNextDisabled = computed(() => {
   return false
 })
 
-async function handleNext() {
+async function handleNext(event?: Event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  
   if (store.currentStep < store.totalSteps) {
     store.nextStep()
   } else {
@@ -336,133 +370,53 @@ async function handleCodeSubmit(code: string) {
 }
 
 async function createCharacter() {
+  if (isGenerating.value) return; // 防止重复点击
+  console.log('[CharacterCreation.vue] createCharacter() called.');
+
+  // 1. 数据校验
+  if (!store.characterPayload.character_name) {
+    toast.error('请输入道号！');
+    return;
+  }
+  if (!store.selectedWorld || !store.selectedTalentTier) {
+    toast.error('世界或天资信息不完整！');
+    return;
+  }
+  // 联机模式需要提前检查环境
+  if (!store.isLocalCreation && !window.parent?.TavernHelper) {
+    toast.error('联机模式需要在SillyTavern扩展中运行。');
+    return;
+  }
+
   isGenerating.value = true;
   loadingMessage.value = '正在为您凝聚法身...';
+
   try {
-    // 1. 数据校验
-    if (!store.characterPayload.character_name) {
-      toast.error('请输入道号！');
-      return;
-    }
-
-    // 在创建角色前，将最终道号同步回酒馆
-    loadingMessage.value = '正在同步道号至酒馆...';
+    // 2. 将最终道号同步回酒馆 (这是UI交互的一部分，可以保留)
     await renameCurrentCharacter(store.characterPayload.character_name);
-    loadingMessage.value = '正在为您凝聚法身...';
-    if (!store.selectedWorld || !store.selectedTalentTier) {
-        toast.error('世界或天资信息不完整！');
-        return;
-    }
 
-    // 2. 构造基础角色对象
-    const baseAttributes = {
-        root_bone: store.attributes.root_bone,
-        spirituality: store.attributes.spirituality,
-        comprehension: store.attributes.comprehension,
-        fortune: store.attributes.fortune,
-        charm: store.attributes.charm,
-        temperament: store.attributes.temperament,
-    };
-    const coreAttributes = calculateInitialCoreAttributes(baseAttributes);
-
-    let newCharacter: LocalCharacterWithGameData;
-
-    // 准备创角选择数据，以便注入
-    const creationChoicesData = {
-       origin: store.selectedOrigin ?? undefined,
-       spiritRoot: store.selectedSpiritRoot ?? undefined,
-       talents: store.selectedTalents,
-       world: store.selectedWorld ? { id: store.selectedWorld.id, name: store.selectedWorld.name } : undefined,
+    // 3. 准备呈报给“创世神殿”的“仙缘录” (Payload)
+    const payload = {
+      isLocalCreation: store.isLocalCreation,
+      characterName: store.characterPayload.character_name,
+      birthAge: store.characterPayload.current_age,
+      baseAttributes: { ...store.attributes },
+      world: store.selectedWorld,
+      talentTier: store.selectedTalentTier,
+      origin: store.selectedOrigin,
+      spiritRoot: store.selectedSpiritRoot,
+      talents: store.selectedTalents,
+      userId: userStore.user?.id, // 传递用户ID给联机模式
     };
 
-    // 3. 根据模式分别处理
-    if (store.isLocalCreation) {
-      loadingMessage.value = '正在本地洞天开辟存档...';
-      newCharacter = {
-        creationChoices: creationChoicesData,
-        id: Date.now(),
-        character_name: store.characterPayload.character_name,
-        birth_age: store.characterPayload.birth_age,
-        world_id: store.selectedWorld.id,
-        talent_tier_id: store.selectedTalentTier.id,
-        ...baseAttributes,
-        ...coreAttributes,
-        play_time_minutes: 0,
-        created_at: new Date().toISOString(),
-        source: 'local',
-        // 初始化世界数据
-        worldData: {
-          continentName: null,
-          continentDescription: null,
-          factions: [],
-          mapInfo: null
-        },
-      };
-      await saveLocalCharacter(newCharacter);
-      toast.success(`本地法身 "${store.characterPayload.character_name}" 凝聚成功！`);
-
-    } else { // 联机模式
-      loadingMessage.value = '正在与云端仙界同步...';
-      const payload = {
-        character_name: store.characterPayload.character_name,
-        world_id: store.selectedWorld.id,
-        talent_tier_id: store.selectedTalentTier.id,
-        origin_id: store.selectedOrigin?.id,
-        spirit_root_id: store.selectedSpiritRoot?.id,
-        selected_talent_ids: store.selectedTalents.map((t) => t.id),
-        birth_age: store.characterPayload.birth_age,
-        ...baseAttributes,
-      };
-
-      const cloudCharacter = await request<any>('/api/v1/characters/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      // 按照用户要求，联机角色也在本地开辟一份存档
-      newCharacter = {
-          creationChoices: creationChoicesData,
-          id: cloudCharacter.id,
-          character_name: cloudCharacter.character_name,
-          birth_age: cloudCharacter.birth_age,
-          world_id: cloudCharacter.world_id,
-          talent_tier_id: cloudCharacter.talent_tier_id,
-          ...baseAttributes,
-          realm: cloudCharacter.realm || '凡人',
-          reputation: cloudCharacter.reputation || 0,
-          hp: cloudCharacter.qi_blood,
-          hp_max: cloudCharacter.max_qi_blood,
-          mana: cloudCharacter.spiritual_power,
-          mana_max: cloudCharacter.max_spiritual_power,
-          spirit: cloudCharacter.spirit_sense,
-          spirit_max: cloudCharacter.max_spirit_sense,
-          lifespan: cloudCharacter.max_lifespan,
-          play_time_minutes: 0,
-          created_at: cloudCharacter.created_at,
-          source: 'cloud',
-          worldData: {
-            continentName: null,
-            continentDescription: null,
-            factions: [],
-            mapInfo: null
-          },
-      };
-      await saveLocalCharacter(newCharacter);
-      toast.success(`云端法身 "${store.characterPayload.character_name}" 同步成功！`);
-    }
-
-    // 4. 后续处理
-    loadingMessage.value = '仙途即将开启...';
-    // 关键修正：必须先 emit，再 reset。否则 App.vue 收到的 store 是空的。
-    emit('creation-complete', newCharacter);
-    store.resetCharacter();
+    console.log('[CharacterCreation.vue] Emitting creation-complete event with payload:', payload);
+    emit('creation-complete', payload);
+    // isGenerating 状态将由 App.vue 在创世完成后控制
 
   } catch (error: any) {
-    console.error('创建角色时发生错误:', error);
-    // request函数已处理toast.error
-  } finally {
-    isGenerating.value = false;
+    console.error('准备创角数据时发生错误:', error);
+    toast.error('凝聚法身失败：' + error.message);
+    isGenerating.value = false; // 只在准备阶段发生错误时关闭加载状态
   }
 }
 </script>

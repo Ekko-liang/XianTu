@@ -56,6 +56,7 @@ export type AttributeKey = 'root_bone' | 'spirituality' | 'comprehension' | 'for
 export interface Character {
   id: number;
   character_name: string;
+  current_age: number;
   world_id: number;
   talent_tier_id: number;
   root_bone: number;
@@ -77,7 +78,7 @@ export interface CharacterCreationPayload {
   character_name: string;
   world_id: number | '';
   talent_tier_id: number | '';
-  birth_age: number;
+  current_age: number;
   root_bone: number;
   spirituality: number;
   comprehension: number;
@@ -94,6 +95,7 @@ export interface LocalCharacter {
   // 基础信息
   id: number; // 使用时间戳作为唯一ID
   character_name: string;
+  current_age: number;
   world_id: number;
   talent_tier_id: number;
 
@@ -106,7 +108,8 @@ export interface LocalCharacter {
   mana_max: number;
   spirit: number;
   spirit_max: number;
-  lifespan: number; // 寿命
+  lifespan: number; // 当前寿命
+  lifespan_max: number; // 最大寿命
   cultivation_exp: number; // 当前修为
   cultivation_exp_max: number; // 突破所需修为
 
@@ -127,3 +130,11 @@ export interface LocalCharacter {
 
 // 用于组件中统一处理两种角色类型
 export type CharacterData = Character | LocalCharacter;
+
+export interface Realm {
+  id: number;
+  name: string;
+  title?: string | null;
+  description?: string | null;
+  order: number;
+}

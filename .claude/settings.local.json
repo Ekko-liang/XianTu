@@ -18,7 +18,14 @@
       "Bash(findstr:*)",
       "Bash(grep:*)",
       "Bash(git checkout:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "WebSearch",
+      "Bash(npm run dev:*)",
+      "Bash(npm run serve:*)",
+      "Bash(npm run:*)",
+      "Bash(npx webpack-dev-server:*)",
+      "Bash(npm install:*)",
+      "Bash(rmdir:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

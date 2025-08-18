@@ -4,7 +4,7 @@
       <g :transform="`translate(${center}, ${center})`">
         <!-- Hexagon Grid Lines -->
         <polygon v-for="level in gridLevels" :key="`grid-${level}`" :points="getHexagonPoints(level / gridLevels)" class="grid-line" />
-        
+
         <!-- Radial Lines -->
         <line v-for="(point, index) in axisPoints" :key="`axis-${index}`" x1="0" y1="0" :x2="point.x" :y2="point.y" class="grid-line" />
 
@@ -71,11 +71,11 @@ const gridLevels = 5;
 const statOrder: AttributeKey[] = ['root_bone', 'spirituality', 'comprehension', 'fortune', 'charm', 'temperament'];
 const statNames: Record<AttributeKey, string> = {
   root_bone: '根骨',
-  spirituality: '悟性',
-  comprehension: '资质',
-  fortune: '机缘',
+  spirituality: '灵性',
+  comprehension: '悟性',
+  fortune: '气运',
   charm: '魅力',
-  temperament: '气质',
+  temperament: '心性',
 };
 
 const getHexagonPoints = (scale = 1) => {

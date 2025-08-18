@@ -32,10 +32,10 @@
 import { shallowRef, ref, onMounted, computed } from 'vue'
 import ModeSelection from './views/ModeSelection.vue'
 import CharacterCreation from './views/CharacterCreation.vue'
-import CharacterManagementView from './views/CharacterManagementView.vue'
 import LoginView from './views/LoginView.vue'
 import GameView from './views/GameView.vue'
-import MapView from './views/MapView.vue' // 引入坤舆图志
+import MapView from './components/game-view/MapView.vue' // 引入坤舆图志
+import CharacterManagementView from './views/CharacterManagementView.vue' // 引入人物列表
 import LoadingModal from './components/LoadingModal.vue' // 引入加载组件
 import './style.css'
 import { useCharacterCreationStore } from './stores/characterCreationStore'
@@ -55,10 +55,10 @@ const creationSummary = ref<{ name: string; origin: string; spiritRoot: string; 
 const views = {
   ModeSelection,
   CharacterCreation,
-  CharacterManagement: CharacterManagementView,
   Login: LoginView,
   GameView,
   MapView, // 注册坤舆图志
+  CharacterManagementView, // 注册人物列表
 }
 type ViewName = keyof typeof views;
 const activeView = shallowRef<any>(views.ModeSelection)
@@ -106,7 +106,7 @@ const handleShowCharacterList = async () => {
   // 按需验证登录
   isLoggedIn.value = await verifyStoredToken();
   if (isLoggedIn.value) {
-    switchView('CharacterManagement');
+    switchView('CharacterManagementView');
   } else {
     toast.error('查看云端法身需先登入道籍！');
     switchView('Login');
@@ -130,42 +130,54 @@ const handleCharacterSelect = (character: CharacterData) => {
   switchView('GameView');
 }
 
-const handleCreationComplete = async (character: LocalCharacterWithGameData) => {
+const handleCreationComplete = async (payload: any) => {
+  console.log('[App.vue] handleCreationComplete() received event.');
+  console.log('【调试】handleCreationComplete 被调用，负载：', payload);
+  
   // 1. 开启创世结界
   isInitializing.value = true;
   loadingMessage.value = '准备开天辟地...'; // 设置初始消息
 
   try {
-    // 2. 构建创世契约 (Payload)
-    if (!store.selectedWorld) {
-      toast.error("创世失败：未选择世界背景！");
-      throw new Error("Missing selectedWorld in store.");
+    // 2. 验证数据完整性
+    if (!payload || !payload.world) {
+      const errorMsg = "创世失败：传递数据不完整！";
+      console.error('[App.vue] Error:', errorMsg, payload);
+      toast.error(errorMsg);
+      throw new Error("Invalid payload structure.");
     }
-    const payload = {
-      character: character,
-      world: store.selectedWorld,
-      mode: store.mode,
-      selectedOrigin: store.selectedOrigin,
-      selectedSpiritRoot: store.selectedSpiritRoot,
-      // TODO: 将来可以把天赋等其他选择也放进来
-    };
+    
+    console.log('【调试】创世契约已准备：', payload);
 
     // 3. 启动创世引擎，并传入进度回调
-    await initializeGameSession(payload, (msg: string) => {
+    console.log('[App.vue] Calling initializeGameSession...');
+    console.log('【调试】即将启动创世引擎...');
+    const createdCharacterId = await initializeGameSession(payload, (msg: string) => {
+      console.log('【调试】创世进度：', msg);
       loadingMessage.value = msg;
     });
 
-    // 4. 创世成功，记录信标并传送
-    activeCharacterId.value = character.id; // **【调整仪式】**
+    console.log('【调试】创世引擎完成！返回角色ID:', createdCharacterId);
+
+    // 4. 创世成功，设置活动角色ID
+    activeCharacterId.value = createdCharacterId;
+    
+    // 5. 创世完成后，才能安全地重置角色创建数据
+    store.resetCharacter();
+    
+    // 6. 切换到游戏视图
     switchView('GameView');
 
   } catch (error) {
-    console.error("处理角色创建完成时出错:", error);
-    toast.error("创世失败，请返回重试。");
-    // 如果失败，返回到模式选择界面
+    console.error("【严重错误】处理角色创建完成时出错:", error);
+    console.error("【错误堆栈】", error instanceof Error ? error.stack : '未知错误类型');
+    toast.error("创世失败，请检查控制台获取详细错误信息。");
+    // 如果失败，也要重置状态
+    store.resetCharacter();
+    // 返回到模式选择界面
     switchView('ModeSelection');
   } finally {
-    // 5. 无论成败，都撤去结界
+    // 7. 无论成败，都撤去结界
     isInitializing.value = false;
   }
 }

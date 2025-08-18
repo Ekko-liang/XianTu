@@ -1,42 +1,199 @@
 /**
  * 此文件定义了与 AI Game Master (游戏主控) 交互的核心数据结构。
  * 它是整个动态交互系统的“天道法则”。
+ * 基于《大道朝天·AI交互完全参考书》 v1.0.0 天道定稿
  */
 
 import type { CharacterData } from './index';
 
+// =======================================================================
+//                           核心：天道指令
+// =======================================================================
+
 /**
  * 定义单条酒馆变量操作指令的结构。
- * 遵循 `AI指令集方案.md` 的规范。
  */
 export interface TavernCommand {
   action: "set" | "add" | "delete" | "push" | "pull";
   scope: "global" | "chat" | "character" | "message";
-  key: string;
+  key: string; // 支持点状路径, e.g., "character.identity.age"
   value?: any;
 }
 
+// =======================================================================
+//                           核心：角色与物品定义
+// =======================================================================
+
+/**
+ * 基础物品定义
+ */
+export interface Item {
+  name: string;
+  type: string; // 武器/防具/饰品/法宝/消耗品
+  description: string;
+  quality?: string; // 凡器/灵器/宝器/道器/仙器
+  effects?: string[];
+  [key: string]: any; // 其他动态属性
+}
+
+/**
+ * 角色/NPC 完整数据结构 (Ultimate Version)
+ * 根据《参考书》第二章定义
+ */
+export interface GameCharacter {
+  // ==================== 基础信息 ====================
+  identity: {
+    name: string;
+    title?: string;
+    age: number;
+    apparent_age: number;
+    gender: string;
+    description: string;
+  };
+
+  // ==================== 修为境界 ====================
+  cultivation: {
+    realm: string;
+    realm_progress: number;
+    lifespan_remaining: number;
+    breakthrough_bottleneck?: string;
+  };
+
+  // ==================== 六维根骨 ====================
+  attributes: {
+    STR: number; // 力量
+    CON: number; // 体质
+    DEX: number; // 身法
+    INT: number; // 悟性
+    SPI: number; // 神魂
+    LUK: number; // 气运
+  };
+
+  // ==================== 三大资源 ====================
+  resources: {
+    qi: { current: number; max: number };   // 气血
+    ling: { current: number; max: number }; // 灵气
+    shen: { current: number; max: number }; // 神识
+  };
+
+  // ==================== 天赋资质 ====================
+  qualities: {
+    origin: {
+      name: string;
+      effects: string[];
+    };
+    spiritRoot: {
+      name: string;
+      quality: string;
+      attributes: string[];
+    };
+    physique?: {
+      name: string;
+      effects: string[];
+    };
+    talents: Array<{
+      name: string;
+      type: string;
+      effects: string[];
+    }>;
+  };
+
+  // ==================== 修仙百艺 ====================
+  skills: {
+    [key: string]: { // 动态支持多种技艺
+      level: number;
+      rank: string;
+      [key: string]: any;
+    };
+  };
+
+  // ==================== 功法装备 ====================
+  cultivation_arts: {
+    main_technique?: {
+      name: string;
+      rank: string;
+      proficiency: number;
+      special_effects: string[];
+    };
+    combat_techniques?: Array<{
+      name: string;
+      type: string;
+      cost: number;
+      cooldown: number;
+    }>;
+    auxiliary_techniques?: string[];
+  };
+
+  equipment: {
+    weapon?: Item;
+    armor?: Item;
+    accessories: Item[];
+    treasures: Item[];
+    consumables: Item[];
+  };
+
+  // ==================== 社交关系 ====================
+  social: {
+    faction?: string;
+    position?: string;
+    master?: string;
+    disciples?: string[];
+    dao_companion?: string;
+    relationships: Record<string, {
+      value: number;
+      type: string;
+    }>;
+    reputation: Record<string, number>;
+  };
+
+  // ==================== 隐藏状态 ====================
+  hidden_state: {
+    karma: {
+      righteous: number;
+      demonic: number;
+      heavenly_favor: number;
+    };
+    dao_heart: {
+      stability: number;
+      demons: string[];
+      enlightenment: number;
+    };
+    special_marks: string[];
+  };
+
+  // ==================== 当前状态 ====================
+  status: {
+    conditions: string[];
+    location: string;
+    activity: string;
+    mood: string;
+  };
+}
+
+
+// =======================================================================
+//                           核心：AI请求与响应
+// =======================================================================
+
 /**
  * 发送给 AI Game Master 的结构化请求对象 (天道请求)。
- * 它在基础角色数据之上，扩展了AI推演所必需的额外信息。
+ * 它现在直接使用完整的角色数据结构。
  */
 export interface GM_Request {
-  /** 角色数据，是基础CharacterData与额外信息的结合体 */
-  character: CharacterData & {
-    age: number;
-    description: string; // 例如，由出身、灵根等信息组合而成的描述
-  };
+  /** 完整的角色数据 */
+  character: GameCharacter;
+  /** 完整的世界状态 */
   world: {
-    lorebook: string; // 世界书核心内容
-    mapInfo: any;     // 当前地图信息 (GeoJSON)
-    time: string;     // 当前游戏时间
+    lorebook: string;
+    mapInfo: any;
+    time: string;
   };
+  /** 记忆模块 */
   memory: {
-    short_term: string[]; // 近期对话历史
-    mid_term: string[];   // 中期记忆摘要
-    long_term: string[];  // 长期关键记忆
+    short_term: string[];
+    mid_term: string[];
+    long_term: string[];
   };
-  // 可根据后续需求扩展更多字段...
 }
 
 /**
@@ -45,8 +202,6 @@ export interface GM_Request {
 export interface GM_Response {
   /** AI生成的主要叙事内容，用于展示给用户。 */
   text: string;
-  /** 叙事的摘要，可用于存入中期记忆。 */
-  text_min?: string;
   /** 对周围环境、人物、声音的详细描述。 */
   around?: string;
   /**

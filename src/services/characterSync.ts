@@ -46,7 +46,7 @@ export async function syncCharacterAttribute(
   // 2. 获取酒馆助手中枢和授权令牌
   const helper = getTavernHelper();
   // 注意：此处的 token 路径是基于对通用扩展的猜测，可能需要根据实际情况调整
-  const token = helper.settings.token;
+  const token = helper?.settings?.token;
 
   if (!token) {
     toast.error('同步失败：无法获取授权令牌，请检查扩展设置。');

@@ -71,8 +71,17 @@ const store = useCharacterCreationStore();
 const isCustomModalVisible = ref(false);
 const isGeneratingAI = ref(false); // Local loading state for AI generation
 
-// 创建一个计算属性来确保与store的响应式链接
-const worldsList = computed(() => store.creationData.worlds);
+const worldsList = computed(() => {
+  if (store.isLocalCreation) {
+    return store.creationData.worlds.filter(world => 
+      world.source === 'local' || world.source === 'tavern'
+    );
+  } else {
+    return store.creationData.worlds.filter(world => 
+      world.source === 'cloud'
+    );
+  }
+});
 
 const customWorldFields = [
   { key: 'name', label: '世界名称', type: 'text', placeholder: '例如：九霄界' },

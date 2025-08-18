@@ -8,15 +8,48 @@ import { buildGmRequest } from './AIGameMaster';
 // =======================================================================
 
 /**
+ * 诊断AI响应问题的辅助函数
+ */
+function diagnoseAIResponse(rawResult: any, typeName: string): void {
+  console.log(`【神识印记-诊断】开始诊断${typeName}的AI响应:`, {
+    type: typeof rawResult,
+    isNull: rawResult === null,
+    isUndefined: rawResult === undefined,
+    isString: typeof rawResult === 'string',
+    isEmpty: typeof rawResult === 'string' && rawResult.trim() === '',
+    length: typeof rawResult === 'string' ? rawResult.length : 'N/A',
+    hasChoices: rawResult && rawResult.choices,
+    choicesLength: rawResult && rawResult.choices ? rawResult.choices.length : 'N/A'
+  });
+
+  // 检查是否是OpenAI格式的响应
+  if (rawResult && typeof rawResult === 'object' && rawResult.choices) {
+    console.log(`【神识印记-诊断】检测到OpenAI格式响应，choices:`, rawResult.choices);
+    if (rawResult.choices.length > 0 && rawResult.choices[0].message) {
+      console.log(`【神识印记-诊断】第一个choice的消息内容:`, rawResult.choices[0].message.content);
+      if (!rawResult.choices[0].message.content || rawResult.choices[0].message.content.trim() === '') {
+        console.warn(`【神识印记-诊断】AI返回了空的content，这通常表示模型配置问题或提示词过于复杂`);
+      }
+    }
+  }
+}
+
+/**
  * 获取SillyTavern助手API，适配iframe环境。
  * @returns {any} - 返回TavernHelper对象
  */
 function getTavernHelper(): any {
-  // @ts-ignore
+  console.log('【神识印记】开始检查TavernHelper可用性...');
+  console.log('【神识印记】window.parent存在:', !!window.parent);
+  console.log('【神识印记】window.parent.TavernHelper存在:', !!window.parent?.TavernHelper);
+  console.log('【神识印记】window.parent.TavernHelper.generateRaw存在:', !!window.parent?.TavernHelper?.generateRaw);
+
   if (window.parent?.TavernHelper?.generateRaw) {
-    // @ts-ignore
+    console.log('【神识印记】TavernHelper检查通过，返回对象');
     return window.parent.TavernHelper;
   }
+
+  console.error('【神识印记】TavernHelper检查失败');
   toast.error('感应酒馆助手灵脉失败，请确认在SillyTavern环境中运行！');
   throw new Error('TavernHelper API not found in window.parent.');
 }
@@ -144,88 +177,65 @@ const TALENT_GENERATION_PROMPT = `${ROLE_PLAY_INSTRUCTION}
 `;
 
 
-// 6. 地图生成提示词 (坤舆图志) v2
+// 6. 地图生成提示词 (坤舆图志) v6 - 指令驱动
 const MAP_GENERATION_PROMPT = `${ROLE_PLAY_INSTRUCTION}
-# **三、 生成任务：开辟坤舆图志**
-你是一位名为“天机阁舆图师”的地理与气运专家。你的任务是为一方新生的修仙世界，生成其核心的地理、势力分布及秘境信息，并以 **GeoJSON** 格式进行输出。
+# **三、 生成任务：衍化世界，记录法旨**
+你是一位名为"天道书记官"的存在。你的任务是为一方新生的修仙世界衍化其山川地理，并将结果以“天道指令”的格式记录下来。
 
-## **世界观基石 (必须严格遵守)**
-*   **坐标系:** 经纬度坐标系。经度范围 [-180, 180], 纬度范围 [-90, 90]。
-*   **地理逻辑:** 势力范围 (\`Polygon\`) 应当符合地理逻辑。秘境、城市 (\`Point\`) 等应坐落于合理的地理位置上。
-*   **气运显化:** 势力的颜色 (\`style.color\`) 代表其气运或属性。例如，魔道宗门可用暗色系（#6b21a8），正道大派可用明亮色系（#1d4ed8）。
-*   **世界尺度:** **请确保生成的地理要素分布广泛，坐标横跨万里（例如，经纬度差值达到数十上百），以体现世界的广袤无垠与苍茫古老之感。**
+## **核心任务:**
+1.  **衍化舆图:** 在你的“神识”中，构想并生成一份完整的 **GeoJSON** 格式的世界舆图。
+    *   坐标系: 像素坐标, X/Y轴范围: 0-8192。
+    *   必须包含 **1个主大陆 (Polygon)** 和 **8-15个**其他地理要素 (Point)，如宗门、城池、秘境等。
+    *   地理要素的 \`properties\` 必须包含 \`type\`, \`name\`, \`description\` 字段。
+    *   宗门必须有 \`power_level\` 属性。秘境必须有 \`danger_level\` 属性。
+2.  **记录法旨:** 将你生成的完整GeoJSON对象，封装进一条 \`tavern_commands\` 指令中。
 
-## **生成步骤 (总计10-15个Features)：**
+## **四、 输出格式 (必须严格遵守):**
+你 **必须** 返回一个 **GM_Response** 格式的JSON对象。
 
-### **第一步：开辟大陆（1-2个Features）**
-*   生成1到2个宏大的 **大洲**。
-*   \`geometry.type\`: "Polygon"
-*   \`properties.featureType\`: "continent"
-*   \`properties.name\`: 大洲名称 (例如: 东胜神洲, 南瞻部洲)
-*   \`properties.description\`: 对该大洲的宏观描述。
-
-### **第二步：衍化万象（8-13个Features）**
-在已生成的大洲内部，创造多样化的势力和地点。
-
-1.  **生成势力范围 (\`Polygon\`, 3-4个):**
-    *   \`properties.featureType\`: "faction_territory"
-    *   \`properties.name\`: 势力名称 (例如: 青云宗, 万魔窟)
-    *   \`properties.factionType\`: 势力类型，应当多样化，例如 '宗门', '修仙世家', '凡俗王朝', '散修联盟' 等。
-    *   \`properties.description\`: 势力描述。
-    *   \`properties.style\`: 必须包含 \`color\`, \`fillColor\`, \`fillOpacity\` (0.3-0.6), \`weight\` (1-3)。
-    *   **\`properties.continent\`: (关键) 其值必须是该势力所在大洲的名称。**
-
-2.  **生成兴趣点 (\`Point\`, 5-7个):**
-    *   \`properties.featureType\`: 必须是 "secret_realm" (秘境), "city" (城市), 或 "landmark" (奇观) 中的一种。
-    *   \`properties.name\`: 地点名称 (例如: 万剑冢, 云来城, 不周山)
-    *   \`properties.description\`: 地点描述。
-    *   \`properties.icon\`: 一个代表其类型的英文标识符 (例如: 'sword-cave', 'city-gate', 'mountain-peak')。
-    *   **\`properties.continent\`: (关键) 其值必须是该地点所在大洲的名称。**
-
-## **四、 JSON输出格式 (GeoJSON FeatureCollection)**
-**你必须严格遵循下面的GeoJSON格式，这是唯一允许的输出格式。**
 \`\`\`json
 {
-  "mapData": {
-    "type": "FeatureCollection",
-    "features": [
-      {
-        "type": "Feature",
-        "geometry": { "type": "Polygon", "coordinates": [ [ [80, 20], [120, 20], [120, 50], [80, 50], [80, 20] ] ] },
-        "properties": {
-          "featureType": "continent",
-          "name": "东胜神洲",
-          "description": "灵气充裕，人杰地灵，乃正道宗门汇聚之地。"
-        }
-      },
-      {
-        "type": "Feature",
-        "geometry": { "type": "Polygon", "coordinates": [ [ [102, 25], [105, 25], [105, 28], [102, 28], [102, 25] ] ] },
-        "properties": {
-          "featureType": "faction_territory",
-          "continent": "东胜神洲",
-          "name": "青云宗",
-          "factionType": "宗门",
-          "description": "东胜神洲第一大宗，剑修圣地，山门连绵八百里。",
-          "style": { "color": "#1d4ed8", "fillColor": "#1d4ed8", "fillOpacity": 0.4, "weight": 2 }
-        }
-      },
-      {
-        "type": "Feature",
-        "geometry": { "type": "Point", "coordinates": [103.5, 26.5] },
-        "properties": {
-          "featureType": "city",
-          "continent": "东胜神洲",
-          "name": "云来城",
-          "description": "青云宗山脚下的凡人城市，商贸繁荣。",
-          "icon": "city-gate"
-        }
+  "text": "鸿蒙初判，清浊始分。吾以神念衍化，为这方名为'（请使用下方提供的世界名称）'的新生世界，定下山川脉络，划定万古基石。此间地理，尽在其中，待有缘人一探究竟。",
+  "around": "虚空中，一幅巨大的光幕缓缓展开，其上星罗棋布，正是这方世界的完整舆图。光幕流转，似乎蕴含着无穷奥秘。",
+  "tavern_commands": [
+    {
+      "action": "set",
+      "scope": "global",
+      "key": "world.mapData",
+      "value": {
+        "type": "FeatureCollection",
+        "features": [
+          {
+            "type": "Feature",
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [[[1000, 1000], [7000, 1200], [7500, 6500], [2000, 7000], [1000, 1000]]]
+            },
+            "properties": {
+              "type": "continent",
+              "name": "（请使用下方提供的世界名称）",
+              "description": "（请使用下方提供的世界描述）"
+            }
+          },
+          {
+            "type": "Feature",
+            "geometry": { "type": "Point", "coordinates": [3500, 2800] },
+            "properties": {
+              "type": "sect",
+              "name": "太虚剑宗",
+              "description": "天下第一剑道圣地",
+              "power_level": "一流"
+            }
+          }
+        ]
       }
-    ]
-  }
+    }
+  ]
 }
 \`\`\`
+**重要：只输出JSON，不要任何解释文字！**
 `;
+
 
 
 // =======================================================================
@@ -238,44 +248,100 @@ const MAP_GENERATION_PROMPT = `${ROLE_PLAY_INSTRUCTION}
 * @param typeName - 类型名称 (用于日志)
 * @returns {Promise<any>} 解析后的JSON对象
 */
-async function generateItemWithTavernAI<T>(prompt: string, typeName: string): Promise<Partial<T>> {
+async function generateItemWithTavernAI<T>(prompt: string, typeName: string, showToast: boolean = true): Promise<Partial<T>> {
   try {
     const helper = getTavernHelper();
-    toast.info(`天机运转，推演${typeName}...`);
+    if (showToast) {
+      toast.info(`天机运转，推演${typeName}...`);
+    }
 
-    // 使用 TavernHelper.generateRaw API，并提高温度以增加随机性
+    console.log(`【神识印记】开始调用TavernHelper.generateRaw，类型: ${typeName}`);
+
+    // 使用 TavernHelper.generateRaw API，优化参数以提高生成质量
     const rawResult = await helper.generateRaw({
       ordered_prompts: [{ role: 'system', content: prompt }],
       generation_args: {
-        temperature: 1.2, // 提高温度，让结果更多样化
-        max_new_tokens: 512, // 限制最大长度
+        temperature: 0.8, // 适度提高创造性
+        max_new_tokens: 4096, // 大幅增加最大长度，支持小说级别的内容生成
+        top_p: 0.95, // 提高多样性
+        top_k: 50, // 增加词汇选择范围
+        repetition_penalty: 1.05, // 减少重复惩罚避免过度限制
+        do_sample: true, // 确保采样模式开启
+        pad_token_id: 50256, // 设置padding token
+        min_new_tokens: 200, // 设置最小输出长度
+        length_penalty: 1.1, // 鼓励更长的输出
       }
     });
 
-    if (!rawResult || typeof rawResult !== 'string') {
-      throw new Error(`AI未返回任何有效的${typeName}文本。`);
+    console.log(`【神识印记】TavernHelper.generateRaw调用完成，返回类型:`, typeof rawResult);
+    console.log(`【神识印记】返回值:`, rawResult);
+
+    // 添加诊断信息
+    diagnoseAIResponse(rawResult, typeName);
+
+    if (!rawResult) {
+      console.error(`【神识印记】AI返回null或undefined，返回值:`, rawResult);
+      throw new Error(`AI未返回任何${typeName}内容。`);
     }
 
+    if (typeof rawResult !== 'string') {
+      console.error(`【神识印记】AI返回非字符串类型，返回类型:`, typeof rawResult, `，返回值:`, rawResult);
+      throw new Error(`AI返回的${typeName}数据类型错误，期望字符串但得到${typeof rawResult}。`);
+    }
+
+    if (rawResult.trim() === '') {
+      console.error(`【神识印记】AI返回空字符串内容`);
+      throw new Error(`AI返回了空的${typeName}内容，可能是模型配置或提示词问题。`);
+    }
+
+    console.log(`【神识印记】AI返回的原始${typeName}数据:`, rawResult);
+
+    // 清理可能的markdown标记和多余空白
+    const cleanedResult = rawResult
+      .replace(/```json\s*/g, '')
+      .replace(/```\s*/g, '')
+      .trim();
+
     // 尝试从返回结果中提取JSON字符串
-    const jsonMatch = rawResult.match(/\{[\s\S]*\}/);
+    const jsonMatch = cleanedResult.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      console.error(`原始AI输出 (${typeName}):`, rawResult);
+      console.error(`【神识印记】原始AI输出 (${typeName}):`, rawResult);
+      console.error(`【神识印记】清理后的输出 (${typeName}):`, cleanedResult);
       throw new Error(`AI返回内容中未找到有效的JSON结构。`);
     }
     const jsonString = jsonMatch[0];
 
     try {
       const parsedData = JSON.parse(jsonString);
+      console.log(`【神识印记】成功解析${typeName}数据:`, parsedData);
       return parsedData as Partial<T>;
     } catch (parseError) {
-      console.error(`无法解析的JSON (${typeName}):`, jsonString);
-      console.error(`原始AI输出 (${typeName}):`, rawResult);
+      console.error(`【神识印记】无法解析的JSON (${typeName}):`, jsonString);
+      console.error(`【神识印记】原始AI输出 (${typeName}):`, rawResult);
+      console.error(`【神识印记】解析错误详情:`, parseError);
       throw new Error(`AI返回的${typeName}格式错乱，无法解析。`);
     }
 
   } catch (error: any) {
-    console.error(`调用酒馆AI生成${typeName}失败:`, error);
-    toast.error(`${typeName}推演失败: ${error.message}`);
+    console.error(`【神识印记】调用酒馆AI生成${typeName}失败:`, error);
+    console.error(`【神识印记】错误类型:`, error.name);
+    console.error(`【神识印记】错误消息:`, error.message);
+    console.error(`【神识印记】错误堆栈:`, error.stack);
+
+    // 根据错误类型提供更详细的错误信息，但不显示toast，由调用方决定是否显示
+    let errorMessage = `${typeName}推演失败`;
+    if (error.message?.includes('Bad Request')) {
+      errorMessage += ': 请求参数不正确，请检查模型配置';
+    } else if (error.message?.includes('timeout')) {
+      errorMessage += ': 请求超时，请稍后重试';
+    } else {
+      errorMessage += `: ${error.message}`;
+    }
+
+    // 只在showToast为true时显示toast，避免双弹窗
+    if (showToast) {
+      toast.error(errorMessage);
+    }
     throw error;
   }
 }
@@ -352,54 +418,51 @@ export async function generateTalentWithTavernAI(): Promise<Talent> {
  * @param world 包含世界描述的世界对象
  */
 export async function generateMapFromWorld(world: World): Promise<any> {
-    const prompt = `You are a fantasy world map generator. Based on the following world description, generate a valid GeoJSON FeatureCollection.
+    // 使用专业的MAP_GENERATION_PROMPT，并将世界信息注入其中
+    const worldInfo = `\n\n## **当前世界信息**\n世界名称: ${world.name}\n时代背景: ${world.era}\n世界描述: ${world.description}\n\n请基于以上世界信息生成对应的地图。`;
+    const prompt = MAP_GENERATION_PROMPT + worldInfo;
 
-World: ${world.name}
-Era: ${world.era}
-Description: ${world.description}
-
-Requirements:
-1. Create 1-2 continents as Polygon features
-2. Create 3-4 faction territories within the continents
-3. Create 5-7 points of interest (cities, secret realms, landmarks)
-4. Use coordinates that span a wide range to show a vast world
-5. Each feature must have appropriate properties
-
-Output a valid GeoJSON FeatureCollection JSON object directly, without any markdown formatting or explanations.
-
-Example structure:
-{
-  "type": "FeatureCollection",
-  "features": [
-    {
-      "type": "Feature",
-      "geometry": {"type": "Polygon", "coordinates": [[[80,20],[120,20],[120,50],[80,50],[80,20]]]},
-      "properties": {"featureType": "continent", "name": "Eastern Continent", "description": "A vast land"}
-    }
-  ]
-}`;
-    
     try {
         const helper = getTavernHelper();
-        
+
         console.log("【神识印记】准备向天机阁问询舆图...");
         console.log("【神识印记】世界信息:", { name: world.name, era: world.era });
-        
-        // 使用正确的 generateRaw API
+
+        // 使用针对地图生成优化的 generateRaw API 参数
         const rawResult = await helper.generateRaw({
             ordered_prompts: [{ role: 'system', content: prompt }],
             generation_args: {
-                temperature: 0.8,
-                max_new_tokens: 1024, // 地图数据需要更多token
+                temperature: 0.9, // 提高创造性，鼓励丰富内容
+                max_new_tokens: 8192, // 超大输出长度限制，支持完整地图数据生成
+                top_p: 0.98, // 提高多样性
+                top_k: 100, // 增加词汇选择范围
+                repetition_penalty: 1.02, // 降低重复惩罚，避免过早停止
+                do_sample: true, // 确保采样模式开启
+                pad_token_id: 50256, // 设置padding token
+                eos_token_id: 50256, // 设置结束token，防止过早结束
+                min_new_tokens: 1000, // 设置较高最小输出长度，确保生成足够内容
+                length_penalty: 1.3, // 强烈鼓励更长的输出
             }
         });
-        
+
         console.log("【神识印记】天机阁已回应舆图信息，开始解析...");
 
-        if (!rawResult || typeof rawResult !== 'string') {
-            console.error('【神识印记】天机阁回应为空或非字符串:', rawResult);
-            throw new Error('天机阁未返回有效的舆图数据。');
+        if (!rawResult) {
+            console.error('【神识印记】天机阁回应为null或undefined:', rawResult);
+            throw new Error('天机阁未返回任何舆图数据。');
         }
+
+        if (typeof rawResult !== 'string') {
+            console.error('【神识印记】天机阁回应类型错误，期望字符串但得到:', typeof rawResult);
+            throw new Error('天机阁返回的舆图数据类型错误。');
+        }
+
+        if (rawResult.trim() === '') {
+            console.error('【神识印记】天机阁回应为空字符串');
+            throw new Error('天机阁返回了空的舆图数据，可能是模型配置问题。');
+        }
+
+        console.log("【神识印记】原始舆图回应:", rawResult);
 
         // 尝试从返回结果中提取JSON
         let geoJsonData;
@@ -409,21 +472,53 @@ Example structure:
                 .replace(/```json\s*/g, '')
                 .replace(/```\s*/g, '')
                 .trim();
-            
-            // 尝试找到JSON对象
-            const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
-            if (!jsonMatch) {
-                console.error('【神识印记】无法在回应中找到JSON:', rawResult);
-                throw new Error('天机阁回应中未包含有效的JSON数据。');
+
+            // 尝试找到JSON对象，优先寻找mapData结构
+            let jsonMatch = cleanedText.match(/\{\s*"mapData"\s*:\s*\{[\s\S]*?\}\s*\}/);
+            if (jsonMatch) {
+                const outerJson = JSON.parse(jsonMatch[0]);
+                geoJsonData = outerJson.mapData;
+                console.log("【神识印记】成功提取mapData结构:", geoJsonData);
+            } else {
+                // 如果没找到mapData结构，尝试直接查找GeoJSON
+                jsonMatch = cleanedText.match(/\{\s*"type"\s*:\s*"FeatureCollection"[\s\S]*?\}/);
+                if (!jsonMatch) {
+                    // 最后尝试找任何JSON对象
+                    jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
+                }
+
+                if (!jsonMatch) {
+                    console.error('【神识印记】无法在回应中找到JSON:', rawResult);
+                    throw new Error('天机阁回应中未包含有效的JSON数据。');
+                }
+
+                let jsonStringToParse = jsonMatch[0];
+                try {
+                    geoJsonData = JSON.parse(jsonStringToParse);
+                } catch (e) {
+                    console.warn('【神识印记】初次解析舆图失败，尝试自动修复...');
+                    // 尝试修复因AI错误导致的多余的末尾引号
+                    const sanitizedJsonString = jsonStringToParse.replace(/"\s*([,}])/g, '"$1');
+                    try {
+                        geoJsonData = JSON.parse(sanitizedJsonString);
+                        console.log('【神识印记】舆图自动修复并解析成功！');
+                    } catch (finalError) {
+                        console.error('【神识印记-衍化山河失败根源】自动修复后解析依然失败:', finalError);
+                        console.error('【神识印记】原始回应内容:', rawResult);
+                        throw new Error('天机阁回应的舆图格式无法解析，且自动修复失败。');
+                    }
+                }
+                console.log("【神识印记】成功解析舆图数据:", geoJsonData);
             }
-            
-            geoJsonData = JSON.parse(jsonMatch[0]);
-            console.log("【神识印记】成功解析舆图数据:", geoJsonData);
-            
+
         } catch (e) {
             console.error('【神识印记-衍化山河失败根源】解析失败:', e);
             console.error('【神识印记】原始回应内容:', rawResult);
-            throw new Error('天机阁回应的舆图格式无法解析。');
+            // 此处的错误现在由内部的try-catch处理，但保留以防万一
+            if (e instanceof Error) {
+              throw e;
+            }
+            throw new Error('解析舆图时发生未知错误。');
         }
 
         // 验证GeoJSON结构
@@ -442,7 +537,7 @@ Example structure:
             stack: error.stack,
             name: error.name
         });
-        
+
         // 生成一个默认的简单地图作为后备方案
         console.log("【神识印记】启用备用舆图方案...");
         return {
@@ -554,26 +649,69 @@ export async function generateInitialMessage(
   creationDetails: { age: number; originName: string; spiritRootName: string; },
   mapData: any
 ): Promise<GM_Response> {
-  // 1. 构造AI需要的、带有附加信息 CharacterData 对象
-  const characterForAI = {
-    ...character,
-    age: creationDetails.age,
-    description: `出身于${creationDetails.originName}，拥有${creationDetails.spiritRootName}。`,
-  };
+  try {
+    // 1. 构造AI需要的、带有附加信息 CharacterData 对象
+    const characterForAI = {
+      ...character,
+      age: creationDetails.age,
+      description: `出身于${creationDetails.originName}，拥有${creationDetails.spiritRootName}。`,
+    };
 
-  // 2. 构建标准GM请求
-  const request = buildGmRequest(characterForAI, mapData);
+    // 2. 构建标准GM请求
+    const request = buildGmRequest(character, creationDetails, mapData);
 
-  // 3. 将请求对象注入到提示词模板中
-  const prompt = INITIAL_MESSAGE_PROMPT
-    .replace(
-      'INPUT_PLACEHOLDER',
-      JSON.stringify(request, null, 2) // 格式化JSON以便AI更好地阅读
-    );
+    // 3. 将请求对象注入到提示词模板中
+    const prompt = INITIAL_MESSAGE_PROMPT
+      .replace(
+        'INPUT_PLACEHOLDER',
+        JSON.stringify(request, null, 2) // 格式化JSON以便AI更好地阅读
+      );
 
-  // 4. 调用通用生成器，并期望返回GM_Response格式
-  const result = await generateItemWithTavernAI<GM_Response>(prompt, '初始消息');
+    console.log('【神识印记】准备生成天道初言，提示词长度:', prompt.length);
 
-  // 5. 返回结构化的响应
-  return result as GM_Response;
+    // 4. 调用通用生成器，并期望返回GM_Response格式，不显示toast避免双弹窗
+    const result = await generateItemWithTavernAI<GM_Response>(prompt, '天道初言', false);
+
+    // 5. 验证结果结构
+    if (!result || !result.text) {
+      console.error('【神识印记】AI返回的初始消息结构无效:', result);
+      throw new Error('AI返回的初始消息格式不正确');
+    }
+
+    // 6. 确保tavern_commands是数组
+    if (!Array.isArray(result.tavern_commands)) {
+      console.warn('【神识印记】AI未返回tavern_commands数组，设置为空数组');
+      result.tavern_commands = [];
+    }
+
+    console.log('【神识印记】成功生成天道初言，命令数量:', result.tavern_commands?.length || 0);
+
+    // 7. 返回结构化的响应
+    return result as GM_Response;
+
+  } catch (error: any) {
+    console.error('【神识印记】生成天道初言失败:', error);
+    console.error('【神识印记】错误详情:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+
+    // 返回一个默认的GM响应作为后备，不抛出错误避免双重错误处理
+    const fallbackResponse: GM_Response = {
+      text: `${character.character_name}，${creationDetails.originName}出身，拥有${creationDetails.spiritRootName}，怀着修仙的梦想踏入了这片广阔的天地。\n\n你的修行之路从此开始，前方有无数的机遇与挑战等待着你。`,
+      around: "一片陌生的土地，远山如黛，近水如镜。",
+      tavern_commands: [
+        {
+          action: "set",
+          scope: "chat",
+          key: "character.location",
+          value: "修仙世界边缘"
+        }
+      ]
+    };
+
+    console.log('【神识印记】使用默认天道初言:', fallbackResponse);
+    return fallbackResponse;
+  }
 }

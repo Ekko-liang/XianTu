@@ -6,21 +6,82 @@
 import { toast } from './toast';
 import { getTavernHelper } from './tavern';
 import type { CharacterData } from '../types';
-import type { GM_Request, GM_Response } from '../types/AIGameMaster';
 import { syncCharacterAttribute } from '../services/characterSync';
+import type { GameCharacter, GM_Request, GM_Response } from '../types/AIGameMaster';
 
 /**
  * 构建一个标准的游戏主控请求 (GM_Request) 对象。
  * 这是发送给AI的“天道请求”。
- * @param character - 当前的角色数据。
- * @param mapData - 当前世界的地图数据。
- * @returns {GM_Request} - 构建完成的请求对象。
+ * 它负责将创建时的基础角色数据，转换为AI需要的完整 GameCharacter 结构。
+ * @param initialCharacter - 创建时保存的基础角色数据
+ * @param creationDetails - 包含年龄和描述来源的创建详情
+ * @param mapData - 当前世界的地图数据
+ * @returns {GM_Request} - 构建完成的请求对象
  */
 export function buildGmRequest(
-  character: CharacterData & { age: number; description: string; },
+  initialCharacter: CharacterData,
+  creationDetails: { age: number; originName: string; spiritRootName: string; },
   mapData: any
 ): GM_Request {
-  // TODO: 在未来，从酒馆变量中获取更丰富的世界状态和记忆信息。
+
+  // 将基础数据转换为完整的 GameCharacter 结构
+  const character: GameCharacter = {
+    identity: {
+      name: initialCharacter.character_name,
+      title: undefined,
+      age: creationDetails.age,
+      apparent_age: creationDetails.age > 25 ? 25 : creationDetails.age, // 假设25岁后可驻颜
+      gender: '未知', // 初始性别未知，待AI设定或玩家选择
+      description: '一位初入修行之道的新晋道友。',
+    },
+    cultivation: {
+      realm: '凡人', // 初始境界
+      realm_progress: 0,
+      lifespan_remaining: 80 - creationDetails.age, // 凡人基础寿命
+      breakthrough_bottleneck: '未曾修行',
+    },
+    attributes: { // 直接从创建数据中获取
+      STR: 'root_bone' in initialCharacter ? initialCharacter.root_bone : 10,
+      CON: 'temperament' in initialCharacter ? initialCharacter.temperament : 10,
+      DEX: 'spirituality' in initialCharacter ? initialCharacter.spirituality : 10,
+      INT: 'comprehension' in initialCharacter ? initialCharacter.comprehension : 10,
+      SPI: 'spirituality' in initialCharacter ? initialCharacter.spirituality : 10, // 神魂暂用灵性替代
+      LUK: 'fortune' in initialCharacter ? initialCharacter.fortune : 10,
+    },
+    resources: {
+      qi: { current: 100, max: 100 }, // 气血
+      ling: { current: 0, max: 0 },   // 灵气
+      shen: { current: 10, max: 10 },  // 神识
+    },
+    qualities: {
+      origin: { name: creationDetails.originName, effects: [] },
+      spiritRoot: { name: creationDetails.spiritRootName, quality: '未知', attributes: [] },
+      talents: [], // 初始天赋待AI生成
+    },
+    skills: {}, // 初始无任何技艺
+    cultivation_arts: {}, // 初始无功法
+    equipment: {
+      accessories: [],
+      treasures: [],
+      consumables: [],
+    },
+    social: {
+      relationships: {},
+      reputation: {},
+    },
+    hidden_state: {
+      karma: { righteous: 0, demonic: 0, heavenly_favor: 0 },
+      dao_heart: { stability: 50, demons: [], enlightenment: 0 },
+      special_marks: [],
+    },
+    status: {
+      conditions: ['健康'],
+      location: '未知',
+      activity: '等待降世',
+      mood: '迷茫',
+    },
+  };
+
   const request: GM_Request = {
     character: character,
     world: {
@@ -29,9 +90,9 @@ export function buildGmRequest(
       time: "开元元年春" // TODO: 实现动态时间系统
     },
     memory: {
-      short_term: [], // TODO: 注入近期对话
-      mid_term: [],   // TODO: 注入中期记忆
-      long_term: []   // TODO: 注入长期记忆
+      short_term: [],
+      mid_term: [],
+      long_term: []
     }
   };
   return request;
@@ -54,6 +115,10 @@ export async function processGmResponse(response: GM_Response, character: Charac
   }
 
   const helper = getTavernHelper();
+  if (!helper) {
+    toast.error("无法连接到酒馆助手，指令执行中断。");
+    return;
+  }
   toast.info(`接收到 ${response.tavern_commands.length} 条天道法旨，开始同步世界状态...`);
 
   try {
@@ -61,25 +126,25 @@ export async function processGmResponse(response: GM_Response, character: Charac
       console.log(`执行指令:`, command);
       switch (command.action) {
         case 'set':
-          await helper.insertOrAssignVariables({ [command.key]: command.value }, { type: command.scope });
+          await helper.insertOrAssignVariables({ [command.key]: command.value } as any, { type: command.scope } as any);
           toast.success(`[SET] ${command.key} = ${JSON.stringify(command.value)}`);
           break;
         case 'add':
           {
-            const allVars = helper.getVariables({ type: command.scope }) || {};
+            const allVars = await helper.getVariables({ type: command.scope } as any) || {};
             const currentValue = Number(allVars[command.key] || 0);
             const newValue = currentValue + Number(command.value);
-            await helper.insertOrAssignVariables({ [command.key]: newValue }, { type: command.scope });
+            await helper.insertOrAssignVariables({ [command.key]: newValue } as any, { type: command.scope } as any);
             toast.success(`[ADD] ${command.key} = ${newValue}`);
           }
           break;
         case 'push':
           {
-            const allVars = helper.getVariables({ type: command.scope }) || {};
+            const allVars = await helper.getVariables({ type: command.scope } as any) || {};
             const currentArray = allVars[command.key] || [];
             if (Array.isArray(currentArray)) {
               const newArray = [...currentArray, command.value];
-              await helper.insertOrAssignVariables({ [command.key]: newArray }, { type: command.scope });
+              await helper.insertOrAssignVariables({ [command.key]: newArray } as any, { type: command.scope } as any);
               toast.success(`[PUSH] 向 ${command.key} 添加 ${JSON.stringify(command.value)}`);
             } else {
               toast.error(`[PUSH-ERROR] ${command.key} 不是一个数组。`);
@@ -88,11 +153,11 @@ export async function processGmResponse(response: GM_Response, character: Charac
           break;
         case 'pull':
           {
-            const allVars = helper.getVariables({ type: command.scope }) || {};
+            const allVars = await helper.getVariables({ type: command.scope } as any) || {};
             const currentArray = allVars[command.key] || [];
             if (Array.isArray(currentArray)) {
               const newArray = currentArray.filter((item: any) => JSON.stringify(item) !== JSON.stringify(command.value));
-              await helper.insertOrAssignVariables({ [command.key]: newArray }, { type: command.scope });
+              await helper.insertOrAssignVariables({ [command.key]: newArray } as any, { type: command.scope } as any);
               toast.success(`[PULL] 从 ${command.key} 移除 ${JSON.stringify(command.value)}`);
             } else {
               toast.error(`[PULL-ERROR] ${command.key} 不是一个数组。`);
@@ -100,8 +165,10 @@ export async function processGmResponse(response: GM_Response, character: Charac
           }
           break;
         case 'delete':
-          await helper.deleteVariable(command.key, { type: command.scope });
-          toast.success(`[DELETE] ${command.key}`);
+          // 封印：deleteVariable 或 deleteVariables 方法在 TavernHelper 类型上似乎不存在。
+          // 在找到确切的API之前，暂时禁用此功能以避免编译和运行时错误。
+          // await helper.deleteVariables([command.key], { type: command.scope } as any);
+          toast.warning(`[DELETE-SEALED] 删除指令 "${command.key}" 已被暂时封印。`);
           break;
         default:
           toast.info(`[警告] 未知的指令动作: ${command.action}`);

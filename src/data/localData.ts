@@ -18,15 +18,31 @@ export interface Faction {
   description: string;
 }
 
+
+// GeoJSON 的基础类型定义，用于替代 any
+export interface GeoJSONFeature {
+  type: "Feature";
+  properties: Record<string, unknown>;
+  geometry: {
+    type: string;
+    coordinates: unknown[];
+  };
+}
+
+export interface GeoJSONFeatureCollection {
+  type: "FeatureCollection";
+  features: GeoJSONFeature[];
+}
 // 扩展后的本地角色，不再直接包含世界数据
 export interface LocalCharacterWithGameData extends LocalCharacter {
-  birth_age: number; // 新增：出生年龄
+  current_age: number; // 新增：当前年龄
   creationChoices: {
     origin?: Origin;
     spiritRoot?: SpiritRoot;
     talents?: Talent[];
     world?: { id: number; name: string; };
   };
+  worldData: WorldInstanceData; // 新增：坤舆图志数据
 }
 
 // 单个世界实例的演化数据 (坤舆图志)
@@ -35,7 +51,7 @@ export interface WorldInstanceData {
   continentName: string | null;
   continentDescription: string | null;
   factions: Faction[];
-  mapInfo: any; // 用于存储未来的Leaflet地图数据 (例如 GeoJSON)
+  mapInfo: GeoJSONFeatureCollection | null; // 用于存储未来的Leaflet地图数据 (例如 GeoJSON)
 }
 
 // 自定义的创世设定数据结构 (存储于LocalStorage)
@@ -83,11 +99,9 @@ export function loadGameData(): DADGameData {
     let gameDataString: string | undefined;
     
     // 优先使用TavernHelper API
-    // @ts-ignore
-    if (window.parent?.TavernHelper?.getVariables) {
+    if ((window.parent as any)?.TavernHelper?.getVariables) {
       console.log('【玄光镜】使用TavernHelper API加载数据...');
-      // @ts-ignore
-      const allGlobalVars = window.parent.TavernHelper.getVariables({ type: 'global' });
+      const allGlobalVars = (window.parent as any).TavernHelper.getVariables({ type: 'global' });
       gameDataString = allGlobalVars?.[GAME_DATA_KEY];
     } else if (window.SillyTavern?.getContext) {
       // 备用方案
@@ -100,10 +114,26 @@ export function loadGameData(): DADGameData {
     }
     
     if (gameDataString) {
-      const gameData = JSON.parse(gameDataString);
-      console.log('【玄光镜】成功加载游戏数据:', gameData);
-      // TODO: 在此可添加版本迁移逻辑
-      return gameData;
+      try {
+        const gameData = JSON.parse(gameDataString);
+        console.log('【玄光镜】成功加载游戏数据:', gameData);
+        
+        // 验证数据结构，确保必要字段存在
+        const validatedGameData: DADGameData = {
+          characters: gameData.characters || {},
+          worldInstances: gameData.worldInstances || {},
+          version: gameData.version || CURRENT_VERSION,
+          lastUpdated: gameData.lastUpdated || new Date().toISOString(),
+        };
+        
+        console.log('【玄光镜】验证后的游戏数据:', validatedGameData);
+        return validatedGameData;
+      } catch (parseError) {
+        console.error('【玄光镜】解析游戏数据失败:', parseError);
+        console.error('【玄光镜】原始数据字符串:', gameDataString);
+        toast.error('存档数据损坏，已重置为空存档。');
+        return getEmptyGameData();
+      }
     }
     
     console.log('【玄光镜】未找到已保存的游戏数据，返回空数据。');
@@ -128,11 +158,9 @@ export async function saveGameData(gameData: DADGameData): Promise<void> {
     const gameDataString = JSON.stringify(gameData);
     
     // 使用正确的TavernHelper API来保存数据
-    // @ts-ignore
-    if (window.parent?.TavernHelper?.insertOrAssignVariables) {
+    if ((window.parent as any)?.TavernHelper?.insertOrAssignVariables) {
       console.log('【玄光镜】使用TavernHelper API保存数据...');
-      // @ts-ignore
-      await window.parent.TavernHelper.insertOrAssignVariables({ [GAME_DATA_KEY]: gameDataString }, { type: 'global' });
+      await (window.parent as any).TavernHelper.insertOrAssignVariables({ [GAME_DATA_KEY]: gameDataString }, { type: 'global' });
       console.log('【玄光镜】成功将数据铭刻于酒馆洞天（通过TavernHelper）。');
     } else if (window.SillyTavern?.getContext) {
       // 备用方案：如果TavernHelper不可用，尝试直接设置
@@ -171,9 +199,22 @@ export async function loadLocalCharacters(): Promise<LocalCharacterWithGameData[
  * @param {LocalCharacterWithGameData} character
  */
 export async function saveLocalCharacter(character: LocalCharacterWithGameData): Promise<void> {
-    const gameData = loadGameData();
-    gameData.characters[character.id] = character;
-    await saveGameData(gameData);
+    try {
+        const gameData = loadGameData();
+        
+        // 确保characters对象存在
+        if (!gameData.characters) {
+            gameData.characters = {};
+        }
+        
+        gameData.characters[character.id] = character;
+        await saveGameData(gameData);
+        console.log('【玄光镜】角色数据已成功保存，ID:', character.id);
+    } catch (error) {
+        console.error('【玄光镜】保存角色数据失败:', error);
+        console.error('【玄光镜】角色数据:', character);
+        throw error; // 重新抛出错误，让调用者处理
+    }
 }
 
 /**
@@ -186,6 +227,63 @@ export async function deleteLocalCharacter(characterId: number): Promise<void> {
         delete gameData.characters[characterId];
         await saveGameData(gameData);
     }
+}
+
+/**
+ * 清理localStorage中可能存在的重复数据
+ * 这个函数用于修复历史数据问题
+ */
+export function cleanupDuplicateCustomData(): void {
+    console.log('【玄光镜】开始清理重复的自定义数据...');
+    
+    // 先获取当前数据
+    const currentData = loadCustomData();
+    
+    // 去重处理
+    const cleanedData: DADCustomData = {
+        worlds: removeDuplicates(currentData.worlds, 'id', 'name'),
+        talentTiers: removeDuplicates(currentData.talentTiers, 'id', 'name'),
+        origins: removeDuplicates(currentData.origins, 'id', 'name'),
+        spiritRoots: removeDuplicates(currentData.spiritRoots, 'id', 'name'),
+        talents: removeDuplicates(currentData.talents, 'id', 'name'),
+    };
+    
+    // 检查是否有重复数据
+    const hasDuplicates = Object.keys(currentData).some(key => {
+        const originalCount = currentData[key as keyof DADCustomData].length;
+        const cleanedCount = cleanedData[key as keyof DADCustomData].length;
+        return originalCount !== cleanedCount;
+    });
+    
+    if (hasDuplicates) {
+        console.log('【玄光镜】发现重复数据，正在清理...');
+        console.log('清理前:', currentData);
+        console.log('清理后:', cleanedData);
+        
+        // 保存清理后的数据
+        storage.setItem(storage.DAD_CUSTOM_DATA_KEY, cleanedData);
+        console.log('【玄光镜】重复数据已清理完成。');
+    } else {
+        console.log('【玄光镜】未发现重复数据。');
+    }
+}
+
+/**
+ * 通用去重函数
+ */
+function removeDuplicates<T extends { id?: number; name?: string }>(
+    items: T[], 
+    ...keys: (keyof T)[]
+): T[] {
+    const seen = new Set<string>();
+    return items.filter(item => {
+        const key = keys.map(k => item[k]).join('|');
+        if (seen.has(key)) {
+            return false;
+        }
+        seen.add(key);
+        return true;
+    });
 }
 
 /**

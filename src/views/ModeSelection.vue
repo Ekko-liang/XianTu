@@ -66,6 +66,21 @@ const emit = defineEmits<{
 }>();
 
 const selectPath = (mode: 'single' | 'cloud') => {
+  // 检测环境并给出建议
+  const hasTavernAI = !!(window.parent?.TavernHelper);
+  
+  if (mode === 'cloud' && !hasTavernAI) {
+    // 联机模式但没有TavernAI环境
+    const confirmed = confirm(
+      '联机模式需要在TavernAI中运行以保存数据和使用AI功能。\n\n' +
+      '当前环境未检测到TavernAI，建议选择单机模式。\n\n' +
+      '是否继续使用联机模式？（可能会遇到保存和AI功能问题）'
+    );
+    if (!confirmed) {
+      return; // 用户取消，不继续
+    }
+  }
+  
   emit('start-creation', mode);
 };
 

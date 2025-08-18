@@ -4,4 +4,5 @@ interface Window {
     executeSlashCommands: (command: string) => Promise<any>;
     getContext?: () => any;
   };
+  TavernHelper?: any;
 }

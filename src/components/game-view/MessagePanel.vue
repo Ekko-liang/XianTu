@@ -14,6 +14,7 @@ import { ref, watch, nextTick } from 'vue';
 
 const props = defineProps<{
   messages: string[];
+  mapData?: any; // 可选的地图数据，MessagePanel不使用但需要接受以避免Vue警告
 }>();
 
 const chatWindowRef = ref<HTMLElement | null>(null);

@@ -8,7 +8,7 @@
       <div class="talent-left-panel">
         <div class="talent-list-container">
           <div
-            v-for="talent in store.creationData.talents"
+            v-for="talent in filteredTalents"
             :key="talent.id"
             class="talent-item"
             :class="{
@@ -64,7 +64,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useCharacterCreationStore } from '../../stores/characterCreationStore'
 import type { Talent } from '../../types'
 import CustomCreationModal from './CustomCreationModal.vue'
@@ -78,6 +78,18 @@ const store = useCharacterCreationStore()
 const activeTalent = ref<Talent | null>(null) // For details view on hover/click
 const isCustomModalVisible = ref(false)
 const isGeneratingAI = ref(false)
+
+const filteredTalents = computed(() => {
+  if (store.isLocalCreation) {
+    return store.creationData.talents.filter(talent => 
+      talent.source === 'local' || talent.source === 'tavern'
+    );
+  } else {
+    return store.creationData.talents.filter(talent => 
+      talent.source === 'cloud'
+    );
+  }
+});
 
 const customTalentFields = [
   { key: 'name', label: '天赋名称', type: 'text', placeholder: '例如：道心天成' },
