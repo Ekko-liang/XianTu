@@ -76,29 +76,24 @@
       <div v-if="showActionModal" class="action-modal-overlay" @click.self="hideActionSelector">
         <div class="action-modal">
           <div class="modal-header">
-            <h3>选择行动</h3>
-            <button @click="hideActionSelector" class="close-btn">×</button>
+            <h3>🎯 快捷行动</h3>
+            <button @click="hideActionSelector" class="close-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </button>
           </div>
-          <div class="action-categories">
-            <div 
-              v-for="category in actionCategories" 
-              :key="category.name"
-              class="action-category"
+          <div class="action-grid">
+            <button
+              v-for="(action, index) in flatActions"
+              :key="action.name"
+              @click="selectAction(action)"
+              class="quick-action-btn"
+              :class="action.type"
             >
-              <h4 class="category-title">{{ category.icon }} {{ category.name }}</h4>
-              <div class="action-buttons">
-                <button
-                  v-for="action in category.actions"
-                  :key="action.name"
-                  @click="selectAction(action)"
-                  class="action-btn"
-                  :class="action.type"
-                >
-                  <span class="action-icon">{{ action.icon }}</span>
-                  <span class="action-name">{{ action.name }}</span>
-                </button>
-              </div>
-            </div>
+              <div class="action-icon">{{ action.icon }}</div>
+              <div class="action-text">{{ action.name }}</div>
+            </button>
           </div>
         </div>
       </div>
@@ -234,6 +229,15 @@ const hasActiveCharacter = computed(() => {
 // 计算属性：角色名称
 const characterName = computed(() => {
   return characterStore.activeCharacterProfile?.角色基础信息.名字 || '无名道友';
+});
+
+// 扁平化的行动列表，用于简化UI显示
+const flatActions = computed(() => {
+  const actions: ActionItem[] = [];
+  actionCategories.value.forEach(category => {
+    actions.push(...category.actions);
+  });
+  return actions;
 });
 
 // 时间选项
@@ -1333,32 +1337,30 @@ const saveConversationHistory = async () => {
   color: #e2e8f0;
 }
 
-[data-theme="dark"] .no-memory {
-  color: #64748b;
-}
-
-/* 行动选择器样式 */
+/* 行动选择器按钮 */
 .action-selector-btn {
-  width: 40px;
+  width: 44px;
   height: 44px;
-  background: #f3f4f6;
-  border: 1px solid #d1d5db;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  color: #6b7280;
+  color: #6366f1;
 }
 
 .action-selector-btn:hover:not(:disabled) {
-  background: #e5e7eb;
-  border-color: #9ca3af;
+  background: #f1f5f9;
+  border-color: #6366f1;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
 }
 
 .action-selector-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
@@ -1370,135 +1372,148 @@ const saveConversationHistory = async () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  backdrop-filter: blur(2px);
 }
 
-.action-modal,
+.action-modal {
+  background: white;
+  border-radius: 12px;
+  max-width: 480px;
+  width: 90%;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+}
+
 .action-config-modal {
   background: white;
   border-radius: 12px;
-  max-width: 600px;
-  max-height: 80%;
+  max-width: 400px;
   width: 90%;
-  overflow-y: auto;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
 }
 
 .modal-header,
 .config-header {
-  padding: 20px;
+  padding: 16px 20px;
   border-bottom: 1px solid #e5e7eb;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  background: #f8fafc;
 }
 
 .modal-header h3,
 .config-header h3 {
   margin: 0;
-  font-size: 1.125rem;
+  font-size: 1rem;
   font-weight: 600;
   color: #111827;
 }
 
 .close-btn {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border: none;
-  background: #f3f4f6;
-  border-radius: 50%;
+  background: transparent;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 1.2rem;
   color: #6b7280;
   transition: all 0.2s ease;
 }
 
 .close-btn:hover {
-  background: #e5e7eb;
+  background: rgba(0, 0, 0, 0.05);
   color: #374151;
 }
 
-.action-categories {
-  padding: 20px;
-}
-
-.action-category {
-  margin-bottom: 24px;
-}
-
-.action-category:last-child {
-  margin-bottom: 0;
-}
-
-.category-title {
-  margin: 0 0 12px 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: #374151;
-}
-
-.action-buttons {
+.action-grid {
+  padding: 16px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
 }
 
-.action-btn {
+.quick-action-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 16px 12px;
+  gap: 6px;
+  padding: 12px 8px;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   background: white;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-size: 0.875rem;
+  font-size: 0.8rem;
+  min-height: 70px;
 }
 
-.action-btn:hover {
+.quick-action-btn:hover {
   border-color: #3b82f6;
   background: #f8fafc;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
 }
 
-.action-btn.cultivation {
-  border-color: rgba(34, 197, 94, 0.3);
-  background: rgba(34, 197, 94, 0.05);
+.quick-action-btn.cultivation {
+  border-color: rgba(34, 197, 94, 0.2);
+  background: rgba(34, 197, 94, 0.03);
 }
 
-.action-btn.exploration {
-  border-color: rgba(59, 130, 246, 0.3);
-  background: rgba(59, 130, 246, 0.05);
+.quick-action-btn.cultivation:hover {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.08);
 }
 
-.action-btn.social {
-  border-color: rgba(168, 85, 247, 0.3);
-  background: rgba(168, 85, 247, 0.05);
+.quick-action-btn.exploration {
+  border-color: rgba(59, 130, 246, 0.2);
+  background: rgba(59, 130, 246, 0.03);
 }
 
-.action-btn.other {
-  border-color: rgba(156, 163, 175, 0.3);
-  background: rgba(156, 163, 175, 0.05);
+.quick-action-btn.exploration:hover {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.quick-action-btn.social {
+  border-color: rgba(168, 85, 247, 0.2);
+  background: rgba(168, 85, 247, 0.03);
+}
+
+.quick-action-btn.social:hover {
+  border-color: #a855f7;
+  background: rgba(168, 85, 247, 0.08);
+}
+
+.quick-action-btn.other {
+  border-color: rgba(156, 163, 175, 0.2);
+  background: rgba(156, 163, 175, 0.03);
+}
+
+.quick-action-btn.other:hover {
+  border-color: #9ca3af;
+  background: rgba(156, 163, 175, 0.08);
 }
 
 .action-icon {
-  font-size: 1.5rem;
+  font-size: 1.2rem;
+  line-height: 1;
 }
 
-.action-name {
+.action-text {
   font-weight: 500;
   color: #374151;
   text-align: center;
+  line-height: 1.2;
 }
 
 /* 配置弹窗内容 */

@@ -92,11 +92,12 @@ const filteredOrigins = computed(() => {
   console.log("【出身选择】当前模式:", store.isLocalCreation ? '本地' : '联机');
   
   if (store.isLocalCreation) {
-    const localOrigins = allOrigins.filter(origin => 
-      origin.source === 'local'
+    // 单机模式显示本地数据和云端同步的数据
+    const availableOrigins = allOrigins.filter(origin => 
+      origin.source === 'local' || origin.source === 'cloud'
     );
-    console.log("【出身选择】本地模式出身列表:", localOrigins);
-    return localOrigins;
+    console.log("【出身选择】单机模式可用出身列表:", availableOrigins);
+    return availableOrigins;
   } else {
     const cloudOrigins = allOrigins.filter(origin => 
       origin.source === 'cloud'

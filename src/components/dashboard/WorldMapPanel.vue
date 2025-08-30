@@ -1,18 +1,18 @@
 <template>
   <div class="map-panel">
-    <!-- 地图控制按钮 -->
-    <div class="map-controls">
-      <button class="control-btn" @click="refreshMapData" :disabled="loading" title="重新生成世界">
-        <RefreshCw :size="16" :class="{ 'animate-spin': loading }" />
-      </button>
-      <button class="control-btn" @click="centerToPlayer" title="定位到玩家位置">
-        <Target :size="16" />
-      </button>
-      <div class="map-status-mini">{{ mapStatus }}</div>
-    </div>
-
     <!-- 自定义修仙世界地图容器 -->
     <div class="custom-map-container" ref="mapContainer">
+      <!-- 地图内控制按钮 -->
+      <div class="map-controls-overlay">
+        <button class="control-btn" @click="refreshMapData" :disabled="loading" title="重新生成世界">
+          <RefreshCw :size="14" :class="{ 'animate-spin': loading }" />
+        </button>
+        <button class="control-btn" @click="centerToPlayer" title="定位到玩家位置">
+          <Target :size="14" />
+        </button>
+        <div class="map-status-mini">{{ mapStatus }}</div>
+      </div>
+
       <!-- SVG 地图画布 -->
       <svg 
         class="world-map-svg" 
@@ -53,17 +53,6 @@
         <!-- 世界背景 -->
         <rect width="100%" height="100%" fill="url(#gridPattern)" opacity="0.1"/>
         
-        <!-- 世界边界 -->
-        <rect 
-          x="50" y="50" 
-          :width="mapWidth - 100" 
-          :height="mapHeight - 100" 
-          fill="none" 
-          stroke="#6B7280" 
-          stroke-width="3" 
-          stroke-dasharray="10,5"
-          opacity="0.6"
-        />
         
         <!-- 地图内容组 -->
         <g :transform="`translate(${panX}, ${panY}) scale(${zoomLevel})`">
@@ -92,23 +81,6 @@
             />
           </g>
           
-          <!-- 势力影响范围层 -->
-          <g class="faction-influence-layer">
-            <g v-for="territory in factionTerritories" :key="'influence-' + territory.id">
-              <!-- 势力影响圈 -->
-              <circle 
-                :cx="territory.centerX" 
-                :cy="territory.centerY" 
-                :r="territory.influenceRadius || 80"
-                :fill="territory.color" 
-                opacity="0.1"
-                :stroke="territory.borderColor"
-                stroke-width="1"
-                stroke-dasharray="3,3"
-                class="influence-circle"
-              />
-            </g>
-          </g>
           
           <!-- 势力领土边界层 -->
           <g class="territory-boundary-layer">
@@ -122,8 +94,6 @@
                 class="territory-boundary"
                 filter="url(#factionGlow)"
                 @click="selectTerritory(territory)"
-                @mouseenter="hoveredTerritory = territory"
-                @mouseleave="hoveredTerritory = null"
               />
               
               <!-- 势力核心标记 -->
@@ -147,16 +117,16 @@
                 </text>
               </g>
               
-              <!-- 势力名称 -->
-              <text 
-                :x="territory.centerX" 
-                :y="territory.centerY - 40" 
-                class="faction-name-text"
-                text-anchor="middle"
-                :fill="territory.textColor"
-              >
-                {{ territory.name }}
-              </text>
+                <!-- 势力名称 -->
+                <text 
+                  :x="territory.centerX" 
+                  :y="territory.centerY - 35" 
+                  class="faction-name-text"
+                  text-anchor="middle"
+                  :fill="territory.textColor"
+                >
+                  {{ territory.name }}
+                </text>
             </g>
           </g>
           
@@ -166,8 +136,6 @@
               <g 
                 :transform="`translate(${location.x}, ${location.y})`"
                 @click="selectLocation(location)"
-                @mouseenter="hoveredLocation = location"
-                @mouseleave="hoveredLocation = null"
                 class="location-marker"
               >
                 <!-- 地点类型图标 -->
@@ -239,30 +207,34 @@
           
         </g>
         
-        <!-- 悬停信息层 -->
-        <g v-if="hoveredLocation || hoveredTerritory" class="hover-info-layer">
-          <g v-if="hoveredLocation" :transform="`translate(${Math.min(hoveredLocation.x * zoomLevel + panX + 40, mapWidth - 220)}, ${Math.max(hoveredLocation.y * zoomLevel + panY - 60, 10)})`">
-            <rect width="200" height="80" fill="rgba(0,0,0,0.85)" stroke="#FFD700" stroke-width="1" rx="5"/>
-            <text x="10" y="18" class="hover-info-title" fill="#FFD700">{{ hoveredLocation.name }}</text>
-            <text x="10" y="35" class="hover-info-text" fill="#FFF">{{ hoveredLocation.description?.substring(0, 40) }}...</text>
-            <text x="10" y="50" class="hover-info-text" fill="#AAA">类型：{{ getLocationTypeName(hoveredLocation.type) }}</text>
-            <text x="10" y="65" class="hover-info-text" fill="#AAA">势力：{{ hoveredLocation.faction || '中立' }}</text>
-          </g>
-          
-          <g v-if="hoveredTerritory" :transform="`translate(${Math.min(hoveredTerritory.centerX * zoomLevel + panX + 40, mapWidth - 220)}, ${Math.max(hoveredTerritory.centerY * zoomLevel + panY - 60, 10)})`">
-            <rect width="200" height="80" fill="rgba(0,0,0,0.85)" stroke="#FFD700" stroke-width="1" rx="5"/>
-            <text x="10" y="18" class="hover-info-title" fill="#FFD700">{{ hoveredTerritory.name }}</text>
-            <text x="10" y="35" class="hover-info-text" fill="#FFF">{{ hoveredTerritory.description?.substring(0, 40) }}...</text>
-            <text x="10" y="50" class="hover-info-text" fill="#AAA">实力：{{ hoveredTerritory.strength || 'Unknown' }}</text>
-            <text x="10" y="65" class="hover-info-text" fill="#AAA">范围：{{ hoveredTerritory.territory || 'Unknown' }}</text>
-          </g>
-        </g>
       </svg>
     </div>
     
     <!-- 地图图例 -->
     <div class="map-legend">
       <div class="legend-title">坤舆图志</div>
+      
+      <!-- 选中详情显示 -->
+      <div v-if="selectedInfo" class="selected-info">
+        <div class="info-header">
+          <h4>{{ selectedInfo.name }}</h4>
+          <button @click="selectedInfo = null" class="close-info">×</button>
+        </div>
+        <div class="info-content">
+          <p class="info-type">{{ selectedInfo.type }}</p>
+          <p class="info-desc">{{ selectedInfo.description }}</p>
+          <div v-if="selectedInfo.population" class="info-detail">
+            <strong>人口：</strong>{{ selectedInfo.population }}
+          </div>
+          <div v-if="selectedInfo.features" class="info-features">
+            <strong>特色：</strong>
+            <ul>
+              <li v-for="feature in selectedInfo.features" :key="feature">{{ feature }}</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      
       <div class="legend-sections">
         <div class="legend-section">
           <h4>势力范围</h4>
@@ -320,6 +292,15 @@ const panY = ref(0);
 const isPanning = ref(false);
 const lastPanPoint = ref({ x: 0, y: 0 });
 const hoveredLocation = ref<WorldLocation | null>(null);
+
+// 选中信息显示
+const selectedInfo = ref<{
+  name: string;
+  type: string;
+  description: string;
+  population?: string;
+  features?: string[];
+} | null>(null);
 
 // 组件状态
 const characterStore = useCharacterStore();
@@ -583,19 +564,80 @@ const endPan = () => {
   isPanning.value = false;
 };
 
+const hoveredTerritory = ref<TerritoryData | null>(null);
+
 const selectTerritory = (territory: TerritoryData) => {
   console.log('选中势力:', territory.name);
-  toast.success(`选中势力: ${territory.name}`);
+  const faction = majorFactions.value.find(f => f.id === territory.factionId);
+  selectedInfo.value = {
+    name: territory.name,
+    type: '势力范围',
+    description: faction?.description || '强大的修仙势力，统治着广阔的疆域。',
+    population: faction?.memberCount || '未知',
+    features: faction?.specialties || []
+  };
 };
 
 const selectLocation = (location: WorldLocation) => {
   console.log('选中地点:', location.name);
-  toast.success(`选中地点: ${location.name}`);
+  selectedInfo.value = {
+    name: location.name,
+    type: getLocationTypeName(location.type),
+    description: location.description,
+    population: location.population,
+    features: location.specialFeatures
+  };
+};
+
+const getLocationTypeName = (type: string): string => {
+  const typeMap: { [key: string]: string } = {
+    'major_city': '大城',
+    'sect_headquarters': '宗门',
+    'trade_center': '商会',
+    'secret_realm': '秘境',
+    'city': '城市',
+    'sect': '宗门',
+    'market': '市集',
+    'village': '村落'
+  };
+  return typeMap[type] || '未知';
 };
 
 // 初始化地图
 const initializeMap = async () => {
   try {
+    mapStatus.value = '正在加载地图数据...';
+    
+    const tavern = getTavernHelper();
+    if (!tavern) {
+      console.warn('[坤舆图志] 酒馆系统不可用，使用默认数据');
+      await loadDefaultFactions();
+      await loadDefaultLocations();
+      mapStatus.value = '地图加载完成（默认数据）';
+      return;
+    }
+
+    // 首先尝试加载已存储的动态数据
+    const variables = await tavern.getVariables({ type: 'chat' });
+    const existingFactions = variables['world_factions'];
+    const existingLocations = variables['world_locations'];
+    
+    if (existingFactions && existingFactions.length > 0) {
+      console.log('[坤舆图志] 加载已存储的动态势力数据');
+      loadFactionsFromTavern(existingFactions);
+      
+      if (existingLocations && existingLocations.length > 0) {
+        console.log('[坤舆图志] 加载已存储的动态地点数据');
+        await loadWorldLocations();
+      }
+      
+      mapStatus.value = '地图加载完成（动态数据）';
+      toast.success('坤舆图志已就绪');
+      return;
+    }
+    
+    // 如果没有存储的数据，才生成新的世界
+    console.log('[坤舆图志] 未发现存储数据，生成新世界...');
     mapStatus.value = '正在生成世界势力...';
     await generateWorldFactions();
     mapStatus.value = '地图加载完成';
@@ -604,6 +646,9 @@ const initializeMap = async () => {
     console.error('[坤舆图志] 地图初始化失败:', error);
     mapStatus.value = '地图加载失败';
     toast.error('地图初始化失败');
+    // 失败时使用默认数据
+    await loadDefaultFactions();
+    await loadDefaultLocations();
   }
 };
 
@@ -793,6 +838,12 @@ const updateFactionTerritories = () => {
   // 暂时保持现有的静态数据结构
 };
 
+// 加载默认地点数据
+const loadDefaultLocations = async () => {
+  console.log('[坤舆图志] 使用默认地点数据');
+  // worldLocations已经在ref中定义了默认数据，无需额外加载
+};
+
 // 刷新地图数据
 const refreshMapData = async () => {
   loading.value = true;
@@ -847,72 +898,131 @@ onMounted(async () => {
   background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
 }
 
-/* 头部控制 */
-.map-header {
+/* 地图内控制按钮 */
+.map-controls-overlay {
+  position: absolute;
+  top: 12px;
+  right: 12px;
   display: flex;
-  justify-content: space-between;
+  gap: 6px;
+  z-index: 1000;
+}
+
+.control-btn {
+  display: flex;
   align-items: center;
-  padding: 1rem;
-  background: white;
-  border-bottom: 1px solid #e2e8f0;
-  flex-shrink: 0;
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.header-icon {
-  font-size: 1.5rem;
-}
-
-.header-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.panel-title {
-  margin: 0;
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: #1e40af;
-}
-
-.map-status {
-  font-size: 0.875rem;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
   color: #64748b;
 }
 
-.header-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.action-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 0.5rem;
+.control-btn:hover {
   background: white;
-  color: #475569;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 0.875rem;
+  border-color: #3b82f6;
+  color: #3b82f6;
 }
 
-.action-btn:hover {
-  background: #f1f5f9;
-  border-color: #94a3b8;
-}
-
-.action-btn:disabled {
+.control-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.map-status-mini {
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  color: #64748b;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* 地图容器 */
+.custom-map-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 2px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+/* 选中信息显示 */
+.selected-info {
+  background: rgba(59, 130, 246, 0.05);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.info-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.info-header h4 {
+  margin: 0;
+  color: #1e40af;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.close-info {
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #64748b;
+  font-size: 1rem;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.close-info:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: #374151;
+}
+
+.info-content {
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.info-type {
+  color: #6366f1;
+  font-weight: 500;
+  margin: 0 0 6px 0;
+}
+
+.info-desc {
+  color: #4b5563;
+  margin: 0 0 8px 0;
+}
+
+.info-detail {
+  color: #6b7280;
+  margin: 4px 0;
+}
+
+.info-features ul {
+  margin: 4px 0 0 16px;
+  padding: 0;
+  color: #6b7280;
+}
+
+.info-features li {
+  margin: 2px 0;
 }
 
 .animate-spin {
@@ -924,30 +1034,38 @@ onMounted(async () => {
   to { transform: rotate(360deg); }
 }
 
-/* 地图容器 */
-.custom-map-container {
-  flex: 1;
-  width: 100%;
-  position: relative;
-  z-index: 1;
-  background: radial-gradient(ellipse at center, #f8fafc 0%, #e2e8f0 100%);
-  overflow: hidden;
-  border-radius: 0.5rem;
-}
-
+/* SVG 地图样式 */
 .world-map-svg {
   width: 100%;
   height: 100%;
   cursor: grab;
-  border-radius: 0.5rem;
-  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 50%, #f8fafc 100%);
 }
 
 .world-map-svg:active {
   cursor: grabbing;
 }
 
-/* 地图图例 */
+/* 移除所有hover特效 */
+.territory-boundary {
+  cursor: pointer;
+  transition: none;
+}
+
+.location-marker {
+  cursor: pointer;
+  transition: none;
+}
+
+/* 地图图例样式 */
+.custom-map-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 2px solid #e2e8f0;
+  background: #f8fafc;
+}
+
 .map-legend {
   position: absolute;
   top: 80px;
@@ -960,6 +1078,16 @@ onMounted(async () => {
   z-index: 1000;
   max-width: 220px;
   border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.world-map-svg {
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
+
+.world-map-svg:active {
+  cursor: grabbing;
 }
 
 .legend-title {
@@ -1016,6 +1144,45 @@ onMounted(async () => {
 }
 
 /* SVG地图元素样式 */
+.faction-emblem-text {
+  font-size: 14px;
+  font-weight: 700;
+  font-family: '微软雅黑', sans-serif;
+}
+
+.faction-name-text {
+  font-size: 12px;
+  font-weight: 600;
+  font-family: '微软雅黑', sans-serif;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.location-marker {
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.location-marker:hover {
+  transform: scale(1.1);
+}
+
+.location-name-label {
+  font-size: 10px;
+  font-weight: 600;
+  font-family: '微软雅黑', sans-serif;
+}
+
+.location-icon-text {
+  font-size: 8px;
+  font-weight: 600;
+}
+
+.player-name-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.9);
+}
+
 .terrain-layer {
   opacity: 0.8;
 }

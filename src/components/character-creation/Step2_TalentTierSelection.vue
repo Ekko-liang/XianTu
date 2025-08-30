@@ -88,27 +88,23 @@ const filteredTalentTiers = computed(() => {
   console.log("【天资选择】数据明细:", allTiers.map(t => ({ name: t.name, source: t.source, id: t.id })));
   
   if (store.isLocalCreation) {
-    const localTiers = allTiers.filter(tier => 
-      tier.source === 'local'
+    // 单机模式显示本地数据和云端同步的数据
+    const availableTiers = allTiers.filter(tier => 
+      tier.source === 'local' || tier.source === 'cloud'
     );
-    console.log("【天资选择】本地模式天资列表:", localTiers);
-    return localTiers;
+    console.log("【天资选择】单机模式可用天资列表:", availableTiers);
+    return availableTiers;
   } else {
-    const cloudTiers = allTiers.filter(tier => 
-      tier.source === 'cloud'
-    );
-    console.log("【天资选择】联机模式天资列表:", cloudTiers);
-    console.log("【天资选择】云端天资数量:", cloudTiers.length);
+    // 联机模式显示所有数据，包括本地数据作为后备
+    const availableTiers = allTiers.length > 0 ? allTiers : [];
+    console.log("【天资选择】联机模式天资列表:", availableTiers);
+    console.log("【天资选择】联机模式天资数量:", availableTiers.length);
     
-    if (cloudTiers.length === 0) {
-      console.warn("【天资选择】警告：联机模式下没有找到云端天资数据！");
-      console.log("【天资选择】所有天资的source分布:", allTiers.reduce((acc: any, t) => {
-        acc[t.source] = (acc[t.source] || 0) + 1;
-        return acc;
-      }, {}));
+    if (availableTiers.length === 0) {
+      console.warn("【天资选择】警告：联机模式下没有找到任何天资数据！");
     }
     
-    return cloudTiers;
+    return availableTiers;
   }
 });
 

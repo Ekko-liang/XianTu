@@ -85,9 +85,9 @@
       <!-- 天赋神通 -->
       <div v-if="characterInfo?.talents && characterInfo.talents.length > 0" class="collapsible-section talents-section">
         <div class="section-header" @click="talentsCollapsed = !talentsCollapsed">
-          <h3 class="section-title">天赋神通</h3>
+          <h3 class="section-title">🌟 天赋神通</h3>
           <button class="collapse-toggle" :class="{ 'collapsed': talentsCollapsed }">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
               <path d="M8 10l4-4H4l4 4z"/>
             </svg>
           </button>
@@ -96,23 +96,15 @@
           <div
             v-for="talent in characterInfo.talents"
             :key="talent"
-            class="talent-card clickable"
+            class="talent-item"
             @click="showTalentDetail(talent)"
           >
-            <div class="talent-header">
-              <div class="talent-info">
-                <span class="talent-name">{{ talent }}</span>
-                <span class="click-hint">点击查看详情</span>
-              </div>
-              <div class="talent-data">
-                <span class="talent-level">Lv.{{ getTalentLevel(talent) }}</span>
-                <span class="talent-progress-text">{{ getTalentExp(talent) }}/{{ getTalentMaxExp(talent) }}</span>
-              </div>
+            <div class="talent-content">
+              <div class="talent-name">{{ talent }}</div>
+              <div class="talent-level">Lv.{{ getTalentLevel(talent) }}/{{ getTalentMaxLevel(talent) }}</div>
             </div>
-            <div class="talent-progress">
-              <div class="progress-bar">
-                <div class="progress-fill talent" :style="{ width: getTalentProgress(talent) + '%' }"></div>
-              </div>
+            <div class="talent-progress-bar">
+              <div class="progress-fill talent" :style="{ width: getTalentProgress(talent) + '%' }"></div>
             </div>
           </div>
         </div>
@@ -121,41 +113,30 @@
       <!-- 状态效果 -->
       <div class="collapsible-section status-section">
         <div class="section-header" @click="statusCollapsed = !statusCollapsed">
-          <h3 class="section-title">状态效果</h3>
+          <h3 class="section-title">⚡ 状态效果</h3>
           <button class="collapse-toggle" :class="{ 'collapsed': statusCollapsed }">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
               <path d="M8 10l4-4H4l4 4z"/>
             </svg>
           </button>
         </div>
         <div v-show="!statusCollapsed" class="status-effects">
           <div v-if="statusEffects.length === 0" class="empty-status">
-            <span class="empty-text">暂无状态效果</span>
+            <span class="empty-text">清净无为</span>
           </div>
           <div v-else>
             <div
-              class="status-effect-card clickable"
+              class="status-item"
               v-for="effect in statusEffects"
               :key="effect.状态名称"
               :class="[effect.类型 === 'BUFF' ? 'buff' : 'debuff']"
               @click="showStatusDetail(effect)"
             >
-              <div class="effect-header">
-                <div class="effect-info">
-                  <span class="effect-name">{{ effect.状态名称 }}</span>
-                  <span class="click-hint">点击查看详情</span>
-                </div>
-                <div class="effect-data">
-                  <span class="effect-intensity" v-if="effect.强度">强度{{ effect.强度 }}</span>
-                  <span class="effect-time">{{ formatTimeDisplay(effect.时间) }}</span>
-                </div>
+              <div class="status-content">
+                <div class="status-name">{{ effect.状态名称 }}</div>
+                <div class="status-time">{{ formatTimeDisplay(effect.时间) }}</div>
               </div>
-              <div class="effect-description" v-if="effect.状态描述">
-                {{ effect.状态描述 }}
-              </div>
-              <div class="effect-source" v-if="effect.来源">
-                来源: {{ effect.来源 }}
-              </div>
+              <div v-if="effect.强度" class="status-intensity">{{ effect.强度 }}</div>
             </div>
           </div>
         </div>
@@ -468,6 +449,18 @@ const getTalentExp = (talent: string): number => {
 const getTalentMaxExp = (talent: string): number => {
   const talentData = tavernData.value?.saveData?.天赋神通?.[talent];
   return talentData?.经验?.最大 || talentData?.exp?.max || 100;
+};
+
+// 计算天赋最大等级
+const getTalentMaxLevel = (talent: string): number => {
+  const talentDescriptions: Record<string, number> = {
+    '天命主角': 10,
+    '慧根': 8,
+    '灵眼': 7,
+    '天灵根': 5,
+    '不朽体质': 6
+  };
+  return talentDescriptions[talent] || 10;
 };
 
 // 计算天赋进度百分比

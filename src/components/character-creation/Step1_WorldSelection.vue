@@ -91,11 +91,12 @@ const worldsList = computed(() => {
   console.log("【世界选择】当前模式:", store.isLocalCreation ? '本地' : '联机');
   
   if (store.isLocalCreation) {
-    const localWorlds = allWorlds.filter(world => 
-      world.source === 'local'
+    // 单机模式显示本地数据和云端同步的数据
+    const availableWorlds = allWorlds.filter(world => 
+      world.source === 'local' || world.source === 'cloud'
     );
-    console.log("【世界选择】本地模式世界列表:", localWorlds);
-    return localWorlds;
+    console.log("【世界选择】单机模式可用世界列表:", availableWorlds);
+    return availableWorlds;
   } else {
     const cloudWorlds = allWorlds.filter(world => 
       world.source === 'cloud'

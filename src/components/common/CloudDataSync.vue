@@ -79,7 +79,9 @@ async function handleSyncCloudData() {
       
       syncedData.worlds.forEach(world => {
         if (!store.creationData.worlds.some(w => w.id === world.id)) {
-          store.addWorld(world);
+          // 确保云端数据有正确的source标记
+          const cloudWorld = { ...world, source: 'cloud' as const };
+          store.addWorld(cloudWorld);
           console.log('[云端同步] 添加世界:', world.name);
           addedCount++;
         }
@@ -87,28 +89,32 @@ async function handleSyncCloudData() {
       
       syncedData.talentTiers.forEach(tier => {
         if (!store.creationData.talentTiers.some(t => t.id === tier.id)) {
-          store.addTalentTier(tier);
+          const cloudTier = { ...tier, source: 'cloud' as const };
+          store.addTalentTier(cloudTier);
           addedCount++;
         }
       });
       
       syncedData.origins.forEach(origin => {
         if (!store.creationData.origins.some(o => o.id === origin.id)) {
-          store.addOrigin(origin);
+          const cloudOrigin = { ...origin, source: 'cloud' as const };
+          store.addOrigin(cloudOrigin);
           addedCount++;
         }
       });
       
       syncedData.spiritRoots.forEach(root => {
         if (!store.creationData.spiritRoots.some(r => r.id === root.id)) {
-          store.addSpiritRoot(root);
+          const cloudRoot = { ...root, source: 'cloud' as const };
+          store.addSpiritRoot(cloudRoot);
           addedCount++;
         }
       });
       
       syncedData.talents.forEach(talent => {
         if (!store.creationData.talents.some(t => t.id === talent.id)) {
-          store.addTalent(talent);
+          const cloudTalent = { ...talent, source: 'cloud' as const };
+          store.addTalent(cloudTalent);
           addedCount++;
         }
       });

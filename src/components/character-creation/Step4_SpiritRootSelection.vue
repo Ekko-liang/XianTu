@@ -89,7 +89,7 @@ const isGeneratingAI = ref(false)
 const filteredSpiritRoots = computed(() => {
   if (store.isLocalCreation) {
     return store.creationData.spiritRoots.filter(root => 
-      root.source === 'local'
+      root.source === 'local' || root.source === 'cloud'
     );
   } else {
     return store.creationData.spiritRoots.filter(root => 

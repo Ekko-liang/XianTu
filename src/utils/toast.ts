@@ -7,8 +7,36 @@ interface ToastInstance {
   close: () => void;
 }
 
-// 用于追踪 loading 实例
+// 管理活跃的toast实例
+const activeToasts: Set<ToastInstance> = new Set();
 let loadingInstance: ToastInstance | null = null;
+
+// 消息防重复机制
+const recentMessages = new Map<string, number>();
+const MESSAGE_THROTTLE_TIME = 2000; // 2秒内相同消息只显示一次
+
+/**
+ * 检查消息是否应该被限制
+ */
+function shouldThrottleMessage(message: string): boolean {
+  const now = Date.now();
+  const lastShown = recentMessages.get(message);
+  
+  if (lastShown && (now - lastShown) < MESSAGE_THROTTLE_TIME) {
+    return true; // 限制显示
+  }
+  
+  recentMessages.set(message, now);
+  
+  // 清理过期的消息记录
+  for (const [msg, time] of recentMessages.entries()) {
+    if (now - time > MESSAGE_THROTTLE_TIME) {
+      recentMessages.delete(msg);
+    }
+  }
+  
+  return false;
+}
 
 /**
  * @description 自定义 Toast 管理器，使用 ThematicToast.vue 组件
@@ -21,6 +49,18 @@ class ToastManager {
    * @param duration - 显示时长（秒），loading 类型下此参数无效
    */
   private show(type: MessageType, content: string, duration: number = 3): ToastInstance | void {
+    // 检查是否应该限制消息显示（loading类型不限制）
+    if (type !== 'loading' && shouldThrottleMessage(content)) {
+      console.log(`[Toast] 消息被限制显示: ${content}`);
+      return;
+    }
+
+    // 限制同时显示的普通消息数量（最多3个）
+    if (type !== 'loading' && activeToasts.size >= 3) {
+      console.log(`[Toast] 消息数量已达上限，跳过: ${content}`);
+      return;
+    }
+
     // 如果是 loading 类型，且已有一个 loading 实例存在，则先销毁旧的
     if (type === 'loading' && loadingInstance) {
       this.hideLoading();
@@ -29,10 +69,13 @@ class ToastManager {
     const container = document.createElement('div');
     document.body.appendChild(container);
 
+    const toastIndex = Array.from(activeToasts).length;
+
     const app = createApp(ThematicToast, {
       type,
       message: content,
-      duration: duration * 1000, // 组件内部使用毫秒
+      duration: duration * 1000,
+      index: toastIndex,
       onDestroy: () => {
         app.unmount();
         if (document.body.contains(container)) {
@@ -41,17 +84,21 @@ class ToastManager {
         if (type === 'loading') {
           loadingInstance = null;
         }
+        activeToasts.delete(toastInstance);
       },
     });
 
     const instance = app.mount(container) as any;
 
+    const toastInstance = {
+      close: () => {
+        instance.close();
+      },
+    };
+
+    activeToasts.add(toastInstance);
+
     if (type === 'loading') {
-      const toastInstance = {
-        close: () => {
-          instance.close();
-        },
-      };
       loadingInstance = toastInstance;
       return toastInstance;
     }

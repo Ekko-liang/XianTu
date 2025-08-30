@@ -288,10 +288,10 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
       console.error("【创世神殿】从云端获取世界列表失败:", e);
       error.value = `获取云端世界列表失败: ${e instanceof Error ? e.message : '未知错误'}`;
       
-      // 失败时不提供任何备选数据，保持空列表
-      // 用户需要重新尝试或联系管理员
-      creationData.value.worlds = [];
-      console.warn("【创世神殿】云端数据获取失败，无法提供世界列表");
+      // 失败时提供本地数据作为备选
+      const localWorlds = LOCAL_WORLDS.map(w => ({ ...w, source: 'local' as DataSource }));
+      creationData.value.worlds = localWorlds;
+      console.warn("【创世神殿】云端数据获取失败，已提供本地备选数据");
     } finally {
       isLoading.value = false;
     }
@@ -361,14 +361,20 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
       console.error("【创世神殿】获取云端创世数据失败:", e);
       error.value = `获取云端创世数据失败: ${e instanceof Error ? e.message : '未知错误'}`;
       
-      // 失败时清空所有数据
-      creationData.value.worlds = [];
-      creationData.value.talentTiers = [];
-      creationData.value.origins = [];
-      creationData.value.spiritRoots = [];
-      creationData.value.talents = [];
+      // 失败时使用本地数据作为备选
+      const localWorlds = LOCAL_WORLDS.map(w => ({ ...w, source: 'local' as DataSource }));
+      const localTalentTiers = LOCAL_TALENT_TIERS.map(t => ({ ...t, source: 'local' as DataSource }));
+      const localOrigins = LOCAL_ORIGINS.map(o => ({ ...o, source: 'local' as DataSource }));
+      const localSpiritRoots = LOCAL_SPIRIT_ROOTS.map(s => ({ ...s, source: 'local' as DataSource }));
+      const localTalents = LOCAL_TALENTS.map(t => ({ ...t, source: 'local' as DataSource }));
       
-      console.warn("【创世神殿】云端数据获取失败，无法提供创世数据");
+      creationData.value.worlds = localWorlds;
+      creationData.value.talentTiers = localTalentTiers;
+      creationData.value.origins = localOrigins;
+      creationData.value.spiritRoots = localSpiritRoots;
+      creationData.value.talents = localTalents;
+      
+      console.warn("【创世神殿】云端数据获取失败，已提供本地备选数据");
     } finally {
       isLoading.value = false;
     }

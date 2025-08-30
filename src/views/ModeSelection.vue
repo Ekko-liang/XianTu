@@ -173,6 +173,8 @@ const enterCharacterSelection = () => {
 }
 
 .gate-icon {
+  display: flex;
+  justify-content: center;
   color: var(--color-primary);
   margin-bottom: 1.5rem;
   transition: all 0.4s ease;
