@@ -185,7 +185,7 @@ const fileInput = ref<HTMLInputElement>();
 
 // 获取存档列表
 const savesList = computed(() => {
-  return characterStore.saveSlots.filter((slot: SaveSlot) => slot !== null);
+  return characterStore.saveSlots.filter((slot: SaveSlot) => slot !== null && slot.存档数据 !== null);
 });
 
 // 获取当前存档

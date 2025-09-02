@@ -1,652 +1,426 @@
 <template>
-  <div class="inventory-panel game-panel">
-    <!-- 头部统计 -->
-    <div class="panel-header">
-      <div class="header-left">
-        <div class="header-icon">🎒</div>
-        <div class="header-info">
-          <h3 class="panel-title">储物袋</h3>
-          <span class="panel-subtitle">{{ totalItems }}/{{ maxCapacity }} 件物品</span>
+  <div class="inventory-panel-content">
+    <!-- 左侧: 筛选与物品列表 -->
+    <div class="item-list-column">
+      <div class="filters-bar">
+        <div class="search-bar">
+          <Search :size="16" class="search-icon" />
+          <input type="text" v-model="searchQuery" placeholder="搜索物品..." />
         </div>
+        <select v-model="selectedCategory" class="filter-select">
+          <option value="all">所有类型</option>
+          <option v-for="cat in itemCategories" :key="cat" :value="cat">{{ cat }}</option>
+        </select>
+        <select v-model="sortBy" class="filter-select">
+          <option value="default">默认排序</option>
+          <option value="quality">按品质</option>
+          <option value="name">按名称</option>
+        </select>
       </div>
-      <div class="header-actions">
-        <button class="action-btn" @click="sortItems" :disabled="loading">
-          <span class="btn-icon">📋</span>
-          <span class="btn-text">整理</span>
-        </button>
-        <button 
-          class="action-btn" 
-          @click="showTooltip = !showTooltip"
-          :class="{ active: showTooltip }"
-          :title="showTooltip ? '点击关闭悬停显示物品详情' : '点击开启悬停显示物品详情'"
-        >
-          <span class="btn-icon">{{ showTooltip ? '👁️' : '🚫' }}</span>
-          <span class="btn-text">{{ showTooltip ? '显示' : '关闭' }}</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- 灵石财富 -->
-    <div class="currency-section">
-      <div class="currency-header">
-        <span class="currency-title">💰 灵石财富</span>
-      </div>
-      <div class="currency-grid">
-        <div 
-          class="currency-item"
-          :class="getCurrencyClass(type)"
-          v-for="(amount, type) in inventory.灵石" 
-          :key="type"
-        >
-          <div class="currency-icon">💎</div>
-          <div class="currency-info">
-            <div class="currency-name">{{ type }}灵石</div>
-            <div class="currency-amount">{{ formatNumber(amount) }}</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 物品分类筛选 -->
-    <div class="filter-section">
-      <div class="filter-tabs">
-        <button 
-          v-for="filter in itemFilters" 
-          :key="filter.key"
-          class="filter-tab"
-          :class="{ active: activeFilter === filter.key }"
-          @click="setActiveFilter(filter.key)"
-        >
-          <span class="tab-icon">{{ filter.icon }}</span>
-          <span class="tab-name">{{ filter.name }}</span>
-          <span class="tab-count">{{ getFilterCount(filter.key) }}</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- 物品网格 -->
-    <div class="panel-content">
-      <div v-if="loading" class="loading-state">
-        <div class="loading-spinner">⏳</div>
-        <div class="loading-text">正在加载物品...</div>
-      </div>
-      
-      <div v-else-if="filteredItems.length === 0" class="empty-state">
-        <div class="empty-icon">📦</div>
-        <div class="empty-text">{{ getEmptyText() }}</div>
-      </div>
-
-      <div v-else class="items-grid">
-        <div 
-          v-for="item in displayItems" 
+      <div class="items-grid-container">
+        <div v-if="loading" class="grid-state-overlay">加载中...</div>
+        <div v-else-if="filteredItems.length === 0" class="grid-state-overlay">空空如也</div>
+        <div
+          v-for="item in filteredItems"
           :key="item.物品ID"
-          class="item-slot"
-          :class="[
-            'quality-' + getQualityLevel(item.品质),
-            { selected: selectedItem?.物品ID === item.物品ID }
-          ]"
-          @click="selectItem(item)"
-          @contextmenu.prevent="showItemMenu(item, $event)"
-          @mouseenter="showItemTooltip(item, $event)"
-          @mouseleave="hideItemTooltip"
+          class="item-cell"
+          :class="[getItemQualityClass(item), { selected: selectedItem && selectedItem.物品ID === item.物品ID }]"
+          @click="selectedItem = item"
         >
-          <div class="item-bg"></div>
-          <div class="item-icon">{{ getItemIcon(item.类型) }}</div>
-          <div class="item-quality-badge">{{ getQualityText(item.品质) }}</div>
-          <div v-if="item.数量 > 1" class="item-quantity">{{ item.数量 }}</div>
-          <div v-if="item.耐久度" class="item-durability">
-            <div class="durability-bar">
-              <div 
-                class="durability-fill" 
-                :style="{ width: getDurabilityPercent(item.耐久度) + '%' }"
-              ></div>
-            </div>
+          <div class="item-icon">
+            <component :is="getItemIconComponent(item)" :size="32" />
+          </div>
+          <div class="item-quantity" v-if="item.数量 > 1">{{ item.数量 }}</div>
+        </div>
+      </div>
+       <div class="currency-bar">
+        <div class="currency-item" v-for="grade in spiritStoneGrades" :key="grade.name">
+          <div class="currency-top-line">
+            <Gem :size="16" :class="grade.colorClass" />
+            <span class="currency-amount">{{ inventory.灵石[grade.name] || 0 }}</span>
+          </div>
+          <div class="currency-bottom-line">
+            {{ grade.name }}灵石
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 物品悬浮详情 -->
-    <div 
-      v-if="hoveredItem" 
-      class="item-tooltip"
-      :style="{ left: hoverPosition.x + 'px', top: hoverPosition.y + 'px' }"
-    >
-      <div class="tooltip-header">
-        <div class="tooltip-name">{{ hoveredItem.名称 }}</div>
-        <div class="tooltip-badges">
-          <span class="tooltip-type">{{ hoveredItem.类型 }}</span>
-          <span 
-            class="tooltip-quality" 
-            :class="'quality-' + getQualityLevel(hoveredItem.品质)"
-          >
-            {{ getQualityText(hoveredItem.品质) }}品
-          </span>
+    <!-- 右侧: 物品详情 -->
+    <div class="item-details-column">
+      <div v-if="selectedItem" class="details-content">
+        <div class="details-header">
+          <div class="details-icon" :class="getItemQualityClass(selectedItem)">
+            <component :is="getItemIconComponent(selectedItem)" :size="40" />
+          </div>
+          <div class="details-title">
+            <h3 :class="getItemQualityClass(selectedItem, 'text')">{{ selectedItem.名称 }}</h3>
+            <span class="details-meta">{{ selectedItem.类型 }} / {{ selectedItem.品质?.quality || '凡品' }}</span>
+          </div>
+        </div>
+        <div class="details-body">
+          <p class="details-description">{{ selectedItem.描述 }}</p>
+          <div v-if="selectedItem.装备增幅" class="details-attributes">
+            <h4>装备增幅</h4>
+            <ul>
+              <li v-for="(value, key) in selectedItem.装备增幅" :key="key">
+                <span>{{ key }}</span>
+                <span>+{{ value }}</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div class="details-actions">
+          <button class="action-btn use-btn">使用</button>
+          <button class="action-btn">丢弃</button>
         </div>
       </div>
-      
-      <div class="tooltip-content">
-        <div v-if="hoveredItem.描述" class="tooltip-description">
-          {{ hoveredItem.描述 }}
-        </div>
-        
-        <div v-if="hoveredItem.装备增幅" class="tooltip-stats">
-          <div class="tooltip-section-title">装备增幅</div>
-          <div v-if="hoveredItem.装备增幅.气血上限" class="tooltip-stat">
-            <span>气血上限</span>
-            <span class="stat-value">+{{ hoveredItem.装备增幅.气血上限 }}</span>
-          </div>
-          <div v-if="hoveredItem.装备增幅.灵气上限" class="tooltip-stat">
-            <span>灵气上限</span>
-            <span class="stat-value">+{{ hoveredItem.装备增幅.灵气上限 }}</span>
-          </div>
-          <div v-if="hoveredItem.装备增幅.神识上限" class="tooltip-stat">
-            <span>神识上限</span>
-            <span class="stat-value">+{{ hoveredItem.装备增幅.神识上限 }}</span>
-          </div>
-        </div>
-
-        <div v-if="hoveredItem.装备特效?.length" class="tooltip-effects">
-          <div class="tooltip-section-title">装备特效</div>
-          <div v-for="effect in hoveredItem.装备特效" :key="effect" class="tooltip-effect">
-            {{ effect }}
-          </div>
-        </div>
-
-        <div class="tooltip-info">
-          <div class="tooltip-info-item">
-            <span>数量：{{ hoveredItem.数量 }}</span>
-          </div>
-          <div v-if="hoveredItem.耐久度" class="tooltip-info-item">
-            <span>耐久：{{ hoveredItem.耐久度.当前 }}/{{ hoveredItem.耐久度.最大 }}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 物品详情面板 -->
-    <div v-if="selectedItem" class="item-detail-panel">
-      <div class="detail-header">
-        <div class="item-title">
-          <h4 class="item-name">{{ selectedItem.名称 }}</h4>
-          <div class="item-badges">
-            <span class="type-badge">{{ selectedItem.类型 }}</span>
-            <span 
-              class="quality-badge" 
-              :class="'quality-' + getQualityLevel(selectedItem.品质)"
-            >
-              {{ getQualityText(selectedItem.品质) }}品
-            </span>
-          </div>
-        </div>
-        <button class="close-btn" @click="selectedItem = null">✕</button>
-      </div>
-
-      <div class="detail-content">
-        <div v-if="selectedItem.描述" class="item-description">
-          <h5>物品描述</h5>
-          <p>{{ selectedItem.描述 }}</p>
-        </div>
-
-        <div v-if="selectedItem.装备增幅" class="item-stats">
-          <h5>装备增幅</h5>
-          <div class="stats-grid">
-            <div v-if="selectedItem.装备增幅.气血上限" class="stat-item">
-              <span class="stat-name">气血上限</span>
-              <span class="stat-value">+{{ selectedItem.装备增幅.气血上限 }}</span>
-            </div>
-            <div v-if="selectedItem.装备增幅.灵气上限" class="stat-item">
-              <span class="stat-name">灵气上限</span>
-              <span class="stat-value">+{{ selectedItem.装备增幅.灵气上限 }}</span>
-            </div>
-            <div v-if="selectedItem.装备增幅.神识上限" class="stat-item">
-              <span class="stat-name">神识上限</span>
-              <span class="stat-value">+{{ selectedItem.装备增幅.神识上限 }}</span>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="selectedItem.装备特效?.length" class="item-effects">
-          <h5>装备特效</h5>
-          <div class="effects-list">
-            <div v-for="effect in selectedItem.装备特效" :key="effect" class="effect-item">
-              {{ effect }}
-            </div>
-          </div>
-        </div>
-
-        <div class="item-info-grid">
-          <div class="info-item">
-            <span class="info-label">数量</span>
-            <span class="info-value">{{ selectedItem.数量 }}</span>
-          </div>
-          <div v-if="selectedItem.耐久度" class="info-item">
-            <span class="info-label">耐久度</span>
-            <span class="info-value">
-              {{ selectedItem.耐久度.当前 }}/{{ selectedItem.耐久度.最大 }}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div class="detail-actions">
-        <button 
-          v-if="canUseItem(selectedItem)" 
-          class="action-btn primary" 
-          @click="useItem(selectedItem)"
-        >
-          使用物品
-        </button>
-        <button 
-          v-if="canEquipItem(selectedItem)" 
-          class="action-btn secondary" 
-          @click="equipItem(selectedItem)"
-        >
-          装备物品
-        </button>
-        <button class="action-btn danger" @click="dropItem(selectedItem)">
-          丢弃物品
-        </button>
+      <div v-else class="details-placeholder">
+        <BoxSelect :size="48" />
+        <p>选择一个物品查看详情</p>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue';
+import { ref, computed, onMounted, Component } from 'vue';
+import { Search, Sword, Book, Pill, Shield, Box, BoxSelect, Gem } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
-import { getTavernHelper } from '@/utils/tavern';
-import { toast } from '@/utils/toast';
 import type { Item, Inventory } from '@/types/game';
 
 const characterStore = useCharacterStore();
-
-// 响应式数据
 const loading = ref(false);
-const activeFilter = ref('all');
 const selectedItem = ref<Item | null>(null);
-const hoveredItem = ref<Item | null>(null);
-const hoverPosition = ref({ x: 0, y: 0 });
-const showTooltip = ref(true); // 控制是否显示悬停详情
+const searchQuery = ref('');
+const selectedCategory = ref('all');
+const sortBy = ref('default');
 
-// 默认背包数据
-const inventory = ref<Inventory>({
-  灵石: {
-    下品: 0,
-    中品: 0,
-    上品: 0,
-    极品: 0
-  },
-  物品: {}
+const inventory = computed<Inventory>(() => characterStore.activeSaveSlot?.存档数据?.背包 || { 
+  灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 }, 
+  物品: {} 
 });
 
-// 物品筛选配置
-const itemFilters = [
-  { key: 'all', name: '全部', icon: '📦' },
-  { key: '法宝', name: '法宝', icon: '⚔️' },
-  { key: '功法', name: '功法', icon: '📜' },
-  { key: '其他', name: '其他', icon: '📋' },
-];
+const itemList = computed<Item[]>(() => Object.values(inventory.value.物品 || {}));
 
-// 计算属性
-const allItems = computed(() => Object.values(inventory.value.物品));
+const itemCategories = computed(() => {
+  const categories = new Set(itemList.value.map(item => item.类型));
+  return Array.from(categories);
+});
+
+const qualityOrder: { [key: string]: number } = { '凡': 1, '人': 2, '地': 3, '天': 4, '仙': 5, '神': 6 };
 
 const filteredItems = computed(() => {
-  if (activeFilter.value === 'all') return allItems.value;
-  return allItems.value.filter(item => {
-    // 将丹药和材料归类到其他
-    if (activeFilter.value === '其他') {
-      return item.类型 === '其他' || item.类型 === '丹药' || item.类型 === '材料';
-    }
-    return item.类型 === activeFilter.value;
-  });
+  let items = [...itemList.value];
+
+  if (searchQuery.value) {
+    items = items.filter(item => item.名称.includes(searchQuery.value));
+  }
+
+  if (selectedCategory.value !== 'all') {
+    items = items.filter(item => item.类型 === selectedCategory.value);
+  }
+
+  if (sortBy.value === 'quality') {
+    items.sort((a, b) => (qualityOrder[b.品质?.quality || '凡'] || 0) - (qualityOrder[a.品质?.quality || '凡'] || 0));
+  } else if (sortBy.value === 'name') {
+    items.sort((a, b) => a.名称.localeCompare(b.名称));
+  }
+  
+  return items;
 });
 
-const displayItems = computed(() => {
-  return filteredItems.value.slice(0, 50); // 限制显示数量防止性能问题
-});
-
-const totalItems = computed(() => {
-  return allItems.value.reduce((total, item) => total + item.数量, 0);
-});
-
-const maxCapacity = computed(() => 100); // 可以根据实际逻辑调整
-
-// 获取筛选数量
-const getFilterCount = (filterKey: string): number => {
-  if (filterKey === 'all') return allItems.value.length;
-  if (filterKey === '其他') {
-    return allItems.value.filter(item => 
-      item.类型 === '其他' || item.类型 === '丹药' || item.类型 === '材料'
-    ).length;
-  }
-  return allItems.value.filter(item => item.类型 === filterKey).length;
+const getItemIconComponent = (item: Item): Component => {
+  const typeMap: { [key: string]: Component } = { '法宝': Sword, '功法': Book, '丹药': Pill, '防具': Shield };
+  return typeMap[item.类型] || Box;
 };
 
-// 获取空状态文本
-const getEmptyText = (): string => {
-  if (activeFilter.value === 'all') return '储物袋空空如也，踏上修仙路寻觅宝物吧';
-  const filter = itemFilters.find(f => f.key === activeFilter.value);
-  return `道友尚未获得${filter?.name}类物品，继续修行必有所得`;
+const getItemQualityClass = (item: Item, type: 'border' | 'text' = 'border'): string => {
+  const quality = item.品质?.quality || '凡';
+  return `${type}-quality-${quality}`;
 };
 
-// 获取货币类名
-const getCurrencyClass = (type: string): string => {
-  const classMap: Record<string, string> = {
-    '下品': 'currency-lower',
-    '中品': 'currency-middle',
-    '上品': 'currency-upper',
-    '极品': 'currency-supreme'
-  };
-  return classMap[type] || 'currency-common';
-};
+const spiritStoneGrades = [
+    { name: '极品', colorClass: 'text-red-400' },
+    { name: '上品', colorClass: 'text-amber-400' },
+    { name: '中品', colorClass: 'text-sky-400' },
+    { name: '下品', colorClass: 'text-slate-400' },
+] as const satisfies Readonly<{name: keyof Inventory['灵石'], colorClass: string}[]>;
 
-// 获取货币图标
-const getCurrencyIcon = (type: string): string => {
-  const iconMap: Record<string, string> = {
-    '下品': '💎',
-    '中品': '💎', 
-    '上品': '💎',
-    '极品': '💎'
-  };
-  return iconMap[type] || '💰';
-};
-
-// 格式化数字
-const formatNumber = (num: number): string => {
-  if (num >= 10000) return (num / 10000).toFixed(1) + '万';
-  return num.toString();
-};
-
-// 获取物品图标
-const getItemIcon = (type: string): string => {
-  const iconMap: Record<string, string> = {
-    '法宝': '⚔️',
-    '功法': '📜',
-    '丹药': '💊',
-    '材料': '🔧',
-    '其他': '📦'
-  };
-  return iconMap[type] || '📦';
-};
-
-// 获取品质等级
-const getQualityLevel = (quality: any): string => {
-  if (typeof quality === 'object') {
-    return quality.quality || quality.阶位 || 'common';
-  }
-  return quality || 'common';
-};
-
-// 获取品质文本
-const getQualityText = (quality: any): string => {
-  if (typeof quality === 'object') {
-    return quality.quality || quality.阶位 || '凡';
-  }
-  return quality || '凡';
-};
-
-// 获取耐久度百分比
-const getDurabilityPercent = (durability: { 当前: number; 最大: number }): number => {
-  return (durability.当前 / durability.最大) * 100;
-};
-
-// 设置活跃筛选器
-const setActiveFilter = (filterKey: string) => {
-  activeFilter.value = filterKey;
-  selectedItem.value = null;
-};
-
-// 鼠标悬停显示详情
-const showItemTooltip = (item: Item, event: MouseEvent) => {
-  if (!showTooltip.value) return; // 如果关闭了悬停显示，直接返回
-  hoveredItem.value = item;
-  hoverPosition.value = { x: event.clientX, y: event.clientY };
-};
-
-const hideItemTooltip = () => {
-  hoveredItem.value = null;
-};
-
-// 切换悬停详情显示
-const toggleTooltip = () => {
-  showTooltip.value = !showTooltip.value;
-  if (!showTooltip.value) {
-    hoveredItem.value = null; // 关闭时隐藏当前的tooltip
-  }
-};
-
-// 选择物品
-const selectItem = (item: Item) => {
-  selectedItem.value = selectedItem.value?.物品ID === item.物品ID ? null : item;
-};
-
-// 物品操作方法
-const canUseItem = (item: Item): boolean => {
-  return (item.类型 === '丹药' || item.类型 === '其他') && (!!item.使用效果 || item.类型 === '丹药');
-};
-
-const canEquipItem = (item: Item): boolean => {
-  return item.类型 === '法宝' && !!item.装备增幅;
-};
-
-const useItem = (item: Item) => {
-  toast.info(`使用物品：${item.名称}`);
-  selectedItem.value = null;
-};
-
-const equipItem = (item: Item) => {
-  toast.info(`装备物品：${item.名称}`);
-  selectedItem.value = null;
-};
-
-const dropItem = (item: Item) => {
-  if (confirm(`确定要丢弃 ${item.名称} x${item.数量} 吗？`)) {
-    toast.warning(`丢弃了物品：${item.名称}`);
-    selectedItem.value = null;
-  }
-};
-
-// 物品菜单
-const showItemMenu = (item: Item, event: MouseEvent) => {
-  // 这里可以实现右键菜单功能
-  console.log('右键菜单:', item, event);
-};
-
-// 整理物品
-const sortItems = () => {
-  toast.info('物品已整理');
-};
-
-// 加载背包数据
-const loadInventoryData = async () => {
-  try {
-    loading.value = true;
-    
-    const activeSave = characterStore.activeSaveSlot;
-    if (activeSave?.存档数据?.背包) {
-      inventory.value = activeSave.存档数据.背包;
-    }
-
-    // 尝试从酒馆变量获取数据
-    const helper = getTavernHelper();
-    if (helper) {
-      const chatVars = await helper.getVariables({ type: 'chat' });
-      const character = chatVars.character as any;
-      
-      if (character?.inventory) {
-        inventory.value = character.inventory;
-      }
-    }
-
-  } catch (error) {
-    console.error('[背包系统] 加载数据失败:', error);
-    toast.error('背包数据加载失败');
-  } finally {
-    loading.value = false;
-  }
-};
 
 onMounted(() => {
-  loadInventoryData();
+  if (!selectedItem.value && filteredItems.value.length > 0) {
+    selectedItem.value = filteredItems.value[0];
+  }
 });
 </script>
 
 <style scoped>
-/* 背包面板特定样式 - 基于统一主题 */
-.inventory-panel {
-  /* 使用统一的 game-panel 基础样式 */
+.inventory-panel-content {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
 }
 
-/* 物品槽特定样式 */
-.item-slot {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 0.75rem;
-  cursor: pointer;
-  transition: var(--transition-fast);
+/* Left Column */
+.item-list-column {
+  width: 60%;
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.filters-bar {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+  align-items: center;
+}
+.search-bar {
   position: relative;
+  flex-grow: 1;
+}
+.search-icon {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-secondary);
+}
+.search-bar input {
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 8px 8px 8px 32px;
+  width: 100%;
+  transition: all 0.2s ease;
+}
+.search-bar input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-light);
+}
+.filter-select {
+  flex-grow: 1;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 8px;
+  max-width: 150px;
+}
+.items-grid-container {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));
+  gap: 12px;
+  align-content: flex-start;
+}
+.grid-state-overlay {
+  grid-column: 1 / -1;
+  text-align: center;
+  margin-top: 48px;
+  color: var(--color-text-secondary);
+}
+.item-cell {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  background: var(--color-surface-hover);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.item-cell:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.item-cell.selected {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary);
+}
+.item-icon {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+}
+.item-quantity {
+  position: absolute;
+  bottom: 2px; right: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text);
+  text-shadow: 0 0 2px var(--color-background);
+}
+.currency-bar {
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    gap: 1rem;
+    padding: 0.75rem;
+    border-top: 1px solid var(--color-border);
+    flex-shrink: 0;
+    background-color: var(--color-surface);
+    flex-wrap: wrap; /* 允许换行 */
+}
+.currency-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-lg); /* 更圆的边角 */
+    background-color: var(--color-background);
+    border: 1px solid var(--color-border-hover);
+    min-width: 80px;
+    transition: all 0.2s ease;
+}
+.currency-item:hover {
+    transform: translateY(-2px);
+    border-color: var(--color-primary);
+    background-color: var(--color-surface-hover);
+}
+.currency-top-line {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.currency-bottom-line {
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+}
+.currency-amount {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--color-text);
+}
+
+/* Right Column */
+.item-details-column {
+  width: 40%;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-background);
+}
+.details-placeholder {
+  flex-grow: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
-  min-height: 120px;
-}
-
-.item-slot:hover {
-  background: var(--color-surface-light);
-  border-color: var(--color-border-hover);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.1);
-}
-
-.item-slot.selected {
-  border-color: var(--color-primary);
-  background: rgba(var(--color-primary-rgb), 0.05);
-  box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb), 0.2);
-}
-
-.item-slot.empty {
-  background: var(--color-surface-light);
-  border-style: dashed;
-  opacity: 0.6;
-}
-
-/* 稀有度边框颜色 */
-.item-slot.common { border-left: 3px solid var(--color-spiritual); }
-.item-slot.uncommon { border-left: 3px solid var(--color-success); }
-.item-slot.rare { border-left: 3px solid var(--color-info); }
-.item-slot.epic { border-left: 3px solid var(--color-accent); }
-.item-slot.legendary { 
-  border-left: 3px solid var(--color-warning); 
-  box-shadow: 0 0 10px rgba(var(--color-warning-rgb), 0.3);
-}
-
-.item-icon {
-  font-size: 2rem;
-  margin-bottom: 0.25rem;
-}
-
-.item-name {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--color-text);
+  justify-content: center;
   text-align: center;
-  line-height: 1.2;
+  color: var(--color-text-secondary);
+  padding: 24px;
 }
-
-.item-count {
-  position: absolute;
-  top: 0.25rem;
-  right: 0.25rem;
-  background: var(--color-primary);
-  color: var(--color-background);
-  font-size: 0.65rem;
-  font-weight: 600;
-  padding: 0.125rem 0.375rem;
-  border-radius: 0.75rem;
-  min-width: 1.25rem;
-  text-align: center;
+.details-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
-
-/* 稀有度标签样式 */
-.item-rarity {
-  position: absolute;
-  bottom: 0.25rem;
-  left: 0.25rem;
-  font-size: 0.6rem;
-  padding: 0.125rem 0.25rem;
-  border-radius: 0.25rem;
-  font-weight: 600;
-}
-
-.rarity-common {
-  background: rgba(var(--color-spiritual), 0.2);
-  color: var(--color-spiritual);
-}
-
-.rarity-uncommon {
-  background: rgba(var(--color-success-rgb), 0.2);
-  color: var(--color-success);
-}
-
-.rarity-rare {
-  background: rgba(var(--color-info-rgb), 0.2);
-  color: var(--color-info);
-}
-
-.rarity-epic {
-  background: rgba(var(--color-accent-rgb), 0.2);
-  color: var(--color-accent);
-}
-
-.rarity-legendary {
-  background: rgba(var(--color-warning-rgb), 0.2);
-  color: var(--color-warning);
-}
-
-/* 悬停提示样式 */
-.item-hover-tooltip {
-  position: absolute;
-  z-index: 1000;
-  min-width: 280px;
-  max-width: 320px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 1rem;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-  font-size: 0.875rem;
-  pointer-events: none;
-  backdrop-filter: blur(10px);
-}
-
-.tooltip-header {
+.details-header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-  padding-bottom: 0.5rem;
+  gap: 16px;
+  padding: 16px;
   border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
 }
-
-.tooltip-title {
-  font-weight: 600;
-  color: var(--color-text);
+.details-icon {
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--color-surface-hover);
+  border: 2px solid var(--color-border);
+}
+.details-title h3 {
+  font-size: 1.25rem;
   margin: 0;
 }
-
-.tooltip-type {
-  font-size: 0.75rem;
+.details-title .details-meta {
+  font-size: 0.875rem;
   color: var(--color-text-secondary);
 }
-
-.tooltip-description {
-  color: var(--color-text);
-  line-height: 1.4;
-  font-size: 0.8rem;
+.details-body {
+  flex-grow: 1;
+  padding: 16px;
+  overflow-y: auto;
+}
+.details-description {
+  margin-bottom: 24px;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+.details-attributes h4 {
+  font-size: 1rem;
+  margin-bottom: 8px;
+}
+.details-attributes ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.details-attributes li {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+.details-actions {
+  display: flex;
+  gap: 8px;
+  padding: 16px;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+.action-btn {
+  flex-grow: 1;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-hover);
+  cursor: pointer;
+  font-weight: 500;
+}
+.action-btn.use-btn {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
 }
 
-/* 移除所有深色主题硬编码，使用统一CSS变量 */
+/* Quality Colors */
+.border-quality-神 { border-color: #ef4444; }
+.border-quality-仙 { border-color: #f59e0b; }
+.border-quality-天 { border-color: #8b5cf6; }
+.border-quality-地 { border-color: #3b82f6; }
+.border-quality-人 { border-color: #10b981; }
+.border-quality-凡 { border-color: var(--color-border); }
+.text-quality-神 { color: #ef4444; }
+.text-quality-仙 { color: #f59e0b; }
+.text-quality-天 { color: #8b5cf6; }
+.text-quality-地 { color: #3b82f6; }
+.text-quality-人 { color: #10b981; }
+.text-quality-凡 { color: var(--color-text); }
+
+@media (max-width: 900px) {
+  .inventory-panel-content {
+    flex-direction: column;
+  }
+  .item-list-column, .item-details-column {
+    width: 100%;
+    height: 50%;
+  }
+  .item-list-column {
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+  }
+}
 </style>

@@ -139,6 +139,7 @@ const toggleMode = () => {
 };
 
 const handleRegister = async () => {
+  if (isLoading.value) return; // 防止重复提交
   if (password.value !== confirmPassword.value) {
     error.value = '两次输入的令牌不一致！';
     return;
@@ -189,6 +190,7 @@ const handleRegister = async () => {
 };
 
 const handleLogin = async () => {
+  if (isLoading.value) return; // 防止重复提交
   if (!turnstileToken.value && !isDev) {
     error.value = '请先完成人机验证。';
     toast.error('请先完成人机验证。');

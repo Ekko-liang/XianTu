@@ -884,20 +884,20 @@ ${actualDifficulty === '困难' ? `
     prompt += '[\n';
     prompt += '  {\n';
     prompt += '    "operation": "add",\n';
-    prompt += '    "variable": "DAD_GameData",\n';
-    prompt += '    "path": "saveData.玩家角色状态.气血.当前",\n';
+    prompt += '    "variable": "character.saveData",\n';
+    prompt += '    "path": "玩家角色状态.气血.当前",\n';
     prompt += '    "value": 5\n';
     prompt += '  },\n';
     prompt += '  {\n';
     prompt += '    "operation": "set",\n';
-    prompt += '    "variable": "DAD_GameData",\n';
-    prompt += '    "path": "saveData.玩家角色状态.位置.描述",\n';
+    prompt += '    "variable": "character.saveData",\n';
+    prompt += '    "path": "玩家角色状态.位置.描述",\n';
     prompt += '    "value": "青云山脉半山腰的隐秘洞府"\n';
     prompt += '  },\n';
     prompt += '  {\n';
     prompt += '    "operation": "push",\n';
-    prompt += '    "variable": "DAD_GameData",\n';
-    prompt += '    "path": "saveData.玩家角色状态.状态效果",\n';
+    prompt += '    "variable": "character.saveData",\n';
+    prompt += '    "path": "玩家角色状态.状态效果",\n';
     prompt += '    "value": {"类型": "BUFF", "名称": "灵气充盈", "描述": "修炼效率提升10%", "持续时间": "3天"}\n';
     prompt += '  }\n';
     prompt += ']\n';
@@ -905,14 +905,14 @@ ${actualDifficulty === '困难' ? `
     
     // 添加常见操作路径指导
     prompt += '[常用数据路径]\n';
-    prompt += '- 基础属性：saveData.玩家角色状态.{气血|灵气|神识}.{当前|最大}\n';
-    prompt += '- 境界信息：saveData.玩家角色状态.境界.{名称|层次|修为进度}\n';
-    prompt += '- 位置信息：saveData.玩家角色状态.位置.{描述|坐标|区域}\n';
-    prompt += '- 背包物品：saveData.玩家角色状态.背包.物品\n';
-    prompt += '- 状态效果：saveData.玩家角色状态.状态效果\n';
-    prompt += '- 声望系统：saveData.玩家角色状态.声望\n';
-    prompt += '- 宗门信息：saveData.玩家角色状态.宗门信息.{贡献点|关系状态|职位|声望}\n';
-    prompt += '- 记忆系统：saveData.记忆.{短期记忆|长期记忆|重要事件}\n\n';
+    prompt += '- 基础属性：玩家角色状态.{气血|灵气|神识}.{当前|最大}\n';
+    prompt += '- 境界信息：玩家角色状态.境界.{名称|层次|修为进度}\n';
+    prompt += '- 位置信息：玩家角色状态.位置.{描述|坐标|区域}\n';
+    prompt += '- 背包物品：玩家角色状态.背包.物品\n';
+    prompt += '- 状态效果：玩家角色状态.状态效果\n';
+    prompt += '- 声望系统：玩家角色状态.声望\n';
+    prompt += '- 宗门信息：玩家角色状态.宗门信息.{贡献点|关系状态|职位|声望}\n';
+    prompt += '- 记忆系统：记忆.{短期记忆|长期记忆|重要事件}\n\n';
     
     // 最终合理性检查
     prompt += rationalityPrompts.最终检查 + '\n\n';
@@ -994,7 +994,7 @@ ${actualDifficulty === '困难' ? `
     "operation": "add",
     "variable": "DAD_GameData", 
     "value": 5,
-    "path": "saveData.玩家角色状态.气血.当前"
+    "path": "玩家角色状态.气血.当前"
   }
 ]
 \`\`\``,
@@ -1007,7 +1007,7 @@ ${actualDifficulty === '困难' ? `
     "operation": "add",
     "variable": "DAD_GameData",
     "value": 10,
-    "path": "saveData.玩家角色状态.修为.当前"
+    "path": "玩家角色状态.修为.当前"
   }
 ]
 \`\`\``,

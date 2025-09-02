@@ -55,105 +55,34 @@ async function handleSyncCloudData() {
 
   isSyncing.value = true;
   emit('syncStarted');
+  const toastId = 'cloud-sync-toast';
+  toast.loading('正在获取云端数据...', { id: toastId });
   
   try {
-    // 检查云端服务是否可用
-    const isAvailable = await cloudDataSync.checkCloudDataAvailability();
-    if (!isAvailable) {
-      toast.warning('云端服务暂时不可用，请稍后再试');
-      return;
-    }
-
-    // 同步云端数据
-    const result = await cloudDataSync.syncCloudData();
+    const newItemsCount = await store.fetchAllCloudData();
     
-    if (result.success) {
-      // 获取同步后的数据
-      const syncedData = cloudDataSync.getSyncedCloudData();
-      
-      console.log('[云端同步] 开始添加数据到store...');
-      console.log('[云端同步] 同步的数据:', syncedData);
-      
-      // 直接使用store的add方法，这会自动标记为cloud并持久化到酒馆
-      let addedCount = 0;
-      
-      syncedData.worlds.forEach(world => {
-        if (!store.creationData.worlds.some(w => w.id === world.id)) {
-          // 确保云端数据有正确的source标记
-          const cloudWorld = { ...world, source: 'cloud' as const };
-          store.addWorld(cloudWorld);
-          console.log('[云端同步] 添加世界:', world.name);
-          addedCount++;
-        }
-      });
-      
-      syncedData.talentTiers.forEach(tier => {
-        if (!store.creationData.talentTiers.some(t => t.id === tier.id)) {
-          const cloudTier = { ...tier, source: 'cloud' as const };
-          store.addTalentTier(cloudTier);
-          addedCount++;
-        }
-      });
-      
-      syncedData.origins.forEach(origin => {
-        if (!store.creationData.origins.some(o => o.id === origin.id)) {
-          const cloudOrigin = { ...origin, source: 'cloud' as const };
-          store.addOrigin(cloudOrigin);
-          addedCount++;
-        }
-      });
-      
-      syncedData.spiritRoots.forEach(root => {
-        if (!store.creationData.spiritRoots.some(r => r.id === root.id)) {
-          const cloudRoot = { ...root, source: 'cloud' as const };
-          store.addSpiritRoot(cloudRoot);
-          addedCount++;
-        }
-      });
-      
-      syncedData.talents.forEach(talent => {
-        if (!store.creationData.talents.some(t => t.id === talent.id)) {
-          const cloudTalent = { ...talent, source: 'cloud' as const };
-          store.addTalent(cloudTalent);
-          addedCount++;
-        }
-      });
-      
-      console.log('[云端同步] 数据添加完成，当前worlds数量:', store.creationData.worlds.length);
-      console.log('[云端同步] 云端模式worlds:', store.creationData.worlds.filter(w => w.source === 'cloud').map(w => w.name));
-      
-      const totalNewItems = result.newItems.worlds + result.newItems.talentTiers + 
-                           result.newItems.origins + result.newItems.spiritRoots + 
-                           result.newItems.talents;
-
-      if (totalNewItems > 0) {
-        toast.success(`成功获取云端数据！新增 ${addedCount} 项内容`);
-        hasSynced.value = true;
-      } else {
-        toast.info('所有云端数据已是最新');
-        hasSynced.value = true;
-      }
-
-      emit('syncCompleted', {
-        success: true,
-        newItemsCount: addedCount,
-        message: result.message
-      });
+    if (newItemsCount > 0) {
+      toast.success(`同步成功！新增 ${newItemsCount} 项云端数据`, { id: toastId });
+      hasSynced.value = true;
     } else {
-      toast.error('获取云端数据失败：' + result.message);
-      emit('syncCompleted', {
-        success: false,
-        newItemsCount: 0,
-        message: result.message
-      });
+      toast.info('所有云端数据已是最新', { id: toastId });
+      hasSynced.value = true;
     }
+
+    emit('syncCompleted', {
+      success: true,
+      newItemsCount: newItemsCount,
+      message: '同步成功'
+    });
+
   } catch (error) {
     console.error('[云端同步组件] 同步云端数据失败:', error);
-    toast.error('同步失败，请检查网络连接');
+    const message = error instanceof Error ? error.message : '同步失败';
+    toast.error(`同步失败: ${message}`, { id: toastId });
     emit('syncCompleted', {
       success: false,
       newItemsCount: 0,
-      message: error instanceof Error ? error.message : '同步失败'
+      message: message
     });
   } finally {
     isSyncing.value = false;

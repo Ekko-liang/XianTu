@@ -191,7 +191,16 @@ export async function fetchTalents(): Promise<any[]> {
   try {
     const talents = await request.get<any[]>('/api/v1/talents/');
     console.log('[API] 成功获取天赋列表:', talents);
-    return talents || [];
+    
+    // 转换后端数据结构，提取tier_id
+    const convertedTalents = (talents || []).map(talent => ({
+      ...talent,
+      tier_id: talent.tier?.id || null, // 从嵌套的tier对象中提取id
+      // 保留原有的tier对象以备后用，但主要使用tier_id
+    }));
+    
+    console.log('[API] 天赋数据转换完成，示例:', convertedTalents.slice(0, 2));
+    return convertedTalents;
   } catch (error) {
     console.error('[API] 获取天赋列表失败:', error);
     toast.error('获取天赋列表失败，请检查网络或联系管理员。');

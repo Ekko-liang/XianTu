@@ -1,26 +1,8 @@
 import type { DADCustomData } from '../types';
 import { toast } from './toast';
+import { useUIStore } from '@/stores/uiStore';
+import type { TavernHelper } from './tavernCore';
 
-// 为 TavernHelper API 定义一个接口，以增强类型安全
-interface TavernHelper {
-  getVariables(options: { type: 'global' | 'chat' }): Promise<Record<string, unknown>>;
-  insertOrAssignVariables(data: Record<string, any>, options: { type: 'global' | 'chat' }): Promise<void>;
-  getCharData(): Promise<{ name: string } | null>;
-  substitudeMacros(macro: string): Promise<string>;
-  triggerSlash(command: string): Promise<void>;
-  getLorebooks(): Promise<string[]>;
-  createLorebook(name: string): Promise<void>;
-  getLorebookEntries(name: string): Promise<LorebookEntry[]>;
-  setLorebookEntries(name: string, entries: Partial<LorebookEntry>[]): Promise<void>;
-  createLorebookEntries(name: string, entries: unknown[]): Promise<void>;
-  generateRaw(prompt: string, options?: { temperature?: number; top_p?: number; max_tokens?: number }): Promise<string>;
-  settings?: {
-    token?: string;
-  };
-  // 新增聊天记录相关API
-  getChatHistory(): Promise<any[] | null>;
-  setChatHistory(history: any[]): Promise<void>;
-}
 
 /**
  * 获取TavernHelper API，适配iframe环境。
@@ -138,5 +120,73 @@ export async function createWorldLorebookEntry(worldName: string, worldDescripti
   } catch (error) {
     console.error('铭刻世界法则时出错:', error);
     toast.error('铭刻世界法则失败！');
+  }
+}
+
+/**
+ * [存档核心] 清理所有与角色相关的酒馆变量和聊天记录 (健壮版)
+ * 这是开始新游戏或加载游戏前的必要步骤
+ * 将每个清理步骤分开处理，以防止单个API失败导致整个流程中断
+ */
+export async function clearAllCharacterData(): Promise<void> {
+  const helper = getTavernHelper();
+  const uiStore = useUIStore();
+
+  if (!helper) {
+    console.warn('TavernHelper不可用，跳过清理流程。');
+    return;
+  }
+  
+  uiStore.updateLoadingText('正在净化天地，重置天机...');
+
+  let successCount = 0;
+  let errorCount = 0;
+
+  // 步骤1: 清理聊天变量
+  try {
+    const chatVars = await helper.getVariables({ type: 'chat' });
+    const redundantChatPrefixes = ['character.', 'player.', 'world.', 'character_'];
+    const chatKeys = Object.keys(chatVars).filter(key => redundantChatPrefixes.some(prefix => key.startsWith(prefix)));
+    if (chatKeys.length > 0) {
+      console.log(`[清理] 发现 ${chatKeys.length} 个聊天变量需要清理...`);
+      await Promise.all(chatKeys.map(key => helper.deleteVariable(key, { type: 'chat' })));
+      console.log(`[清理] 聊天变量清理完成。`);
+    }
+    successCount++;
+  } catch (e) {
+    console.warn('[清理] 清理聊天变量时出现非致命错误:', e);
+    errorCount++;
+  }
+
+  // 步骤2: 清理全局变量
+  try {
+    const globalVars = await helper.getVariables({ type: 'global' });
+    const redundantGlobalPrefixes = ['character.', 'world.'];
+    const globalKeys = Object.keys(globalVars).filter(key => redundantGlobalPrefixes.some(prefix => key.startsWith(prefix)));
+    if (globalKeys.length > 0) {
+      console.log(`[清理] 发现 ${globalKeys.length} 个全局变量需要清理...`);
+      await Promise.all(globalKeys.map(key => helper.deleteVariable(key, { type: 'global' })));
+      console.log(`[清理] 全局变量清理完成。`);
+    }
+    successCount++;
+  } catch (e) {
+    console.warn('[清理] 清理全局变量时出现非致命错误:', e);
+    errorCount++;
+  }
+
+  // [核心移除] 根据用户要求，插件不再以任何方式干涉或清理聊天记录。
+  
+  // 最终根据执行结果给出反馈
+  if (errorCount > 0 && successCount < 2) { // 只有在变量清理（前两步）都失败时才算真正失败
+    toast.error('重置天机失败，请手动清理或刷新页面。');
+    // 抛出错误以中断后续流程
+    throw new Error('核心清理步骤（变量清理）失败！');
+  } else {
+    if (errorCount > 0) {
+      toast.warning('天机已部分重置，少数非核心数据清理失败，但不影响使用。');
+    } else {
+      uiStore.updateLoadingText('天机已彻底重置，准备开启新道途。');
+    }
+    // 不再抛出错误，允许后续流程（如创角）继续
   }
 }

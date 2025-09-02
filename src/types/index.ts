@@ -69,6 +69,7 @@ export interface Talent {
   talent_cost: number;
   rarity: number;
   effects?: any;
+  source?: 'local' | 'cloud';
 }
 
 export interface CharacterGameState {

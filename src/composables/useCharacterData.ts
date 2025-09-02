@@ -5,6 +5,7 @@
 
 import { computed, ComputedRef } from 'vue';
 import { useCharacterStore } from '@/stores/characterStore';
+import type { ThousandDaoSystem, Equipment } from '@/types/game';
 
 /**
  * 角色基础信息接口
@@ -69,6 +70,14 @@ export interface CharacterLocation {
 }
 
 /**
+ * 角色修炼信息接口
+ */
+export interface CharacterCultivation {
+  daoSystem: ThousandDaoSystem | null;
+  equipment: Equipment | null;
+}
+
+/**
  * 完整角色数据接口
  */
 export interface UnifiedCharacterData {
@@ -77,6 +86,7 @@ export interface UnifiedCharacterData {
   attributes: CharacterAttributes;
   location: CharacterLocation;
   statusEffects: any[];
+  cultivation: CharacterCultivation;
 }
 
 /**
@@ -174,12 +184,19 @@ export function useUnifiedCharacterData(): {
       } : undefined
     };
 
+    // 统一修炼信息
+    const cultivation: CharacterCultivation = {
+      daoSystem: save.存档数据.三千大道 || null,
+      equipment: save.存档数据.装备栏 || null
+    };
+
     return {
       basicInfo,
       status,
       attributes,
       location,
-      statusEffects: playerStatus?.状态效果 || []
+      statusEffects: playerStatus?.状态效果 || [],
+      cultivation
     };
   });
 
@@ -271,4 +288,10 @@ export function useCharacterLocationData() {
   const { characterData } = useUnifiedCharacterData();
   
   return computed(() => characterData.value?.location || null);
+}
+
+export function useCharacterCultivationData() {
+  const { characterData } = useUnifiedCharacterData();
+
+  return computed(() => characterData.value?.cultivation || { daoSystem: null, equipment: null });
 }

@@ -67,8 +67,7 @@
       @close="isCustomModalVisible = false"
       @submit="handleCustomSubmit"
     />
-    
-    <LoadingModal :visible="isGeneratingAI" message="天机推演中..." />
+    <!-- AI生成逻辑已移至toast通知 -->
   </div>
 </template>
 
@@ -77,14 +76,12 @@ import { ref, computed } from 'vue'
 import { useCharacterCreationStore } from '../../stores/characterCreationStore'
 import type { Origin } from '../../types'
 import CustomCreationModal from './CustomCreationModal.vue'
-import LoadingModal from '../LoadingModal.vue'
 import { toast } from '../../utils/toast'
 import { generateOrigin } from '../../utils/tavernAI'
 
 const emit = defineEmits(['ai-generate'])
 const store = useCharacterCreationStore()
 const isCustomModalVisible = ref(false)
-const isGeneratingAI = ref(false)
 
 const filteredOrigins = computed(() => {
   const allOrigins = store.creationData.origins;
@@ -161,17 +158,16 @@ async function _handleLocalAIGenerate() {
     toast.error('请先择一方大千世界，方可推演出身。');
     return;
   }
-  isGeneratingAI.value = true
+  const toastId = 'ai-generate-origin';
+  toast.loading('天机推演中，请稍候...', { id: toastId });
   try {
     const newOrigin = await generateOrigin()
     store.addOrigin(newOrigin);
-    // await saveGameData(store.creationData); // NOTE: 持久化由Pinia插件自动处理
     handleSelectOrigin(newOrigin);
-    toast.success(`AI推演出身 "${newOrigin.name}" 已保存！`);
+    toast.success(`AI推演出身 "${newOrigin.name}" 已保存！`, { id: toastId });
   } catch (e: any) {
-    // Error handled in tavernAI
-  } finally {
-    isGeneratingAI.value = false
+    // Error handled in tavernAI, just dismiss loading
+    toast.hide(toastId);
   }
 }
 

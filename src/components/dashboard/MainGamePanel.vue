@@ -85,7 +85,7 @@
           </div>
           <div class="action-grid">
             <button
-              v-for="(action, index) in flatActions"
+              v-for="action in flatActions"
               :key="action.name"
               @click="selectAction(action)"
               class="quick-action-btn"
@@ -168,12 +168,13 @@
 import { ref, onMounted, nextTick, computed } from 'vue';
 import { Send, Loader2, ChevronDown, ChevronRight } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
+import { getTavernHelper } from '@/utils/tavern';
 import { MultiLayerMemorySystem } from '@/utils/MultiLayerMemorySystem';
 import { AIBidirectionalSystem } from '@/utils/AIBidirectionalSystem';
 import { GameStateManager } from '@/utils/GameStateManager';
 import { RuntimeReasonabilityValidator, type DifficultyLevel, type AuditResult } from '@/utils/prompts/reasonabilityAudit';
 import { toast } from '@/utils/toast';
-import type { GameMessage } from '@/types/game';
+import type { GameMessage, SaveData } from '@/types/game';
 import type { GM_Response } from '@/types/AIGameMaster';
 
 const inputText = ref('');
@@ -228,7 +229,7 @@ const hasActiveCharacter = computed(() => {
 
 // 计算属性：角色名称
 const characterName = computed(() => {
-  return characterStore.activeCharacterProfile?.角色基础信息.名字 || '无名道友';
+  return characterStore.activeCharacterProfile?.角色基础信息?.名字 || '无名道友';
 });
 
 // 扁平化的行动列表，用于简化UI显示
@@ -444,8 +445,8 @@ const toggleMemory = () => {
 
 // 执行合理性审查
 const performReasonabilityAudit = async (
-  gmResponse: GM_Response, 
-  character: any, 
+  gmResponse: GM_Response,
+  character: SaveData,
   userAction: string
 ): Promise<AuditResult> => {
   try {
@@ -567,10 +568,10 @@ const sendMessage = async () => {
       );
       
       // 合理性审查检查
-      if (aiResponse.gmResponse) {
+      if (aiResponse.gmResponse && characterStore.activeSaveSlot?.存档数据) {
         const auditResult = await performReasonabilityAudit(
-          aiResponse.gmResponse as GM_Response, 
-          character, 
+          aiResponse.gmResponse as GM_Response,
+          characterStore.activeSaveSlot.存档数据,
           userMessage
         );
         if (!auditResult.isValid) {
@@ -818,13 +819,21 @@ const generateAndShowInitialMessage = async () => {
     if (!initialMessage) {
       console.log('[主面板] 存档中未找到初始消息，尝试从酒馆变量获取...');
       try {
-        const helper = (window.parent as Window & { TavernHelper?: Record<string, unknown> })?.TavernHelper;
+        const helper = getTavernHelper();
         if (helper) {
+          // 为 saveData 添加类型定义以解决 TypeScript 错误
+          interface SaveDataWithMemory {
+            记忆?: {
+              短期记忆?: string[];
+            };
+          }
+
           const chatVars = await helper.getVariables({ type: 'chat' });
-          const gameData = chatVars?.DAD_GameData;
-          if (gameData?.saveData?.记忆?.短期记忆?.[0]) {
-            initialMessage = gameData.saveData.记忆.短期记忆[0];
-            console.log('[主面板] 从酒馆变量中加载到初始消息:', initialMessage.substring(0, 100));
+          const saveData = chatVars['character.saveData'] as SaveDataWithMemory | undefined;
+          
+          if (saveData?.记忆?.短期记忆?.[0]) {
+            initialMessage = saveData.记忆.短期记忆[0];
+            console.log('[主面板] 从character.saveData中加载到初始消息:', initialMessage.substring(0, 100));
           }
         }
       } catch (error) {
@@ -1405,7 +1414,7 @@ const saveConversationHistory = async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #f8fafc;
+  background: var(--color-primary, #3b82f6);
 }
 
 .modal-header h3,
@@ -1413,26 +1422,26 @@ const saveConversationHistory = async () => {
   margin: 0;
   font-size: 1rem;
   font-weight: 600;
-  color: #111827;
+  color: white;
 }
 
 .close-btn {
   width: 28px;
   height: 28px;
   border: none;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: #6b7280;
+  color: white;
   transition: all 0.2s ease;
 }
 
 .close-btn:hover {
-  background: rgba(0, 0, 0, 0.05);
-  color: #374151;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
 }
 
 .action-grid {

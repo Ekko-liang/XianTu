@@ -1,12 +1,9 @@
 <template>
   <div class="function-panel">
     <div class="panel-header">
-      <h2>{{ title }}</h2>
-      <button @click="$emit('close')" class="close-btn">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="18" y1="6" x2="6" y2="18"></line>
-          <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
+      <h2 class="panel-title">{{ title }}</h2>
+      <button @click="$emit('close')" class="close-btn" aria-label="Close panel">
+        <X :size="20" />
       </button>
     </div>
     <div class="panel-body">
@@ -22,6 +19,8 @@
 </template>
 
 <script setup lang="ts">
+import { X } from 'lucide-vue-next'
+
 defineProps<{
   title: string
 }>()
@@ -39,39 +38,43 @@ defineEmits<{
   display: flex;
   flex-direction: column;
   font-family: var(--font-family-sans-serif);
+  overflow: hidden; /* 确保内容被父容器的圆角裁切 */
 }
 
 .panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--color-border);
+  padding: 16px 24px; /* 调整为更紧凑的内边距 */
+  flex-shrink: 0;
   background: var(--color-surface);
-  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--color-border);
 }
 
-.panel-header h2 {
+.panel-title { /* 使用独立的class以避免全局h2污染 */
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.125rem; /* 调整字号 */
   font-weight: 600;
   color: var(--color-text);
 }
 
 .close-btn {
-  background: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
   border: none;
   cursor: pointer;
   padding: 8px;
-  border-radius: 6px;
+  border-radius: 50%; /* 圆形按钮 */
   color: var(--color-text-secondary);
-  transition: var(--transition-fast);
+  transition: all 0.2s ease-in-out;
 }
 
 .close-btn:hover {
-  background: rgba(var(--color-primary-rgb), 0.1);
+  background: var(--color-surface-hover);
   color: var(--color-text);
-  transform: scale(1.05);
+  transform: rotate(90deg); /* 增加旋转效果 */
 }
 
 .panel-body {
@@ -84,7 +87,7 @@ defineEmits<{
 .panel-content-wrapper {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: 24px; /* 为内容区提供统一的内边距 */
   background: var(--color-background);
   /* 优化的滚动条样式 */
   scrollbar-width: thin;

@@ -1,26 +1,26 @@
 <template>
   <div class="data-clear-container">
     <div class="clear-buttons">
-      <!-- 清除额外数据（自定义+AI生成+云端同步），保留基础数据 -->
+      <!-- 清除自定义数据（自定义+AI生成），保留本地基础+云端数据 -->
       <button 
-        @click="clearExtraData" 
-        class="clear-button extra"
-        :disabled="!hasExtraData"
-        title="清除所有额外数据，保留基础数据"
+        @click="clearCustomData" 
+        class="clear-button custom"
+        :disabled="!hasCustomData"
+        title="清除自定义和AI生成的数据，保留本地基础数据和云端数据"
       >
         <span class="clear-icon">🗑️</span>
-        <span class="clear-text">清除额外数据</span>
+        <span class="clear-text">清除自定义数据</span>
       </button>
 
-      <!-- 清除云端同步缓存 -->
+      <!-- 清除云端数据，保留本地基础+自定义数据 -->
       <button 
-        @click="clearSyncCache" 
-        class="clear-button sync"
-        :disabled="!hasSyncCache"
-        title="清除云端同步缓存，但保留Store中的数据"
+        @click="clearCloudData" 
+        class="clear-button cloud"
+        :disabled="!hasCloudData"
+        title="清除从云端获取的数据，保留本地基础数据和自定义数据"
       >
-        <span class="clear-icon">🧹</span>
-        <span class="clear-text">清除同步缓存</span>
+        <span class="clear-icon">☁️</span>
+        <span class="clear-text">清除云端数据</span>
       </button>
     </div>
   </div>
@@ -47,32 +47,36 @@ const emit = defineEmits<{
 // Store
 const store = useCharacterCreationStore();
 
-// 检查是否有额外数据（超出基础数据的部分）
-const hasExtraData = computed(() => {
-  const baseWorldsCount = LOCAL_WORLDS.length;
-  const baseTalentTiersCount = LOCAL_TALENT_TIERS.length;
-  const baseOriginsCount = LOCAL_ORIGINS.length;
-  const baseSpiritRootsCount = LOCAL_SPIRIT_ROOTS.length;
-  const baseTalentsCount = LOCAL_TALENTS.length;
+// 检查是否有自定义数据
+const hasCustomData = computed(() => {
+  // 检查是否有ID大于本地基础数据最大ID的项目（这些是自定义或AI生成的）
+  const maxLocalWorldId = Math.max(...LOCAL_WORLDS.map(w => w.id));
+  const maxLocalTalentTierId = Math.max(...LOCAL_TALENT_TIERS.map(t => t.id));
+  const maxLocalOriginId = Math.max(...LOCAL_ORIGINS.map(o => o.id));
+  const maxLocalSpiritRootId = Math.max(...LOCAL_SPIRIT_ROOTS.map(s => s.id));
+  const maxLocalTalentId = Math.max(...LOCAL_TALENTS.map(t => t.id));
   
-  return store.creationData.worlds.length > baseWorldsCount ||
-         store.creationData.talentTiers.length > baseTalentTiersCount ||
-         store.creationData.origins.length > baseOriginsCount ||
-         store.creationData.spiritRoots.length > baseSpiritRootsCount ||
-         store.creationData.talents.length > baseTalentsCount;
+  return store.creationData.worlds.some(w => w.id > maxLocalWorldId) ||
+         store.creationData.talentTiers.some(t => t.id > maxLocalTalentTierId) ||
+         store.creationData.origins.some(o => o.id > maxLocalOriginId) ||
+         store.creationData.spiritRoots.some(s => s.id > maxLocalSpiritRootId) ||
+         store.creationData.talents.some(t => t.id > maxLocalTalentId);
 });
 
-// 检查是否有同步缓存
-const hasSyncCache = computed(() => {
-  const syncStats = cloudDataSync.getSyncStats();
-  return syncStats.totalSyncedItems > 0;
+// 检查是否有云端数据
+const hasCloudData = computed(() => {
+  return store.creationData.worlds.some(w => w.source === 'cloud') ||
+         store.creationData.talentTiers.some(t => t.source === 'cloud') ||
+         store.creationData.origins.some(o => o.source === 'cloud') ||
+         store.creationData.spiritRoots.some(s => s.source === 'cloud') ||
+         store.creationData.talents.some(t => t.source === 'cloud');
 });
 
-// 清除额外数据，保留基础数据
-function clearExtraData() {
-  if (!hasExtraData.value) return;
+// 清除自定义数据，保留本地基础+云端数据
+async function clearCustomData() {
+  if (!hasCustomData.value) return;
   
-  if (!confirm('确定要清除所有额外数据吗？这将保留基础数据，清除自定义、AI生成和云端同步的数据。此操作不可撤销。')) {
+  if (!confirm('确定要清除自定义数据吗？这将清除所有自定义和AI生成的数据，保留本地基础数据和云端数据。此操作不可撤销。')) {
     return;
   }
 
@@ -84,12 +88,23 @@ function clearExtraData() {
     talents: store.creationData.talents.length
   };
   
-  // 重置为基础数据
-  store.creationData.worlds = LOCAL_WORLDS.map(w => ({ ...w, source: 'local' as const }));
-  store.creationData.talentTiers = LOCAL_TALENT_TIERS.map(t => ({ ...t, source: 'local' as const }));
-  store.creationData.origins = LOCAL_ORIGINS.map(o => ({ ...o, source: 'local' as const }));
-  store.creationData.spiritRoots = LOCAL_SPIRIT_ROOTS.map(s => ({ ...s, source: 'local' as const }));
-  store.creationData.talents = LOCAL_TALENTS.map(t => ({ ...t, source: 'local' as const }));
+  // 清除ID大于本地最大ID的自定义数据，保留本地数据和ID范围内的云端数据
+  const maxLocalWorldId = Math.max(...LOCAL_WORLDS.map(w => w.id));
+  const maxLocalTalentTierId = Math.max(...LOCAL_TALENT_TIERS.map(t => t.id));
+  const maxLocalOriginId = Math.max(...LOCAL_ORIGINS.map(o => o.id));
+  const maxLocalSpiritRootId = Math.max(...LOCAL_SPIRIT_ROOTS.map(s => s.id));
+  const maxLocalTalentId = Math.max(...LOCAL_TALENTS.map(t => t.id));
+  
+  store.creationData.worlds = store.creationData.worlds.filter(w => 
+    w.source === 'local' || w.id <= maxLocalWorldId);
+  store.creationData.talentTiers = store.creationData.talentTiers.filter(t => 
+    t.source === 'local' || t.id <= maxLocalTalentTierId);
+  store.creationData.origins = store.creationData.origins.filter(o => 
+    o.source === 'local' || o.id <= maxLocalOriginId);
+  store.creationData.spiritRoots = store.creationData.spiritRoots.filter(s => 
+    s.source === 'local' || s.id <= maxLocalSpiritRootId);
+  store.creationData.talents = store.creationData.talents.filter(t => 
+    t.source === 'local' || t.id <= maxLocalTalentId);
   
   const removedCount = (originalCounts.worlds - store.creationData.worlds.length) +
                        (originalCounts.talentTiers - store.creationData.talentTiers.length) +
@@ -100,26 +115,47 @@ function clearExtraData() {
   // 重置当前选择状态
   store.resetCharacter();
 
-  toast.success(`已清除 ${removedCount} 项额外数据，保留基础数据`);
-  emit('dataCleared', 'extra', removedCount);
+  // 同时更新全局变量，避免重新加载时又出现被清除的数据
+  await store.persistCustomData();
+
+  toast.success(`已清除 ${removedCount} 项自定义数据，保留本地基础数据和云端数据`);
+  emit('dataCleared', 'custom', removedCount);
 }
 
-// 清除同步缓存
-function clearSyncCache() {
-  if (!hasSyncCache.value) return;
+// 清除云端数据，保留本地基础+自定义数据
+function clearCloudData() {
+  if (!hasCloudData.value) return;
   
-  if (!confirm('确定要清除云端同步缓存吗？这不会影响已添加到Store的数据。')) {
+  if (!confirm('确定要清除云端数据吗？这将清除从云端获取的数据，保留本地基础数据和自定义数据。此操作不可撤销。')) {
     return;
   }
 
-  const syncStats = cloudDataSync.getSyncStats();
-  const removedCount = syncStats.totalSyncedItems;
+  const originalCounts = {
+    worlds: store.creationData.worlds.length,
+    talentTiers: store.creationData.talentTiers.length,
+    origins: store.creationData.origins.length,
+    spiritRoots: store.creationData.spiritRoots.length,
+    talents: store.creationData.talents.length
+  };
   
-  // 清除云端同步历史和缓存数据
-  cloudDataSync.clearSyncHistory();
+  // 只保留非云端数据
+  store.creationData.worlds = store.creationData.worlds.filter(w => w.source !== 'cloud');
+  store.creationData.talentTiers = store.creationData.talentTiers.filter(t => t.source !== 'cloud');
+  store.creationData.origins = store.creationData.origins.filter(o => o.source !== 'cloud');
+  store.creationData.spiritRoots = store.creationData.spiritRoots.filter(s => s.source !== 'cloud');
+  store.creationData.talents = store.creationData.talents.filter(t => t.source !== 'cloud');
+  
+  const removedCount = (originalCounts.worlds - store.creationData.worlds.length) +
+                       (originalCounts.talentTiers - store.creationData.talentTiers.length) +
+                       (originalCounts.origins - store.creationData.origins.length) +
+                       (originalCounts.spiritRoots - store.creationData.spiritRoots.length) +
+                       (originalCounts.talents - store.creationData.talents.length);
 
-  toast.success(`已清除 ${removedCount} 项同步缓存`);
-  emit('dataCleared', 'cache', removedCount);
+  // 重置当前选择状态
+  store.resetCharacter();
+
+  toast.success(`已清除 ${removedCount} 项云端数据，保留本地数据和自定义数据`);
+  emit('dataCleared', 'cloud', removedCount);
 }
 </script>
 

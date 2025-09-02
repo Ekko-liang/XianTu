@@ -111,6 +111,14 @@ export interface DaoProgress {
   是否解锁: boolean;
 }
 
+/** 天赋进度 */
+export interface TalentProgress {
+  等级: number;
+  当前经验: number;
+  下级所需: number;
+  总经验: number;
+}
+
 /** 三千大道系统数据 */
 export interface ThousandDaoSystem {
   已解锁大道: string[]; // 解锁的大道名称列表
@@ -140,6 +148,7 @@ export interface StatusEffect {
   状态描述: string;
   强度?: number; // 1-10，表示状态效果的强度
   来源?: string; // 状态效果的来源，如"引气丹"、"毒蛇咬伤"等
+  剩余时间?: string;
 }
 
 // --- 角色实时状态 ---
@@ -190,6 +199,15 @@ export interface PlayerStatus {
   寿命: ValuePair<number>;
   修为: ValuePair<number>; // 新增修为经验值
   状态效果: StatusEffect[];
+  宗门信息?: {
+    name: string;
+    type: '正道宗门' | '魔道宗门' | '中立宗门' | '商会' | '家族';
+    position: '外门弟子' | '内门弟子' | '核心弟子' | '长老' | '掌门';
+    contribution: number;
+    relationship: '恶劣' | '一般' | '良好' | '亲密';
+    reputation: number;
+    description: string;
+  }; // 宗门信息
 }
 
 /** 用于UI组件显示的角色状态信息 */
@@ -308,6 +326,17 @@ export interface SaveData {
   游戏时间?: GameTime; // 添加游戏时间字段
   短期记忆?: string[]; // 短期记忆数组
   对话历史?: GameMessage[]; // 对话历史数组
+  // --- [核心重构] 新增字段，用于统一存储所有动态数据 ---
+  角色基础信息?: CharacterBaseInfo;
+  世界信息?: any; // World 类型
+  世界舆图?: any; // MapData 类型
+  创建数据?: {
+    worlds: any[];
+    talentTiers: any[];
+    origins: any[];
+    spiritRoots: any[];
+    talents: any[];
+  }; // 角色创建时的数据缓存
 }
 
 

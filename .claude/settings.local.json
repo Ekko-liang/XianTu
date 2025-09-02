@@ -50,7 +50,8 @@
       "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\utils\\worldGeneration\\factionGenerator.ts\")",
       "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\src\\utils\\dialogueSystemExample.ts\")",
       "Bash(taskkill:*)",
-      "WebFetch(domain:docs.sillytavern.app)"
+      "WebFetch(domain:docs.sillytavern.app)",
+      "Bash(del \"C:\\Users\\15385\\Documents\\编程项目\\大道朝天\\check_data.py\")"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

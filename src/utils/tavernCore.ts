@@ -33,16 +33,47 @@ export function diagnoseAIResponse(rawResult: unknown, typeName: string): void {
   }
 }
 
+// 为酒馆世界书条目定义一个最小化的接口以确保类型安全
+interface LorebookEntry {
+  uid: number;
+  comment: string;
+  keys: string[];
+  content: string;
+}
+
 /**
- * TavernHelper API 接口定义
+ * TavernHelper API 接口定义 - 作为类型安全的唯一真实来源
  */
-interface TavernHelper {
-  generateRaw: (prompt: string, options?: {
-    temperature?: number;
-    top_p?: number;
-    max_tokens?: number;
-  }) => Promise<unknown>;
+export interface TavernHelper {
+  // 核心生成与命令
+  generateRaw: (prompt: string, options?: { temperature?: number; top_p?: number; max_tokens?: number }) => Promise<unknown>;
   triggerSlash: (command: string) => Promise<unknown>;
+  
+  // 变量操作
+  getVariables(options: { type: 'global' | 'chat' }): Promise<Record<string, unknown>>;
+  insertOrAssignVariables(data: Record<string, any>, options: { type: 'global' | 'chat' }): Promise<void>;
+  deleteVariable(variable_path: string, options?: { type?: string; message_id?: number | 'latest' }): Promise<{ variables: Record<string, any>; delete_occurred: boolean }>;
+  
+  // 角色与宏
+  getCharData(): Promise<{ name: string } | null>;
+  substitudeMacros(macro: string): Promise<string>;
+  
+  // 世界书操作
+  getLorebooks(): Promise<string[]>;
+  createLorebook(name: string): Promise<void>;
+  getLorebookEntries(name: string): Promise<LorebookEntry[]>;
+  setLorebookEntries(name: string, entries: Partial<LorebookEntry>[]): Promise<void>;
+  createLorebookEntries(name: string, entries: unknown[]): Promise<void>;
+  
+  // 聊天记录操作
+  getLastMessageId(): Promise<number>;
+  deleteChatMessages(message_ids: number[], options?: { refresh?: 'none' | 'all' }): Promise<void>;
+  updateChatHistory?(history: any[]): Promise<void>; // 为了向后兼容，设为可选
+
+  // 设置与其他
+  settings?: {
+    token?: string;
+  };
 }
 
 /**

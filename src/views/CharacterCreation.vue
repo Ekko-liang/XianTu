@@ -9,14 +9,14 @@
           <div class="mode-indicator">
             {{ store.isLocalCreation ? '单机模式' : '联机模式' }}
           </div>
-          
+
           <!-- 右侧：云端同步按钮（仅单机模式显示） -->
           <div v-if="store.isLocalCreation" class="cloud-sync-container">
             <CloudDataSync @sync-completed="onSyncCompleted" variant="compact" size="small" />
             <DataClearButtons variant="horizontal" size="small" @data-cleared="onDataCleared" />
           </div>
         </div>
-        
+
         <div class="progress-steps">
           <div
             v-for="step in store.totalSteps"
@@ -93,7 +93,7 @@
             (store.currentStep === store.totalSteps && store.remainingTalentPoints < 0)
           "
           class="btn"
-          :class="{ 
+          :class="{
             'btn-complete': store.currentStep === store.totalSteps,
             'disabled': isGenerating || isNextDisabled || (store.currentStep === store.totalSteps && store.remainingTalentPoints < 0)
           }"
@@ -113,8 +113,7 @@
       @submit="handleCodeSubmit"
     />
 
-    <!-- AI生成等待弹窗 -->
-    <LoadingModal :visible="isGenerating" :message="loadingMessage" />
+    <!-- AI生成等待由全局toast处理 -->
   </div>
 </template>
 
@@ -133,7 +132,6 @@ import Step5_TalentSelection from '../components/character-creation/Step5_Talent
 import Step6_AttributeAllocation from '../components/character-creation/Step6_AttributeAllocation.vue'
 import Step7_Preview from '../components/character-creation/Step7_Preview.vue'
 import RedemptionCodeModal from '../components/character-creation/RedemptionCodeModal.vue'
-import LoadingModal from '../components/LoadingModal.vue'
 import { request } from '../services/request'
 import { toast } from '../utils/toast'
 import { ref, onMounted, onUnmounted, computed } from 'vue';
@@ -145,36 +143,40 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: 'creation-complete', payload: CharacterCreationPayload): void;
+  (e: 'creation-complete', payload: any): void; // 允许传递错误对象
 }>()
 const store = useCharacterCreationStore();
 const userStore = useUserStore();
 const isCodeModalVisible = ref(false)
-const isGenerating = ref(false)
-const loadingMessage = ref('天机推演中...')
+const isGenerating = ref(false) // This now primarily acts as a state guard for buttons
 const currentAIType = ref<'world' | 'talent_tier' | 'origin' | 'spirit_root' | 'talent'>('world')
 
 onMounted(async () => {
   // 1. 初始化创世神殿（确保数据已加载）
-  if (!store.isLocalCreation) {
-    // 联机模式下，确保云端数据已加载
-    const cloudWorlds = store.creationData.worlds.filter(w => w.source === 'cloud');
-    if (cloudWorlds.length === 0) {
-      console.log('【角色创建】联机模式下缺少云端世界数据，重新获取...');
-      await store.fetchAllCloudData();
-      
-      // 再次检查，如果还是没有数据则显示错误
-      const retryCloudWorlds = store.creationData.worlds.filter(w => w.source === 'cloud');
-      if (retryCloudWorlds.length === 0) {
-        toast.error('无法获取云端创世数据，请返回重试');
-        props.onBack();
-        return;
-      }
-    }
-  }
-  
-  // 2. 模式已由外部 Store Action 设定，初始化创世神殿
+  // 单机模式也需要获取云端数据作为备选
+  console.log('【角色创建】当前模式:', store.isLocalCreation ? '单机' : '联机');
+
+  // 2. 初始化创世神殿，确保本地和云端数据都加载
   await store.initializeStore(store.isLocalCreation ? 'single' : 'cloud');
+
+  // 检查是否需要补充云端数据（检查总数据量而不是source标记）
+  const totalWorlds = store.creationData.worlds.length;
+  const totalTalents = store.creationData.talents.length;
+
+  console.log('【角色创建】当前数据量:');
+  console.log('- 总世界数量:', totalWorlds);
+  console.log('- 总天赋数量:', totalTalents);
+
+  // 在联机模式下，如果数据量明显不足（小于等于本地数据量），尝试获取云端数据
+  if (!store.isLocalCreation && (totalWorlds <= 3 || totalTalents <= 5)) {
+    console.log('【角色创建】联机模式下数据量不足，尝试获取云端数据...');
+
+    await store.fetchAllCloudData();
+
+    console.log('【角色创建】云端数据获取完成，最终数据量:');
+    console.log('- 总世界数量:', store.creationData.worlds.length);
+    console.log('- 总天赋数量:', store.creationData.talents.length);
+  }
 
   // 2. 获取角色名字作为默认道号 - 优先使用酒馆角色卡名字
   try {
@@ -237,29 +239,30 @@ async function executeCloudAiGeneration(code: string, userPrompt?: string) {
       return
   }
 
-  isGenerating.value = true
-  loadingMessage.value = '天机推演中...'
+  isGenerating.value = true;
+  const toastId = `cloud-ai-generate-${type}`;
+  const initialMessage = userPrompt ? '基于你的心愿推演玄妙...' : '天机推演中...';
+  toast.loading(initialMessage, { id: toastId });
 
   try {
-    // 1. 验证兑换码
-    loadingMessage.value = '正在验证仙缘信物...'
-    // 预验证逻辑可以保留，作为一道防线
+    // 1. 验证兑换码 (可选，后端会做最终验证)
+    toast.loading('正在验证仙缘信物...', { id: toastId });
     try {
-      const validateResponse = await request<{is_used: boolean}>(`/api/v1/redemption/validate/${code}`, { method: 'POST' })
-      if (!validateResponse || validateResponse.is_used) {
-        toast.error('仙缘信物已被使用或无效！')
+      const validateResponse = await request<{is_used: boolean}>(`/api/v1/redemption/validate/${code}`, { method: 'POST' });
+      if (validateResponse?.is_used) {
+        toast.error('仙缘信物已被使用或无效！', { id: toastId });
         isGenerating.value = false;
-        return
+        return;
       }
     } catch (error) {
-      console.warn('兑换码预验证失败，继续执行:', error)
+      console.warn('兑换码预验证失败，继续执行:', error);
     }
 
-    // 2. 开始AI生成（使用自定义提示词）
-    loadingMessage.value = userPrompt ? '基于你的心愿推演玄妙...' : '正在推演玄妙...'
+    // 2. 开始AI生成
+    toast.loading('已连接天机阁，正在推演...', { id: toastId });
     const aiModule = await import('../utils/tavernAI');
     let generatedContent: unknown = null;
-    
+
     // 如果有自定义提示词，则使用带提示词的生成函数
     if (userPrompt) {
       switch (type) {
@@ -314,7 +317,7 @@ async function executeCloudAiGeneration(code: string, userPrompt?: string) {
     }
 
     // 3. 保存到云端
-    loadingMessage.value = '正在将结果铭刻于云端...'
+    toast.loading('正在将结果铭刻于云端...', { id: toastId });
     const saveResult = await request<{ message: string; code_used?: number }>('/api/v1/ai/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -326,25 +329,26 @@ async function executeCloudAiGeneration(code: string, userPrompt?: string) {
       }),
     })
 
-    if (saveResult && saveResult.message) {
+    if (saveResult?.message) {
       store.addGeneratedData(type, generatedContent);
-      if (saveResult.code_used) {
-        toast.success(`天机已成功记录！信物使用次数：${saveResult.code_used}`)
-      } else {
-        toast.success('天机已成功记录于云端！')
-      }
+      const successMessage = saveResult.code_used
+        ? `天机已成功记录！信物使用次数：${saveResult.code_used}`
+        : '天机已成功记录于云端！';
+      toast.success(successMessage, { id: toastId });
     }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : '未知错误';
     if (message.includes('兑换码') || message.includes('信物')) {
-      toast.error(message)
+      toast.error(message, { id: toastId });
     } else if (message.includes('登录')) {
-      toast.error('身份验证失败，请重新登录！')
+      toast.error('身份验证失败，请重新登录！', { id: toastId });
     } else {
-      toast.error('天机紊乱：' + message)
+      toast.error('天机紊乱：' + message, { id: toastId });
     }
   } finally {
-    isGenerating.value = false
+    isGenerating.value = false;
+    // 确保toast在非成功路径也被关闭
+    setTimeout(() => toast.hide(toastId), 3000);
   }
 }
 
@@ -358,9 +362,9 @@ function handleAIGenerateClick() {
     4: 'spirit_root' as const,
     5: 'talent' as const
   };
-  
+
   currentAIType.value = typeMap[store.currentStep as keyof typeof typeMap] || 'world';
-  
+
   if (!store.isLocalCreation) {
     isCodeModalVisible.value = true
   }
@@ -398,13 +402,13 @@ const isNextDisabled = computed(() => {
   const selectedTalentTier = store.selectedTalentTier;
   const remainingPoints = store.remainingTalentPoints;
   const generating = isGenerating.value;
-  
+
   console.log('[DEBUG] 按钮状态检查 - 当前步骤:', currentStep, '/', totalSteps);
   console.log('[DEBUG] 按钮状态检查 - isGenerating:', generating);
   console.log('[DEBUG] 按钮状态检查 - 选中的世界:', selectedWorld?.name);
   console.log('[DEBUG] 按钮状态检查 - 选中的天资:', selectedTalentTier?.name);
   console.log('[DEBUG] 按钮状态检查 - 剩余天赋点:', remainingPoints);
-  
+
   // You can add validation logic here for each step
   if (currentStep === 1 && !selectedWorld) {
     console.log('[DEBUG] 按钮被禁用：第1步未选择世界');
@@ -414,20 +418,20 @@ const isNextDisabled = computed(() => {
     console.log('[DEBUG] 按钮被禁用：第2步未选择天资');
     return true;
   }
-  
+
   console.log('[DEBUG] 按钮状态：启用');
   return false;
 })
 
 async function handleNext(event?: Event) {
   console.log('[DEBUG] handleNext 被调用，当前步骤:', store.currentStep, '总步骤:', store.totalSteps);
-  
+
   if (event) {
     event.preventDefault();
     event.stopPropagation();
     console.log('[DEBUG] 事件已阻止默认行为');
   }
-  
+
   if (store.currentStep < store.totalSteps) {
     console.log('[DEBUG] 执行下一步');
     store.nextStep()
@@ -465,7 +469,7 @@ async function handleCodeSubmit(data: { code: string; prompt?: string }) {
 async function createCharacter() {
   console.log('[DEBUG] createCharacter 开始执行');
   console.log('[DEBUG] isGenerating.value:', isGenerating.value);
-  
+
   if (isGenerating.value) return;
   console.log('[CharacterCreation.vue] createCharacter() called.');
 
@@ -476,7 +480,7 @@ async function createCharacter() {
   console.log('[DEBUG] 选中的天资:', store.selectedTalentTier);
   console.log('[DEBUG] 选中的出身:', store.selectedOrigin);
   console.log('[DEBUG] 选中的灵根:', store.selectedSpiritRoot);
-  
+
   if (!store.characterPayload.character_name) {
     console.log('[DEBUG] 验证失败：缺少角色名');
     toast.error('请输入道号！');
@@ -489,7 +493,7 @@ async function createCharacter() {
     toast.error('创建数据不完整，请检查世界和天资选择！');
     return;
   }
-  
+
   // 出身和灵根可以为空（表示随机选择）
   console.log('[DEBUG] selectedOrigin:', store.selectedOrigin, '(可为空，表示随机出生)');
   console.log('[DEBUG] selectedSpiritRoot:', store.selectedSpiritRoot, '(可为空，表示随机灵根)');
@@ -501,7 +505,6 @@ async function createCharacter() {
 
   console.log('[DEBUG] 数据校验通过，开始创建角色');
   isGenerating.value = true;
-  loadingMessage.value = '正在为您凝聚法身...';
 
   try {
     // 2. 将最终道号同步回酒馆
@@ -550,17 +553,17 @@ async function createCharacter() {
     };
 
     console.log('发射creation-complete事件，载荷:', creationPayload);
-    
+
     // 发射事件让App.vue处理创建逻辑
     emit('creation-complete', creationPayload);
 
   } catch (error: unknown) {
     console.error('创建角色时发生严重错误:', error);
-    const message = error instanceof Error ? error.message : '未知错误';
-    toast.error('凝聚法身时遭遇天劫：' + message);
-  } finally {
-    isGenerating.value = false;
+    // 错误现在由App.vue统一处理，这里只记录日志并重新抛出，以便App.vue捕获
+    // isGenerating.value = false; 应该在App.vue的finally块中设置
+    emit('creation-complete', { error: error }); // 发射一个带错误的事件
   }
+  // finally块移除，isGenerating状态由App.vue控制
 }
 
 // 处理云端同步完成事件

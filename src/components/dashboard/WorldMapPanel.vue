@@ -272,14 +272,37 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { RefreshCw, Target } from 'lucide-vue-next';
-import { useCharacterStore } from '@/stores/characterStore';
 import { getTavernHelper } from '@/utils/tavern';
 import { toast } from '@/utils/toast';
-import type { Vector2 } from '@/types/game';
-import { CultivationWorldGenerator } from '@/utils/worldGeneration/cultivationWorldGenerator';
+import type { SaveData } from '@/types/game';
+import { useCharacterStore } from '@/stores/characterStore';
+import {
+  WorldLocation,
+  LocationType
+} from '@/types/location';
+import {
+  Faction,
+  TerritoryData,
+} from '@/types/worldMap';
 import { WorldGenerationConfig } from '@/utils/worldGeneration/gameWorldConfig';
+import { CultivationWorldGenerator } from '@/utils/worldGeneration/cultivationWorldGenerator';
+
+// --- 类型定义 ---
+
+/** AI返回的地点数据结构 */
+interface AILocationData {
+  id?: string;
+  name?: string;
+  type?: LocationType;
+  coordinates?: { x: number; y: number };
+  importance?: number;
+  controlledBy?: string;
+  description?: string;
+  population?: string;
+  features?: string[];
+}
 
 // 地图尺寸配置
 const mapWidth = ref(1200);
@@ -291,7 +314,6 @@ const panX = ref(0);
 const panY = ref(0);
 const isPanning = ref(false);
 const lastPanPoint = ref({ x: 0, y: 0 });
-const hoveredLocation = ref<WorldLocation | null>(null);
 
 // 选中信息显示
 const selectedInfo = ref<{
@@ -303,76 +325,12 @@ const selectedInfo = ref<{
 } | null>(null);
 
 // 组件状态
-const characterStore = useCharacterStore();
 const mapContainer = ref<HTMLElement | null>(null);
 const loading = ref(false);
 const mapStatus = ref('正在加载地图...');
+const playerName = ref('');
+const playerLocation = ref('');
 
-// 势力接口定义
-interface Faction {
-  id: string;
-  name: string;
-  color: string;
-  borderColor: string;
-  textColor: string;
-  emblem: string;
-  description: string;
-  strength: number;
-  territory: string;
-}
-
-// 地点接口定义
-interface WorldLocation {
-  id: string;
-  name: string;
-  type: 'city' | 'sect' | 'secret_realm' | 'village' | 'market';
-  x: number;
-  y: number;
-  size: number;
-  color: string;
-  faction?: string;
-  description: string;
-  population?: string;
-  specialFeatures?: string[];
-}
-
-// 势力范围接口
-interface TerritoryData {
-  id: string;
-  factionId: string;
-  name: string;
-  boundary: string; // SVG path
-  centerX: number;
-  centerY: number;
-  color: string;
-  borderColor: string;
-  textColor: string;
-  emblem: string;
-}
-
-// 地形接口
-interface TerrainFeature {
-  id: string;
-  name: string;
-  path: string; // SVG path
-  labelX: number;
-  labelY: number;
-}
-
-interface TerrainData {
-  mountains: TerrainFeature[];
-  forests: TerrainFeature[];
-  waters: TerrainFeature[];
-}
-
-// 贸易路线接口
-interface TradeRoute {
-  id: string;
-  name: string;
-  path: string; // SVG path
-  from: string;
-  to: string;
-}
 
 // 主要势力数据 - 从酒馆变量获取
 const majorFactions = ref<Faction[]>([]);
@@ -493,47 +451,11 @@ const factionTerritories = computed<TerritoryData[]>(() => [
   }
 ]);
 
-// 地形数据
-const terrainData = ref<TerrainData>({
-  mountains: [
-    { id: 'mountain1', name: '青云山脉', path: 'M150,80 Q300,60 450,120 Q420,160 380,140 Q320,120 280,140 Q220,160 180,120 Z', labelX: 300, labelY: 100 },
-    { id: 'mountain2', name: '剑谷群峰', path: 'M50,300 Q150,280 250,340 Q220,380 180,360 Q120,340 100,360 Q80,380 60,340 Z', labelX: 150, labelY: 320 },
-    { id: 'mountain3', name: '北荒雪山', path: 'M550,50 Q700,30 750,100 Q720,140 680,120 Q620,100 580,120 Q560,140 550,100 Z', labelX: 650, labelY: 70 }
-  ],
-  forests: [
-    { id: 'forest1', name: '迷雾森林', path: 'M100,450 Q200,430 300,490 Q280,530 240,510 Q180,490 140,510 Q110,530 100,490 Z', labelX: 200, labelY: 470 },
-    { id: 'forest2', name: '花海林', path: 'M350,650 Q450,630 550,690 Q530,730 490,710 Q430,690 390,710 Q360,730 350,690 Z', labelX: 450, labelY: 670 }
-  ],
-  waters: [
-    { id: 'water1', name: '天池', path: 'M400,250 Q480,240 520,280 Q500,320 460,310 Q420,300 400,310 Q390,320 390,280 Z', labelX: 450, labelY: 280 },
-    { id: 'water2', name: '流云河', path: 'M0,400 Q200,380 400,420 Q600,440 800,460', labelX: 400, labelY: 430 }
-  ]
-});
 
-// 贸易路线数据
-const tradeRoutes = ref<TradeRoute[]>([
-  { id: 'route1', name: '青云-天下第一楼', path: 'M290,200 Q340,250 400,350', from: 'qingyun', to: 'neutral1' },
-  { id: 'route2', name: '天魔-天下第一楼', path: 'M340,620 Q370,500 400,350', from: 'tianmo', to: 'neutral1' },
-  { id: 'route3', name: '剑宗-散修联盟', path: 'M150,410 Q200,380 250,350', from: 'wuji', to: 'neutral2' }
-]);
-
-// 玩家位置相关
+// 玩家位置相关 
 const playerPosition = computed(() => {
-  const activeSave = characterStore.activeSaveSlot;
-  const position = activeSave?.存档数据?.玩家角色状态?.位置?.坐标;
-  
-  if (position) {
-    // 将游戏坐标映射到地图坐标系
-    const x = Math.max(50, Math.min(mapWidth.value - 50, position.X * 0.3 + 400));
-    const y = Math.max(50, Math.min(mapHeight.value - 50, position.Y * 0.3 + 300));
-    return { x, y };
-  }
-  
+  // 这里可以根据需要从saveData中获取玩家位置
   return { x: 400, y: 350 }; // 默认位置（天下第一楼）
-});
-
-const playerName = computed(() => {
-  return characterStore.activeSaveSlot?.角色基础信息?.名字 || '无名道友';
 });
 
 // 地图交互处理
@@ -564,8 +486,6 @@ const endPan = () => {
   isPanning.value = false;
 };
 
-const hoveredTerritory = ref<TerritoryData | null>(null);
-
 const selectTerritory = (territory: TerritoryData) => {
   console.log('选中势力:', territory.name);
   const faction = majorFactions.value.find(f => f.id === territory.factionId);
@@ -589,7 +509,7 @@ const selectLocation = (location: WorldLocation) => {
   };
 };
 
-const getLocationTypeName = (type: string): string => {
+const getLocationTypeName = (type: LocationType): string => {
   const typeMap: { [key: string]: string } = {
     'major_city': '大城',
     'sect_headquarters': '宗门',
@@ -603,50 +523,47 @@ const getLocationTypeName = (type: string): string => {
   return typeMap[type] || '未知';
 };
 
-// 初始化地图
+// 初始化地图 - 只从character.saveData获取
 const initializeMap = async () => {
   try {
     mapStatus.value = '正在加载地图数据...';
     
-    const tavern = getTavernHelper();
-    if (!tavern) {
-      console.warn('[坤舆图志] 酒馆系统不可用，使用默认数据');
+    const helper = getTavernHelper();
+    if (!helper) {
+      console.warn('[坤舆图志] 酒馆Helper不可用');
       await loadDefaultFactions();
       await loadDefaultLocations();
       mapStatus.value = '地图加载完成（默认数据）';
       return;
     }
 
-    // 首先尝试加载已存储的动态数据
-    const variables = await tavern.getVariables({ type: 'chat' });
-    const existingFactions = variables['world_factions'];
-    const existingLocations = variables['world_locations'];
+    const chatVars = await helper.getVariables({ type: 'chat' });
+    const globalVars = await helper.getVariables({ type: 'global' });
+    const saveData = chatVars['character.saveData'] as SaveData;
     
-    if (existingFactions && existingFactions.length > 0) {
-      console.log('[坤舆图志] 加载已存储的动态势力数据');
-      loadFactionsFromTavern(existingFactions);
-      
-      if (existingLocations && existingLocations.length > 0) {
-        console.log('[坤舆图志] 加载已存储的动态地点数据');
-        await loadWorldLocations();
+    // 从全局变量获取玩家基础信息
+    playerName.value = (globalVars['character.name'] as string) || '';
+    
+    if (saveData && typeof saveData === 'object') {
+      // 从character.saveData获取玩家位置
+      if (saveData.玩家角色状态?.位置?.描述) {
+        playerLocation.value = saveData.玩家角色状态.位置.描述;
+      } else {
+        playerLocation.value = '';
       }
       
-      mapStatus.value = '地图加载完成（动态数据）';
-      toast.success('坤舆图志已就绪');
-      return;
+      console.log('[坤舆图志] 从character.saveData加载地图数据');
     }
     
-    // 如果没有存储的数据，才生成新的世界
-    console.log('[坤舆图志] 未发现存储数据，生成新世界...');
-    mapStatus.value = '正在生成世界势力...';
-    await generateWorldFactions();
+    await loadDefaultFactions();
+    await loadDefaultLocations();
     mapStatus.value = '地图加载完成';
     toast.success('坤舆图志已就绪');
+    
   } catch (error) {
     console.error('[坤舆图志] 地图初始化失败:', error);
     mapStatus.value = '地图加载失败';
     toast.error('地图初始化失败');
-    // 失败时使用默认数据
     await loadDefaultFactions();
     await loadDefaultLocations();
   }
@@ -666,16 +583,17 @@ const generateWorldFactions = async () => {
 
     // 检查是否已有世界势力数据
     const variables = await tavern.getVariables({ type: 'chat' });
-    const existingFactions = variables['world_factions'];
-    if (existingFactions && existingFactions.length > 0) {
+    const existingFactions = variables['world_factions'] as Faction[];
+    if (existingFactions && Array.isArray(existingFactions) && existingFactions.length > 0) {
       console.log('[坤舆图志] 发现现有势力数据，直接加载');
       loadFactionsFromTavern(existingFactions);
       return;
     }
 
     // 获取角色信息
-    const activeCharacter = characterStore.activeCharacterProfile.value;
-    const characterBackground = activeCharacter?.角色基础信息?.出身;
+    const characterStore = useCharacterStore();
+    const activeCharacter = characterStore.activeCharacterProfile;
+    const characterBackground = activeCharacter?.角色基础信息?.出生;
     
     console.log('[坤舆图志] 开始生成真实修仙世界...');
     
@@ -699,9 +617,9 @@ const generateWorldFactions = async () => {
     // 等待数据保存完成后重新加载
     setTimeout(async () => {
       const newVariables = await tavern.getVariables({ type: 'chat' });
-      const newFactions = newVariables['world_factions'];
+      const newFactions = newVariables['world_factions'] as Faction[];
       
-      if (newFactions && newFactions.length > 0) {
+      if (newFactions && Array.isArray(newFactions) && newFactions.length > 0) {
         loadFactionsFromTavern(newFactions);
         await loadWorldLocations(); // 同时加载世界地点
         toast.success(`成功生成 ${newFactions.length} 个修仙势力的真实世界`);
@@ -727,18 +645,18 @@ const loadWorldLocations = async () => {
     if (!tavern) return;
     
     const variables = await tavern.getVariables({ type: 'chat' });
-    const locations = variables['world_locations'];
+    const locations = variables['world_locations'] as AILocationData[];
     
     if (locations && Array.isArray(locations)) {
       // 将AI生成的地点数据映射到地图显示格式
-      worldLocations.value = locations.map(location => ({
+      worldLocations.value = locations.map((location: AILocationData) => ({
         id: location.id || `loc_${Date.now()}`,
         name: location.name || '未知地点',
         type: location.type || 'city',
         x: location.coordinates?.x || Math.random() * 800 + 200,
         y: location.coordinates?.y || Math.random() * 600 + 100,
         size: location.importance || 5,
-        color: getLocationColor(location.type),
+        color: getLocationColor(location.type || 'village'),
         faction: location.controlledBy,
         description: location.description || '神秘的地点',
         population: location.population,
@@ -769,7 +687,7 @@ const getLocationColor = (type: string): string => {
 };
 
 // 从酒馆变量加载势力数据
-const loadFactionsFromTavern = (factionsData: any[]) => {
+const loadFactionsFromTavern = (factionsData: Faction[]) => {
   try {
     majorFactions.value = factionsData.map(faction => ({
       id: faction.id || `faction_${Date.now()}`,

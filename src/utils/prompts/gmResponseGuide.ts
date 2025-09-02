@@ -94,6 +94,7 @@ export const GM_RESPONSE_FORMAT_GUIDE = `
 \`\`\`json
 [
   {"action": "set", "scope": "chat", "key": "character.saveData.玩家角色状态.位置.描述", "value": "具体位置名称"},
+  {"action": "set", "scope": "chat", "key": "character.saveData.玩家角色状态.位置.坐标", "value": {"X": 123, "Y": 456}},
   {"action": "set", "scope": "chat", "key": "character.saveData.玩家角色状态.境界.名称", "value": "境界名称"},
   {"action": "set", "scope": "chat", "key": "character.saveData.玩家角色状态.境界.等级", "value": "数字"},
   {"action": "set", "scope": "chat", "key": "character.saveData.玩家角色状态.气血", "value": {"当前": "数值", "最大": "数值"}}
@@ -105,7 +106,8 @@ export const GM_RESPONSE_FORMAT_GUIDE = `
 [
   {"action": "add", "scope": "chat", "key": "character.saveData.玩家角色状态.气血.当前", "value": "变化量"},
   {"action": "push", "scope": "chat", "key": "character.saveData.玩家角色状态.状态效果", "value": "状态对象"},
-  {"action": "set", "scope": "chat", "key": "character.saveData.玩家角色状态.位置.描述", "value": "新位置"}
+  {"action": "set", "scope": "chat", "key": "character.saveData.玩家角色状态.位置.描述", "value": "新位置"},
+  {"action": "set", "scope": "chat", "key": "character.saveData.玩家角色状态.位置.坐标", "value": {"X": 789, "Y": 012}}
 ]
 \`\`\`
 

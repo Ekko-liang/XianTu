@@ -1,5 +1,5 @@
 <template>
-  <div class="game-view">
+  <div v-if="isDataReady" class="game-view">
     <!-- 顶部栏 -->
     <TopBar />
 
@@ -34,47 +34,44 @@
         </div>
       </div>
 
-      <!-- 功能面板覆盖区域 -->
-      <div v-if="currentPanel" class="function-panel-overlay" :class="{ 'left-collapsed': leftCollapsed }">
-        <component
-          :is="currentRightComponent.component"
-          v-bind="currentRightComponent.props"
-          @close="closeRightPanel"
-        >
-          <component
-            v-if="currentRightComponent.slot"
-            :is="currentRightComponent.slot"
-          />
-        </component>
+      <!-- 左侧收缩按钮 -->
+      <div class="collapse-btn left-btn" v-if="!isMobile" @click="toggleLeft" :class="{ collapsed: leftCollapsed }">
+        <div class="button-content">
+          <ChevronRight v-if="leftCollapsed" :size="20" />
+          <ChevronLeft v-else :size="20" />
+        </div>
+        <span class="button-tooltip">{{ leftCollapsed ? '展开功能栏' : '收缩功能栏' }}</span>
       </div>
 
-      <!-- 正常布局（当没有功能面板时） -->
-      <template v-else>
-        <!-- 左侧收缩按钮 -->
-        <div class="collapse-btn left-btn" v-if="!isMobile" @click="toggleLeft" :class="{ collapsed: leftCollapsed }">
-          <div class="button-content">
-            <ChevronRight v-if="leftCollapsed" :size="16" />
-            <ChevronLeft v-else :size="16" />
-          </div>
-          <span class="button-tooltip">{{ leftCollapsed ? '展开功能栏' : '收缩功能栏' }}</span>
-        </div>
+      <!-- 主游戏区域 -->
+      <div class="main-content">
+        <MainGamePanel />
+      </div>
 
-        <!-- 主游戏区域 -->
-        <div class="main-content">
-          <MainGamePanel />
+      <!-- 右侧收缩按钮 (仅在非功能面板模式下显示) -->
+      <div class="collapse-btn right-btn" v-if="!isMobile && !currentPanel" @click="toggleRight" :class="{ collapsed: rightCollapsed }">
+        <div class="button-content">
+          <ChevronLeft v-if="rightCollapsed" :size="20" />
+          <ChevronRight v-else :size="20" />
         </div>
-
-        <!-- 右侧收缩按钮 -->
-        <div class="collapse-btn right-btn" v-if="!isMobile" @click="toggleRight" :class="{ collapsed: rightCollapsed }">
-          <div class="button-content">
-            <ChevronLeft v-if="rightCollapsed" :size="16" />
-            <ChevronRight v-else :size="16" />
-          </div>
-          <span class="button-tooltip">{{ rightCollapsed ? '展开角色信息' : '收缩角色信息' }}</span>
+        <span class="button-tooltip">{{ rightCollapsed ? '展开角色信息' : '收缩角色信息' }}</span>
+      </div>
+      
+      <!-- 右侧区域: 功能面板 或 角色信息栏 -->
+      <div class="right-panel-area">
+        <!-- 功能面板 -->
+        <div v-if="currentPanel" class="function-panel-wrapper">
+          <FunctionPanelWrapper
+            :title="currentPanelData.title"
+            :icon="currentPanelData.icon"
+            @close="closeRightPanel"
+          >
+            <component :is="currentPanelData.component" />
+          </FunctionPanelWrapper>
         </div>
-
-        <!-- 右侧信息栏 -->
+        <!-- 角色信息栏 -->
         <div
+          v-else
           :class="['right-sidebar', { 'mobile-overlay': isMobile }]"
           v-show="!rightCollapsed"
           @click="handleMobileOverlayClick"
@@ -83,20 +80,24 @@
             <RightSidebar />
           </div>
         </div>
-      </template>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { ChevronLeft, ChevronRight, Menu, User } from 'lucide-vue-next'
+import { ref, computed, onMounted, onUnmounted, markRaw } from 'vue'
+import { useCharacterStore } from '@/stores/characterStore';
+import {
+  ChevronLeft, ChevronRight, Menu, User, BrainCircuit, UserSquare, Package,
+  Heart, Flame, Swords, Settings, Save, Map, BookText, Landmark, Users
+} from 'lucide-vue-next'
 import TopBar from '@/components/dashboard/TopBar.vue'
 import LeftSidebar from '@/components/dashboard/LeftSidebar.vue'
 import MainGamePanel from '@/components/dashboard/MainGamePanel.vue'
 import RightSidebar from '@/components/dashboard/RightSidebar.vue'
+import FunctionPanelWrapper from '@/components/dashboard/FunctionPanelWrapper.vue'
 import MemoryCenterPanel from '@/components/dashboard/MemoryCenterPanel.vue'
-import FunctionPanel from '@/components/dashboard/FunctionPanel.vue'
 import CharacterDetailsPanel from '@/components/dashboard/CharacterDetailsPanel.vue'
 import InventoryPanel from '@/components/dashboard/InventoryPanel.vue'
 import RelationshipsPanel from '@/components/dashboard/RelationshipsPanel.vue'
@@ -108,94 +109,37 @@ import WorldMapPanel from '@/components/dashboard/WorldMapPanel.vue'
 import QuestPanel from '@/components/dashboard/QuestPanel.vue'
 import SectPanel from '@/components/dashboard/SectPanel.vue'
 
+const characterStore = useCharacterStore();
+
+const isDataReady = computed(() => {
+  return !!characterStore.activeCharacterProfile && !!characterStore.activeSaveSlot?.存档数据;
+});
+
 const leftCollapsed = ref(false)
 const rightCollapsed = ref(false)
 const screenWidth = ref(window.innerWidth)
 const currentPanel = ref('')
 
-// 计算当前右侧显示的组件
-const currentRightComponent = computed(() => {
-  if (!currentPanel.value) {
-    return RightSidebar
-  }
+// 面板配置
+const panelMap = {
+  'memory': { component: markRaw(MemoryCenterPanel), title: '记忆中枢', icon: markRaw(BrainCircuit) },
+  'character-details': { component: markRaw(CharacterDetailsPanel), title: '角色详情', icon: markRaw(UserSquare) },
+  'inventory': { component: markRaw(InventoryPanel), title: '储物袋', icon: markRaw(Package) },
+  'relationships': { component: markRaw(RelationshipsPanel), title: '人际关系', icon: markRaw(Users) },
+  'cultivation': { component: markRaw(CultivationPanel), title: '修行', icon: markRaw(Flame) },
+  'skills': { component: markRaw(SkillsPanel), title: '功法神通', icon: markRaw(Swords) },
+  'settings': { component: markRaw(SettingsPanel), title: '设置', icon: markRaw(Settings) },
+  'save': { component: markRaw(SavePanel), title: '存档/读档', icon: markRaw(Save) },
+  'world-map': { component: markRaw(WorldMapPanel), title: '世界地图', icon: markRaw(Map) },
+  'quests': { component: markRaw(QuestPanel), title: '任务', icon: markRaw(BookText) },
+  'sect': { component: markRaw(SectPanel), title: '宗门', icon: markRaw(Landmark) },
+  'online-play': { component: markRaw(RightSidebar), title: '拜访道友', icon: markRaw(Users) }, // 占位
+};
 
-  // 返回包装后的功能面板组件
-  switch (currentPanel.value) {
-    case 'memory':
-      return {
-        component: FunctionPanel,
-        props: { title: '记忆中心' },
-        slot: MemoryCenterPanel
-      }
-    case 'character-details':
-      return {
-        component: FunctionPanel,
-        props: { title: '人物详情' },
-        slot: CharacterDetailsPanel
-      }
-    case 'inventory':
-      return {
-        component: FunctionPanel,
-        props: { title: '背包系统' },
-        slot: InventoryPanel
-      }
-    case 'relationships':
-      return {
-        component: FunctionPanel,
-        props: { title: '人物关系' },
-        slot: RelationshipsPanel
-      }
-    case 'cultivation':
-      return {
-        component: FunctionPanel,
-        props: { title: '功法系统' },
-        slot: CultivationPanel
-      }
-    case 'skills':
-      return {
-        component: FunctionPanel,
-        props: { title: '三千大道' },
-        slot: SkillsPanel
-      }
-    case 'settings':
-      return {
-        component: FunctionPanel,
-        props: { title: '游戏设置' },
-        slot: SettingsPanel
-      }
-    case 'save':
-      return {
-        component: FunctionPanel,
-        props: { title: '存档管理' },
-        slot: SavePanel
-      }
-    case 'world-map':
-      return {
-        component: FunctionPanel,
-        props: { title: '世界地图' },
-        slot: WorldMapPanel
-      }
-    case 'quests':
-      return {
-        component: FunctionPanel,
-        props: { title: '任务系统' },
-        slot: QuestPanel
-      }
-    case 'sect':
-      return {
-        component: FunctionPanel,
-        props: { title: '宗门系统' },
-        slot: SectPanel
-      }
-    case 'online-play':
-      return {
-        component: FunctionPanel,
-        props: { title: '拜访道友' }
-      }
-    default:
-      return RightSidebar
-  }
-})
+// 计算当前面板数据
+const currentPanelData = computed(() => {
+  return panelMap[currentPanel.value as keyof typeof panelMap] || null;
+});
 
 const isMobile = computed(() => screenWidth.value < 768)
 
@@ -271,53 +215,46 @@ onUnmounted(() => {
   flex: 1;
   display: flex;
   align-items: stretch;
-  gap: 0;
-  padding: 8px;
+  gap: 0; /* 移除缝隙 */
+  padding: 0; /* 移除内边距 */
   position: relative;
   min-height: 0;
   flex: 1;
-}
-
-/* 功能面板覆盖区域 */
-.function-panel-overlay {
-  position: absolute;
-  top: 8px;
-  left: 256px;
-  right: 8px;
-  bottom: 8px;
-  background: white;
-  z-index: 100;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  transition: left 0.3s ease;
-  display: flex;
-  flex-direction: column;
-}
-
-.function-panel-overlay.left-collapsed {
-  left: 8px;
+  border-top: 1px solid var(--color-border);
 }
 
 .left-sidebar {
   width: 240px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: var(--color-surface); /* 使用表面色 */
   transition: all 0.3s ease;
   z-index: 10;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--color-border); /* 右侧分割线 */
+}
+
+.right-panel-area {
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+  border-left: 1px solid var(--color-border); /* 左侧分割线 */
+}
+
+.function-panel-wrapper {
+  width: 280px; /* 与 right-sidebar 保持一致 */
+  height: 100%;
   display: flex;
   flex-direction: column;
 }
 
 .right-sidebar {
   width: 280px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: var(--color-surface); /* 使用表面色 */
   transition: all 0.3s ease;
   z-index: 10;
   display: flex;
   flex-direction: column;
+  border-left: 1px solid var(--color-border); /* 左侧分割线 */
 }
 
 .sidebar-wrapper {
@@ -330,10 +267,8 @@ onUnmounted(() => {
 
 .main-content {
   flex: 1;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  margin: 0 8px;
+  background: var(--color-background); /* 使用背景色 */
+  margin: 0; /* 移除左右margin */
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -344,31 +279,28 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 80px;
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  width: 24px; /* 增大宽度 */
+  height: 72px; /* 增大高度 */
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: none;
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
   z-index: 15;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
-  color: #64748b;
-  overflow: hidden;
+  color: var(--color-text-secondary);
+  overflow: visible; /* 允许 tooltip 显示 */
 }
 
 .collapse-btn:hover {
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-  transform: translateY(-52%) scale(1.05);
-  color: #334155;
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  background: var(--color-surface-hover);
+  color: var(--color-text);
 }
 
 .collapse-btn:active {
-  transform: translateY(-48%) scale(0.98);
+  transform: translateY(-50%) scale(0.98); /* 调整 active 状态下的 transform */
 }
 
 .collapse-btn.collapsed {
@@ -382,27 +314,25 @@ onUnmounted(() => {
 }
 
 .left-btn {
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
-  left: 248px; /* 左侧面板宽度 240px + 边距 8px */
-  border-left: none;
+  border-radius: 0 8px 8px 0; /* 右侧圆角 */
+  left: 240px;
+  border-left: none; /* 贴合侧无边框 */
   transition: left 0.3s ease;
 }
 
 .left-btn.collapsed {
-  left: 8px;
+  left: 0;
 }
 
 .right-btn {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-  right: 288px; /* 右侧面板宽度 280px + 边距 8px */
-  border-right: none;
+  border-radius: 8px 0 0 8px; /* 左侧圆角 */
+  right: 280px; /* 初始位置 */
+  border-right: none; /* 贴合侧无边框 */
   transition: right 0.3s ease;
 }
 
 .right-btn.collapsed {
-  right: 8px;
+  right: 0;
 }
 
 .button-content {
@@ -480,20 +410,26 @@ onUnmounted(() => {
     position: relative;
   }
 
-  .function-panel-overlay {
+  .right-panel-area {
+    position: fixed;
+    top: 60px; /* 假设顶部栏高度为 60px */
+    right: 0;
+    bottom: 60px; /* 假设底部导航高度为 60px */
+    width: 100%;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    z-index: 100;
+  }
+
+  /* 移动端，当功能面板打开时，从右侧滑入 */
+  .function-panel-wrapper {
     position: fixed;
     top: 60px;
     left: 0;
     right: 0;
     bottom: 60px;
-    background: white;
+    width: 100%;
     z-index: 1000;
-    border-radius: 0;
-    box-shadow: none;
-  }
-
-  .function-panel-overlay.left-collapsed {
-    left: 0;
   }
 
   .main-content {

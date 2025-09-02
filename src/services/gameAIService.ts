@@ -14,6 +14,18 @@ import { toast } from '@/utils/toast';
 import type { GM_Response, GameCharacter } from '@/types/AIGameMaster';
 import type { CharacterProfile, SaveData, GameMessage, GameTime } from '@/types/game';
 
+// AI的原始响应类型
+interface TavernResponseChoice {
+  text?: string;
+  message?: {
+    content?: string;
+  };
+}
+
+interface TavernResponse {
+  choices: TavernResponseChoice[];
+}
+
 /**
  * 将 GameTime 对象转换为字符串格式
  */
@@ -103,7 +115,7 @@ export class GameAIService {
       onMessageUpdate?.(thinkingMessage);
 
       // 构建综合AI请求
-      const systemPrompt = this.buildComprehensivePrompt(userMessage, characterProfile);
+      const systemPrompt = await this.buildComprehensivePrompt(userMessage, characterProfile);
       
       console.log('[AI服务] 使用酒馆预设生成，系统提示词:', systemPrompt);
 
@@ -119,7 +131,7 @@ export class GameAIService {
       // 移除思考消息，添加AI回复
       const gameMessage: GameMessage = {
         type: 'ai',
-        content: parsedResponse.text || aiResponse || '...',
+        content: parsedResponse.text || String(aiResponse) || '...',
         time: this.formatGameTime(),
         metadata: {
           commands: parsedResponse.tavern_commands || [],
@@ -150,16 +162,17 @@ export class GameAIService {
 
       toast.success('天道响应完成');
       
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorText = error instanceof Error ? error.message : String(error);
       console.error('[AI服务] 处理AI消息失败:', error);
-      toast.error(`AI交互失败: ${error.message}`);
+      toast.error(`AI交互失败: ${errorText}`);
       
-      const errorMessage: GameMessage = {
+      const gameErrorMessage: GameMessage = {
         type: 'system',
-        content: `[错误] ${error.message}`,
+        content: `[错误] ${errorText}`,
         time: this.formatGameTime()
       };
-      messages.push(errorMessage);
+      messages.push(gameErrorMessage);
     } finally {
       this.isProcessing = false;
     }
@@ -170,7 +183,7 @@ export class GameAIService {
   /**
    * 构建智能优化的AI提示词
    */
-  private buildComprehensivePrompt(userMessage: string, characterProfile: CharacterProfile): string {
+  private async buildComprehensivePrompt(userMessage: string, characterProfile: CharacterProfile): Promise<string> {
     const saveData = this.getSaveData(characterProfile);
     if (!saveData) {
       console.warn('[AI服务] 存档数据为空，使用简化提示词');
@@ -201,7 +214,7 @@ export class GameAIService {
       console.log('[AI服务] 行动分析结果:', actionAnalysis);
 
       // 选择最优提示词
-      const optimizedPrompt = PromptRouter.selectOptimalPrompt({
+      const optimizedPrompt = await PromptRouter.selectOptimalPrompt({
         character,
         memory,
         location,
@@ -446,11 +459,21 @@ export class GameAIService {
   /**
    * 解析AI响应
    */
-  private parseAIResponse(rawResponse: any): GM_Response {
+  private parseAIResponse(rawResponse: unknown): GM_Response {
     let text = '';
     
+    // 类型守卫，确保rawResponse是期望的结构
+    const isTavernResponse = (res: unknown): res is TavernResponse => {
+      return (
+        typeof res === 'object' &&
+        res !== null &&
+        'choices' in res &&
+        Array.isArray((res as TavernResponse).choices)
+      );
+    };
+
     // 处理不同格式的响应
-    if (rawResponse && typeof rawResponse === 'object' && rawResponse.choices) {
+    if (isTavernResponse(rawResponse)) {
       text = rawResponse.choices[0]?.message?.content || rawResponse.choices[0]?.text || '';
     } else if (typeof rawResponse === 'string') {
       text = rawResponse;
@@ -468,7 +491,7 @@ export class GameAIService {
     if (jsonMatch) {
       try {
         return JSON.parse(jsonMatch[1].trim());
-      } catch (error) {
+      } catch {
         console.warn('[AI服务] JSON解析失败，返回纯文本响应');
       }
     }
@@ -485,24 +508,24 @@ export class GameAIService {
    */
   private async processAICommands(response: GM_Response, characterProfile: CharacterProfile) {
     try {
-      // 构建角色数据用于指令处理
-      const characterData = {
-        character_name: characterProfile.角色基础信息.名字
-      };
+      const { useCharacterStore } = await import('@/stores/characterStore');
+      const characterStore = useCharacterStore();
 
-      await processGmResponse(response, characterData as any);
-      
-      // 如果AI响应包含角色数据更新，应用到角色商店
-      // 注意：character_updates 目前不在 GM_Response 接口中定义
+      // processGmResponse 会返回一个更新后的新对象
+      const updatedProfile = await processGmResponse(response, characterProfile);
+
+      // 使用更新后的对象来更新 store
+      characterStore.updateCharacterData(updatedProfile);
+
+      // 原始的 character_updates 逻辑可以保留作为补充，或者在未来合并
       if ('character_updates' in response && response.character_updates) {
-        const { useCharacterStore } = await import('@/stores/characterStore');
-        const characterStore = useCharacterStore();
+        // 注意：这里的更新可能会覆盖上面的更新，需要根据业务逻辑确定优先级
         characterStore.updateCharacterData(response.character_updates);
       }
-      
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorText = error instanceof Error ? error.message : String(error);
       console.error('[AI服务] 处理AI指令失败:', error);
-      toast.warning(`部分指令执行失败: ${error.message}`);
+      toast.warning(`部分指令执行失败: ${errorText}`);
     }
   }
 
@@ -531,7 +554,7 @@ export class GameAIService {
   /**
    * 生成初始游戏消息
    */
-  async generateInitialGameMessage(characterProfile: CharacterProfile, saveSlot: any): Promise<{ message: string }> {
+  async generateInitialGameMessage(characterProfile: CharacterProfile, saveSlot: { 存档数据?: SaveData }): Promise<{ message: string }> {
     try {
       console.log('[AI服务] 开始生成初始游戏消息');
       

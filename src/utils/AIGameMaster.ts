@@ -4,9 +4,7 @@
  */
 
 import { toast } from './toast';
-import { getTavernHelper } from './tavern';
-import type { CharacterData } from '../types';
-import { useCharacterStore } from '@/stores/characterStore';
+import { set, get, unset, cloneDeep } from 'lodash';
 import type { GameCharacter, GM_Request, GM_Response } from '../types/AIGameMaster';
 
 /**
@@ -18,8 +16,20 @@ import type { GameCharacter, GM_Request, GM_Response } from '../types/AIGameMast
  * @param mapData - 当前世界的地图数据
  * @returns {GM_Request} - 构建完成的请求对象
  */
+import type { CharacterBaseInfo } from '@/types/game';
+
+/**
+ * 【已废弃/待重构】
+ * 构建一个标准的游戏主控请求 (GM_Request) 对象。
+ * 这是发送给AI的“天道请求”。
+ * 它负责将创建时的基础角色数据，转换为AI需要的完整 GameCharacter 结构。
+ * @param baseInfo - 角色的基础静态信息
+ * @param creationDetails - 包含年龄和描述来源的创建详情
+ * @param mapData - 当前世界的地图数据
+ * @returns {GM_Request} - 构建完成的请求对象
+ */
 export function buildGmRequest(
-  initialCharacter: CharacterData,
+  baseInfo: CharacterBaseInfo,
   creationDetails: { age: number; originName: string; spiritRootName: string; },
   mapData: any
 ): GM_Request {
@@ -27,7 +37,7 @@ export function buildGmRequest(
   // 将基础数据转换为完整的 GameCharacter 结构
   const character: GameCharacter = {
     identity: {
-      name: initialCharacter.character_name,
+      name: baseInfo.名字,
       title: undefined,
       age: creationDetails.age,
       apparent_age: creationDetails.age > 25 ? 25 : creationDetails.age, // 假设25岁后可驻颜
@@ -41,12 +51,12 @@ export function buildGmRequest(
       breakthrough_bottleneck: '未曾修行',
     },
     attributes: { // 直接从创建数据中获取
-      STR: 'root_bone' in initialCharacter ? initialCharacter.root_bone : 0,
-      CON: 'temperament' in initialCharacter ? initialCharacter.temperament : 0,
-      DEX: 'spirituality' in initialCharacter ? initialCharacter.spirituality : 0,
-      INT: 'comprehension' in initialCharacter ? initialCharacter.comprehension : 0,
-      SPI: 'spirituality' in initialCharacter ? initialCharacter.spirituality : 0, // 神魂暂用灵性替代
-      LUK: 'fortune' in initialCharacter ? initialCharacter.fortune : 0,
+      STR: baseInfo.先天六司.根骨,
+      CON: baseInfo.先天六司.心性,
+      DEX: baseInfo.先天六司.灵性,
+      INT: baseInfo.先天六司.悟性,
+      SPI: baseInfo.先天六司.灵性, // 神魂暂用灵性替代
+      LUK: baseInfo.先天六司.气运,
     },
     resources: {
       qi: { current: 100, max: 100 }, // 气血
@@ -99,93 +109,78 @@ export function buildGmRequest(
 }
 
 /**
- * 解析并执行来自AI的游戏主控响应 (GM_Response)。
- * 这是接收并执行“天道响应”的核心指令引擎。
+ * 解析来自AI的游戏主控响应 (GM_Response)，并将其指令应用到一个内存中的 saveData 对象上。
+ * 这是“天道响应”的防火墙和解释器，确保所有AI驱动的状态变更都被收敛到单一数据源。
  * @param response - AI返回的GM_Response对象。
- * @param character - 当前正在操作的角色对象，用于判断是否需要后端同步。
+ * @param currentSaveData - 当前从酒馆读取的 character.saveData 对象。
+ * @returns {Promise<any>} - 返回一个被指令修改过的、新的 saveData 对象。
  */
-export async function processGmResponse(response: GM_Response, character: CharacterData) {
-  const characterStore = useCharacterStore(); // 获取Store实例
-
-  if (!character) {
-    toast.error("执行指令失败：未提供角色上下文。");
-    return;
-  }
+export async function processGmResponse<T extends object>(response: GM_Response, currentSaveData: T): Promise<T> {
   if (!response.tavern_commands || response.tavern_commands.length === 0) {
-    console.log("AI响应中无 tavern_commands 指令。");
-    return;
+    console.log('AI响应中无 tavern_commands 指令，无需处理。');
+    return currentSaveData; // 没有指令，直接返回原始对象
   }
 
-  const helper = getTavernHelper();
-  if (!helper) {
-    toast.error("无法连接到酒馆助手，指令执行中断。");
-    return;
-  }
-  toast.info(`接收到 ${response.tavern_commands.length} 条天道法旨，开始同步世界状态...`);
+  // 创建一个深拷贝，以避免修改原始的 Pinia store 状态或传入的对象引用
+  const newSaveData = cloneDeep(currentSaveData);
+
+  console.log(`接收到 ${response.tavern_commands.length} 条天道法旨，开始在内存中模拟执行...`);
 
   try {
     for (const command of response.tavern_commands) {
-      console.log(`执行指令:`, command);
+      console.log(`内存执行: ${command.action} ${command.key}`, command.value);
+
       switch (command.action) {
         case 'set':
-          await helper.insertOrAssignVariables({ [command.key]: command.value } as any, { type: command.scope } as any);
-          toast.success(`[SET] ${command.key} = ${JSON.stringify(command.value)}`);
+          set(newSaveData, command.key, command.value);
           break;
-        case 'add':
-          {
-            const allVars = await helper.getVariables({ type: command.scope } as any) || {};
-            const currentValue = Number(allVars[command.key] || 0);
-            const newValue = currentValue + Number(command.value);
-            await helper.insertOrAssignVariables({ [command.key]: newValue } as any, { type: command.scope } as any);
-            toast.success(`[ADD] ${command.key} = ${newValue}`);
-          }
-          break;
-        case 'push':
-          {
-            const allVars = await helper.getVariables({ type: command.scope } as any) || {};
-            const currentArray = allVars[command.key] || [];
-            if (Array.isArray(currentArray)) {
-              const newArray = [...currentArray, command.value];
-              await helper.insertOrAssignVariables({ [command.key]: newArray } as any, { type: command.scope } as any);
-              toast.success(`[PUSH] 向 ${command.key} 添加 ${JSON.stringify(command.value)}`);
-            } else {
-              toast.error(`[PUSH-ERROR] ${command.key} 不是一个数组。`);
-            }
-          }
-          break;
-        case 'pull':
-          {
-            const allVars = await helper.getVariables({ type: command.scope } as any) || {};
-            const currentArray = allVars[command.key] || [];
-            if (Array.isArray(currentArray)) {
-              const newArray = currentArray.filter((item: any) => JSON.stringify(item) !== JSON.stringify(command.value));
-              await helper.insertOrAssignVariables({ [command.key]: newArray } as any, { type: command.scope } as any);
-              toast.success(`[PULL] 从 ${command.key} 移除 ${JSON.stringify(command.value)}`);
-            } else {
-              toast.error(`[PULL-ERROR] ${command.key} 不是一个数组。`);
-            }
-          }
-          break;
-        case 'delete':
-          // 封印：deleteVariable 或 deleteVariables 方法在 TavernHelper 类型上似乎不存在。
-          // 在找到确切的API之前，暂时禁用此功能以避免编译和运行时错误。
-          // await helper.deleteVariables([command.key], { type: command.scope } as any);
-          toast.warning(`[DELETE-SEALED] 删除指令 "${command.key}" 已被暂时封印。`);
-          break;
-        default:
-          toast.info(`[警告] 未知的指令动作: ${command.action}`);
-      }
 
-      // [核心改造] 天道同步法则
-      // 在执行完指令后，检查是否需要同步到后端
-      // 【已废除】云同步逻辑已移除
+        case 'add': {
+          const currentValue = Number(get(newSaveData, command.key, 0));
+          const valueToAdd = Number(command.value);
+          set(newSaveData, command.key, currentValue + valueToAdd);
+          break;
+        }
+
+        case 'push': {
+          const currentArray = get(newSaveData, command.key, []) as any[];
+          if (Array.isArray(currentArray)) {
+            currentArray.push(command.value);
+            // set(newSaveData, command.key, currentArray); // set is not strictly necessary due to mutation, but good for clarity
+          } else {
+            console.error(`[PROCESS-GM-ERROR] Key "${command.key}" is not an array, cannot push.`);
+          }
+          break;
+        }
+
+        case 'pull': {
+          let currentArray = get(newSaveData, command.key, []) as any[];
+          if (Array.isArray(currentArray)) {
+            const valueToRemove = JSON.stringify(command.value);
+            currentArray = currentArray.filter((item: any) => JSON.stringify(item) !== valueToRemove);
+            set(newSaveData, command.key, currentArray);
+          } else {
+            console.error(`[PROCESS-GM-ERROR] Key "${command.key}" is not an array, cannot pull.`);
+          }
+          break;
+        }
+
+        case 'delete':
+          unset(newSaveData, command.key);
+          break;
+
+        default:
+          console.warn(`[PROCESS-GM-WARNING] 未知的指令动作: ${command.action}`);
+      }
     }
 
-    // 【核心改造】在所有指令执行完毕后，将AI响应中的核心状态更新到本地存档
-    // 【已废除】map_data 逻辑已移除
+    console.log("内存执行完毕，返回更新后的 saveData。", newSaveData);
+    return newSaveData;
 
   } catch (error: any) {
-    console.error("执行AI指令时发生错误:", error);
+    console.error("在内存中执行AI指令时发生严重错误:", error);
     toast.error(`执行天道法旨失败: ${error.message}`);
+    // 如果发生错误，返回原始对象，避免状态被污染
+    return currentSaveData;
   }
 }

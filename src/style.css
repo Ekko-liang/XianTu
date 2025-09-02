@@ -84,7 +84,7 @@ body {
   height: 100%;
   margin: 0;
   padding: 0;
-  overflow: hidden; /* 防止宿主环境滚动条影响 */
+  /* 移除 overflow: hidden; 应用内滚动由 #app 控制 */
   font-family: var(--font-family-serif);
   background-color: transparent; /* 移除背景色，让视频透出 */
   color: var(--color-text);
@@ -93,6 +93,11 @@ body {
 }
 
 #app {
+  position: absolute; /* 使用绝对定位强制撑满body */
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   height: 100%;
   width: 100%;
   box-sizing: border-box;

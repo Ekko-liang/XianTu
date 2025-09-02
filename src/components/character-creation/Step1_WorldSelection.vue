@@ -66,8 +66,7 @@
       @submit="handleCustomSubmit"
     />
 
-    <!-- AI生成等待弹窗 -->
-    <LoadingModal :visible="isGeneratingAI" message="天机推演中..." />
+    <!-- AI生成逻辑已移至toast通知 -->
   </div>
 </template>
 
@@ -76,14 +75,12 @@ import { ref, computed } from 'vue';
 import { useCharacterCreationStore } from '../../stores/characterCreationStore';
 import type { World } from '../../types';
 import CustomCreationModal from './CustomCreationModal.vue';
-import LoadingModal from '../LoadingModal.vue';
 import { toast } from '../../utils/toast';
 import { generateWorld } from '../../utils/tavernAI';
 
 const emit = defineEmits(['ai-generate']);
 const store = useCharacterCreationStore();
 const isCustomModalVisible = ref(false);
-const isGeneratingAI = ref(false); // Local loading state for AI generation
 
 const worldsList = computed(() => {
   const allWorlds = store.creationData.worlds;
@@ -136,6 +133,7 @@ async function handleCustomSubmit(data: any) {
     name: data.name,
     era: data.era,
     description: data.description,
+    source: 'local',
   };
 
   try {
@@ -151,19 +149,22 @@ async function handleCustomSubmit(data: any) {
 }
 
 async function _handleLocalAIGenerate() {
-  isGeneratingAI.value = true;
+  const toastId = 'ai-generate-world';
+  toast.loading('天机推演中，请稍候...', { id: toastId });
   try {
     const newWorld = await generateWorld();
     if (newWorld) {
+      newWorld.source = 'local'; // 显式设置来源为本地
       store.addWorld(newWorld); // 只更新内存
-      // await saveGameData(store.creationData); // NOTE: 持久化由Pinia插件自动处理
       handleSelectWorld(newWorld); // 自动选中
-      toast.success(`AI推演世界 "${newWorld.name}" 已保存！`);
+      toast.success(`AI推演世界 "${newWorld.name}" 已保存！`, { id: toastId });
+    } else {
+      // 如果 generateWorld 返回 null 或 undefined，也需要关闭loading
+      toast.hide(toastId);
     }
   } catch (e: any) {
-    // 错误在 tavernAI 中已提示
-  } finally {
-    isGeneratingAI.value = false;
+    // 错误在 tavernAI 中已通过toast提示，这里只需确保关闭loading
+    toast.hide(toastId);
   }
 }
 

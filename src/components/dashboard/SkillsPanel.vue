@@ -43,8 +43,8 @@
       
       <div v-else-if="filteredDaoPaths.length === 0" class="empty-state">
         <div class="empty-icon">📿</div>
-        <div class="empty-text">{{ getEmptyText() }}</div>
-        <div class="empty-hint">通过修炼和机缘可以解锁更多大道</div>
+        <div class="empty-text"></div>
+        <div class="empty-hint"></div>
       </div>
 
       <div v-else class="dao-list">
@@ -83,12 +83,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { RefreshCw } from 'lucide-vue-next';
-import { useCharacterStore } from '@/stores/characterStore';
 import { getTavernHelper } from '@/utils/tavern';
 import { toast } from '@/utils/toast';
-import type { ThousandDaoSystem, DaoPath, DaoProgress } from '@/types/game';
+import type { ThousandDaoSystem, DaoPath, DaoProgress, SaveData } from '@/types/game';
 
-const characterStore = useCharacterStore();
 const loading = ref(false);
 const activeFilter = ref('all');
 
@@ -157,10 +155,10 @@ const getCurrentStageName = (daoName: string): string => {
   const progress = daoSystemData.value?.大道进度[daoName];
   const daoPath = daoSystemData.value?.大道路径定义[daoName];
   
-  if (!progress || !daoPath) return '未解锁';
+  if (!progress || !daoPath) return '';
   
   const stageIndex = progress.当前阶段;
-  return daoPath.阶段列表[stageIndex]?.名称 || '未知阶段';
+  return daoPath.阶段列表[stageIndex]?.名称 || '';
 };
 
 // 获取当前经验
@@ -267,43 +265,36 @@ const refreshDaoData = async () => {
   }
 };
 
-// 加载大道数据
+// 加载大道数据 - 只从character.saveData获取
 const loadDaoData = async () => {
   try {
-    // 首先从角色存档中加载
-    const activeSave = characterStore.activeSaveSlot;
-    if (activeSave?.存档数据?.三千大道) {
-      daoSystemData.value = activeSave.存档数据.三千大道;
-      console.log('[三千大道] 从存档加载数据:', daoSystemData.value);
-    }
-
-    // 尝试从酒馆变量获取更新的数据
+    loading.value = true;
+    
     const helper = getTavernHelper();
-    if (helper) {
-      const chatVars = await helper.getVariables({ type: 'chat' });
-      
-      // 检查酒馆中的大道数据
-      if (chatVars['三千大道']) {
-        const tavernDaoData = chatVars['三千大道'];
-        if (tavernDaoData) {
-          daoSystemData.value = tavernDaoData;
-          console.log('[三千大道] 从酒馆加载数据:', daoSystemData.value);
-        }
-      }
+    if (!helper) {
+      console.warn('[三千大道] 酒馆Helper不可用');
+      return;
     }
 
-    // 如果没有数据，创建默认空系统
-    if (!daoSystemData.value) {
+    const chatVars = await helper.getVariables({ type: 'chat' });
+    const saveData = chatVars['character.saveData'] as SaveData;
+    
+    if (saveData && typeof saveData === 'object' && saveData.三千大道) {
+      daoSystemData.value = saveData.三千大道;
+      console.log('[三千大道] 从character.saveData加载数据:', daoSystemData.value);
+    } else {
+      console.log('[三千大道] character.saveData中无三千大道数据，使用默认数据');
       daoSystemData.value = {
         已解锁大道: [],
         大道进度: {},
         大道路径定义: {},
       };
-      console.log('[三千大道] 创建默认空系统');
     }
 
   } catch (error) {
     console.error('[三千大道] 加载数据失败:', error);
+  } finally {
+    loading.value = false;
   }
 };
 
@@ -456,7 +447,7 @@ onMounted(() => {
 }
 
 /* 大道容器 */
-.dao-container {
+.panel-content {
   flex: 1;
   margin: 0 1rem 1rem 1rem;
   overflow-y: auto;
@@ -468,22 +459,22 @@ onMounted(() => {
 }
 
 /* Webkit 滚动条样式 */
-.dao-container::-webkit-scrollbar {
+.panel-content::-webkit-scrollbar {
   width: 8px;
 }
 
-.dao-container::-webkit-scrollbar-track {
+.panel-content::-webkit-scrollbar-track {
   background: rgba(243, 244, 246, 0.5);
   border-radius: 4px;
 }
 
-.dao-container::-webkit-scrollbar-thumb {
+.panel-content::-webkit-scrollbar-thumb {
   background: rgba(var(--color-primary-rgb), 0.3);
   border-radius: 4px;
   transition: background 0.2s ease;
 }
 
-.dao-container::-webkit-scrollbar-thumb:hover {
+.panel-content::-webkit-scrollbar-thumb:hover {
   background: rgba(var(--color-primary-rgb), 0.5);
 }
 

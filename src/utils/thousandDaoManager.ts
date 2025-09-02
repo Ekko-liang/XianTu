@@ -31,10 +31,10 @@ export class ThousandDaoManager {
       }
 
       const chatVars = await helper.getVariables({ type: 'chat' });
-      const daoSystem = chatVars['三千大道'];
+      const saveData = chatVars['character.saveData'];
       
-      if (daoSystem) {
-        return daoSystem as ThousandDaoSystem;
+      if (saveData?.三千大道) {
+        return saveData.三千大道 as ThousandDaoSystem;
       } else {
         // 如果没有数据，返回空系统
         return createEmptyThousandDaoSystem();
@@ -55,11 +55,18 @@ export class ThousandDaoManager {
         throw new Error('无法连接到酒馆助手');
       }
 
+      // 获取当前存档数据
+      const chatVars = await helper.getVariables({ type: 'chat' });
+      const saveData = chatVars['character.saveData'] || {};
+      
+      // 更新三千大道数据
+      saveData.三千大道 = daoSystem;
+      
       await helper.insertOrAssignVariables({
-        '三千大道': daoSystem
+        'character.saveData': saveData
       }, { type: 'chat' });
       
-      console.log('[三千大道管理器] 数据已保存到酒馆变量');
+      console.log('[三千大道管理器] 数据已保存到character.saveData.三千大道');
       return true;
     } catch (error) {
       console.error('[三千大道管理器] 保存数据失败:', error);

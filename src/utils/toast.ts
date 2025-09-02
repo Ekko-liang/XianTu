@@ -1,144 +1,111 @@
-import { createApp, App } from 'vue';
-import ThematicToast from '@/components/common/ThematicToast.vue';
+import { ref } from 'vue';
 
-type MessageType = 'success' | 'error' | 'warning' | 'info' | 'loading';
+export type MessageType = 'success' | 'error' | 'warning' | 'info' | 'loading';
 
-interface ToastInstance {
-  close: () => void;
+export interface Toast {
+  id: string;
+  type: MessageType;
+  message: string;
+  duration?: number;
 }
 
-// 管理活跃的toast实例
-const activeToasts: Set<ToastInstance> = new Set();
-let loadingInstance: ToastInstance | null = null;
+// 响应式状态，存储所有活动的 toast
+const toasts = ref<Toast[]>([]);
 
-// 消息防重复机制
-const recentMessages = new Map<string, number>();
-const MESSAGE_THROTTLE_TIME = 2000; // 2秒内相同消息只显示一次
+// --- 内部辅助函数 ---
+let toastCounter = 0;
+const generateId = () => `toast-${Date.now()}-${toastCounter++}`;
 
 /**
- * 检查消息是否应该被限制
+ * 移除一个 toast
+ * @param id 要移除的 toast 的 ID
  */
-function shouldThrottleMessage(message: string): boolean {
-  const now = Date.now();
-  const lastShown = recentMessages.get(message);
-  
-  if (lastShown && (now - lastShown) < MESSAGE_THROTTLE_TIME) {
-    return true; // 限制显示
-  }
-  
-  recentMessages.set(message, now);
-  
-  // 清理过期的消息记录
-  for (const [msg, time] of recentMessages.entries()) {
-    if (now - time > MESSAGE_THROTTLE_TIME) {
-      recentMessages.delete(msg);
-    }
-  }
-  
-  return false;
-}
+const removeToast = (id: string) => {
+  toasts.value = toasts.value.filter(t => t.id !== id);
+};
 
 /**
- * @description 自定义 Toast 管理器，使用 ThematicToast.vue 组件
+ * @description 新版 Toast 管理器，基于响应式状态
  */
 class ToastManager {
   /**
-   * 内部核心方法，用于创建和挂载 Toast 组件
+   * 核心方法，用于显示或更新 Toast
    * @param type - 消息类型
    * @param content - 消息内容
-   * @param duration - 显示时长（秒），loading 类型下此参数无效
+   * @param options - 选项，包含 duration 和 id
    */
-  private show(type: MessageType, content: string, duration: number = 3): ToastInstance | void {
-    // 检查是否应该限制消息显示（loading类型不限制）
-    if (type !== 'loading' && shouldThrottleMessage(content)) {
-      console.log(`[Toast] 消息被限制显示: ${content}`);
-      return;
+  private show(type: MessageType, message: string, options: { duration?: number; id?: string } = {}) {
+    // 默认显示时间延长至5秒
+    const { duration = 5000, id } = options;
+
+    // 如果提供了 id，则尝试查找并更新现有 toast
+    if (id) {
+      const existingToast = toasts.value.find(t => t.id === id);
+      if (existingToast) {
+        // 更新内容和类型
+        existingToast.message = message;
+        existingToast.type = type;
+        
+        // 如果不是 loading，重新设置销毁计时器
+        if (type !== 'loading') {
+          setTimeout(() => removeToast(id), duration);
+        }
+        return;
+      }
     }
 
-    // 限制同时显示的普通消息数量（最多3个）
-    if (type !== 'loading' && activeToasts.size >= 3) {
-      console.log(`[Toast] 消息数量已达上限，跳过: ${content}`);
-      return;
-    }
-
-    // 如果是 loading 类型，且已有一个 loading 实例存在，则先销毁旧的
-    if (type === 'loading' && loadingInstance) {
-      this.hideLoading();
-    }
-
-    const container = document.createElement('div');
-    document.body.appendChild(container);
-
-    const toastIndex = Array.from(activeToasts).length;
-
-    const app = createApp(ThematicToast, {
+    // 创建新的 toast
+    const newToast: Toast = {
+      id: id || generateId(),
       type,
-      message: content,
-      duration: duration * 1000,
-      index: toastIndex,
-      onDestroy: () => {
-        app.unmount();
-        if (document.body.contains(container)) {
-          document.body.removeChild(container);
-        }
-        if (type === 'loading') {
-          loadingInstance = null;
-        }
-        activeToasts.delete(toastInstance);
-      },
-    });
-
-    const instance = app.mount(container) as any;
-
-    const toastInstance = {
-      close: () => {
-        instance.close();
-      },
+      message,
+      duration,
     };
 
-    activeToasts.add(toastInstance);
+    toasts.value.push(newToast);
 
-    if (type === 'loading') {
-      loadingInstance = toastInstance;
-      return toastInstance;
+    // 如果不是 loading 类型，则在指定时间后自动销毁
+    if (type !== 'loading') {
+      setTimeout(() => removeToast(newToast.id), duration);
     }
   }
 
-  success(message: string, duration?: number) {
-    this.show('success', message, duration);
+  success(message: string, options: { duration?: number; id?: string } = {}) {
+    this.show('success', message, options);
   }
 
-  error(message: string, duration?: number) {
-    this.show('error', message, duration);
+  error(message: string, options: { duration?: number; id?: string } = {}) {
+    this.show('error', message, options);
   }
 
-  warning(message: string, duration?: number) {
-    this.show('warning', message, duration);
+  warning(message: string, options: { duration?: number; id?: string } = {}) {
+    this.show('warning', message, options);
   }
 
-  info(message: string, duration?: number) {
-    this.show('info', message, duration);
+  info(message: string, options: { duration?: number; id?: string } = {}) {
+    this.show('info', message, options);
   }
 
   /**
-   * 显示一个持续的 loading 提示，需要手动关闭
+   * 显示一个持续的 loading 提示
    * @param message - 消息内容
-   * @returns 返回一个包含 close 方法的对象，用于关闭提示
+   * @param options - 必须包含一个唯一的 id
    */
-  loading(message: string): ToastInstance {
-    return this.show('loading', message) as ToastInstance;
+  loading(message: string, options: { id: string }) {
+    this.show('loading', message, { ...options, duration: 999999 }); // loading 持续时间很长
   }
 
   /**
-   * 隐藏 loading 提示
+   * 通过 id 隐藏一个 toast，主要用于 loading
+   * @param id 要隐藏的 toast 的 id
    */
-  hideLoading() {
-    if (loadingInstance) {
-      loadingInstance.close();
-      // loadingInstance will be set to null by the onDestroy callback
-    }
+  hide(id: string) {
+    removeToast(id);
   }
 }
 
-// 导出单例，供全局使用
+// 导出响应式数组，供 Vue 组件使用
+export { toasts };
+
+// 导出单例管理器，供业务逻辑使用
 export const toast = new ToastManager();

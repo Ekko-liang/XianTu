@@ -1,7 +1,9 @@
 <template>
   <div id="app-container">
+    <ToastContainer />
+    <GlobalLoadingOverlay />
     <!-- 全局操作按钮 - 只在非GameView页面显示 -->
-    <div v-if="activeView !== views.GameView" class="global-actions">
+    <div v-if="activeView !== 'GameView'" class="global-actions">
       <label class="theme-toggle" @click.prevent="toggleTheme">
         <input type="checkbox" ref="globalThemeCheckbox" :checked="!isDarkMode">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" class="moon">
@@ -22,41 +24,56 @@
       </label>
     </div>
 
-    <LoadingModal :visible="isInitializing" :message="loadingMessage" />
-
-    <component
-      v-show="!isInitializing"
-      :is="activeView"
-      @start-creation="handleStartCreation"
-      @show-character-list="handleShowCharacterList"
-      @back="handleBack"
-      @loggedIn="handleLoggedIn"
-      @creation-complete="handleCreationComplete"
-      @select="handleCharacterSelect"
-      @login="handleGoToLogin"
-    />
+    <template v-if="activeView === 'ModeSelection'">
+      <ModeSelection
+        @start-creation="handleStartCreation"
+        @show-character-list="handleShowCharacterList"
+      />
+    </template>
+    <template v-else-if="activeView === 'CharacterCreation'">
+      <CharacterCreation
+        @back="handleBack"
+        @creation-complete="handleCreationComplete"
+      />
+    </template>
+    <template v-else-if="activeView === 'Login'">
+      <LoginView
+        @loggedIn="handleLoggedIn"
+        @back="handleBack"
+      />
+    </template>
+    <template v-else-if="activeView === 'CharacterManagement'">
+      <CharacterManagement
+        @select="handleCharacterSelect"
+        @back="handleBack"
+        @login="handleGoToLogin"
+      />
+    </template>
+    <template v-else-if="activeView === 'GameView'">
+      <GameView />
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
 import { shallowRef, ref, onMounted } from 'vue';
+import ToastContainer from './components/common/ToastContainer.vue'; // 导入 Toast 容器
+import GlobalLoadingOverlay from './components/common/GlobalLoadingOverlay.vue'; // 导入全局加载遮罩
 import ModeSelection from './views/ModeSelection.vue';
 import CharacterCreation from './views/CharacterCreation.vue';
 import LoginView from './views/LoginView.vue';
 import GameView from './views/GameView.vue';
 import CharacterManagement from './components/character-creation/CharacterManagement.vue';
-import LoadingModal from './components/LoadingModal.vue';
 import './style.css';
 import { useCharacterCreationStore } from './stores/characterCreationStore';
 import { useCharacterStore } from './stores/characterStore';
+import { useUIStore } from './stores/uiStore'; // 导入UI Store
 import { verifyStoredToken } from './services/request';
 import { toast } from './utils/toast';
 import type { CharacterBaseInfo, InnateAttributes, SaveData } from '@/types/game';
 import { initializeCharacter } from '@/services/characterInitialization';
 
 const isLoggedIn = ref(false);
-const isInitializing = ref(false);
-const loadingMessage = ref('正在开天辟地，衍化万物...');
 
 // 添加全局按钮引用
 const globalThemeCheckbox = ref<HTMLInputElement>();
@@ -71,18 +88,21 @@ const views = {
   GameView,
 };
 type ViewName = keyof typeof views;
-const activeView = shallowRef<any>(views.ModeSelection);
+const activeView = ref<ViewName>('ModeSelection');
 
 const creationStore = useCharacterCreationStore();
 const characterStore = useCharacterStore();
+const uiStore = useUIStore();
 
 const switchView = (viewName: ViewName) => {
-  activeView.value = views[viewName] || ModeSelection;
+  if (views[viewName]) {
+    activeView.value = viewName;
+  } else {
+    activeView.value = 'ModeSelection';
+  }
 };
 
 const handleStartCreation = async (mode: 'single' | 'cloud') => {
-  isInitializing.value = true;
-  loadingMessage.value = '正在连接天地法则...';
   try {
     creationStore.setMode(mode);
     // await creationStore.initializeStore(mode); // 假设创角store有初始化逻辑
@@ -94,7 +114,6 @@ const handleStartCreation = async (mode: 'single' | 'cloud') => {
       if (isLoggedIn.value) {
         try {
           // 首先获取所有云端数据
-          loadingMessage.value = '正在获取云端创世数据...';
           await creationStore.fetchAllCloudData();
           
           // 检查是否成功获取到云端世界数据
@@ -122,7 +141,6 @@ const handleStartCreation = async (mode: 'single' | 'cloud') => {
     toast.error("初始化创角数据失败，请稍后重试。");
     switchView('ModeSelection');
   } finally {
-    isInitializing.value = false;
   }
 };
 
@@ -148,10 +166,6 @@ const handleGoToLogin = () => {
 const handleCharacterSelect = async (selection: { charId: string, slotKey: string }) => {
   console.log(`接收到选择指令... 角色ID: ${selection.charId}, 存档槽: ${selection.slotKey}`);
   
-  // 显示加载状态
-  isInitializing.value = true;
-  loadingMessage.value = '正在进入世界...';
-  
   try {
     const success = await characterStore.loadGame(selection.charId, selection.slotKey);
     
@@ -169,21 +183,12 @@ const handleCharacterSelect = async (selection: { charId: string, slotKey: strin
     console.error('存档加载过程出错:', error);
     toast.error('进入游戏时发生错误：' + (error instanceof Error ? error.message : '未知错误'));
   } finally {
-    isInitializing.value = false;
   }
 };
 
 const handleCreationComplete = async (rawPayload: any) => {
   console.log('接收到创角指令...', rawPayload);
-
-  // 立即设置加载状态，防止用户多次点击
-  if (isInitializing.value) {
-    console.log('正在初始化中，请稍候...');
-    return;
-  }
-
-  isInitializing.value = true;
-  loadingMessage.value = '正在铸造法身，演化天机...';
+  uiStore.startLoading('开始铸造法身...');
 
   try {
     // 1. 将原始数据转换为 CharacterBaseInfo 结构
@@ -233,7 +238,6 @@ const handleCreationComplete = async (rawPayload: any) => {
     if (!createdBaseInfo) {
       console.error("角色创建失败，请检查 characterStore 的日志。");
       toast.error("角色创建失败");
-      isInitializing.value = false;
       return;
     }
 
@@ -248,7 +252,6 @@ const handleCreationComplete = async (rawPayload: any) => {
     if (!profile) {
       console.error('严重错误：角色创建后无法在角色列表中找到！');
       toast.error('角色数据保存失败');
-      isInitializing.value = false;
       switchView('ModeSelection');
       return;
     }
@@ -256,7 +259,6 @@ const handleCreationComplete = async (rawPayload: any) => {
     console.log('成功找到创建的角色:', profile);
 
     // 6. 设置当前激活存档（不调用loadGame避免异步问题）
-    loadingMessage.value = '正在进入游戏世界...';
     const slotKey = profile?.模式 === '单机' ? '存档1' : '存档';
     characterStore.rootState.当前激活存档 = { 角色ID: charId, 存档槽位: slotKey };
     characterStore.commitToStorage();
@@ -267,18 +269,17 @@ const handleCreationComplete = async (rawPayload: any) => {
     // 8. 确保所有数据都已保存并生成完毕后，才进入游戏
     toast.success(`【${createdBaseInfo.名字}】已成功踏入修行之路！`);
 
-    // 9. 关闭加载状态
-    isInitializing.value = false;
-
-    // 10. 最后切换到游戏视图
+    // 9. 最后切换到游戏视图
     switchView('GameView');
 
   } catch (error) {
     console.error("角色创建过程出错：", error);
     toast.error("法身铸造过程中出现意外，请重试");
-    isInitializing.value = false;
     // 失败后返回模式选择页面
     switchView('ModeSelection');
+  } finally {
+    // 10. 无论成功失败，都关闭加载状态
+    uiStore.stopLoading();
   }
 };
 

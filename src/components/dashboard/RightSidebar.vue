@@ -12,7 +12,7 @@
           <div class="vital-item">
             <div class="vital-info">
               <span class="vital-name">🩸 气血</span>
-              <span class="vital-text">{{ playerStatus.vitals.qiBlood.current }} / {{ playerStatus.vitals.qiBlood.max }}</span>
+              <span class="vital-text">{{ playerStatus?.vitals.qiBlood.current }} / {{ playerStatus?.vitals.qiBlood.max }}</span>
             </div>
             <div class="progress-bar">
               <div class="progress-fill health" :style="{ width: getVitalPercent('qiBlood') + '%' }"></div>
@@ -22,7 +22,7 @@
           <div class="vital-item">
             <div class="vital-info">
               <span class="vital-name">✨ 灵气</span>
-              <span class="vital-text">{{ playerStatus.vitals.lingQi.current }} / {{ playerStatus.vitals.lingQi.max }}</span>
+              <span class="vital-text">{{ playerStatus?.vitals.lingQi.current }} / {{ playerStatus?.vitals.lingQi.max }}</span>
             </div>
             <div class="progress-bar">
               <div class="progress-fill mana" :style="{ width: getVitalPercent('lingQi') + '%' }"></div>
@@ -32,7 +32,7 @@
           <div class="vital-item">
             <div class="vital-info">
               <span class="vital-name">🧠 神识</span>
-              <span class="vital-text">{{ playerStatus.vitals.shenShi.current }} / {{ playerStatus.vitals.shenShi.max }}</span>
+              <span class="vital-text">{{ playerStatus?.vitals.shenShi.current }} / {{ playerStatus?.vitals.shenShi.max }}</span>
             </div>
             <div class="progress-bar">
               <div class="progress-fill spirit" :style="{ width: getVitalPercent('shenShi') + '%' }"></div>
@@ -42,7 +42,7 @@
           <div class="vital-item">
             <div class="vital-info">
               <span class="vital-name">⏳ 寿元</span>
-              <span class="vital-text">{{ playerStatus.vitals.lifespan.current }} / {{ playerStatus.vitals.lifespan.max }}年</span>
+              <span class="vital-text">{{ playerStatus?.lifespan.current }} / {{ playerStatus?.lifespan.max }}年</span>
             </div>
             <div class="progress-bar">
               <div class="progress-fill lifespan" :style="{ width: getVitalPercent('lifespan') + '%' }"></div>
@@ -56,25 +56,25 @@
         <h3 class="section-title">境界状态</h3>
         <div class="realm-display">
           <div class="realm-info">
-            <span class="realm-name">{{ playerStatus.realm.name }}</span>
-            <span class="realm-level">{{ playerStatus.realm.level }}层</span>
+            <span class="realm-name">{{ playerStatus?.realm.name }}</span>
+            <span class="realm-level">{{ playerStatus?.realm.level }}层</span>
           </div>
           <div class="realm-progress">
             <div class="progress-bar">
               <div class="progress-fill cultivation" :style="{ width: realmProgressPercent + '%' }"></div>
             </div>
-            <span class="progress-text">{{ playerStatus.realm.progress }} / {{ playerStatus.realm.required }}</span>
+            <span class="progress-text">{{ playerStatus?.realm.progress }} / {{ playerStatus?.realm.maxProgress }}</span>
           </div>
         </div>
 
         <div class="status-details">
           <div class="detail-item">
             <span class="detail-label">声望</span>
-            <span class="detail-value">{{ playerStatus.reputation }}</span>
+            <span class="detail-value">{{ playerStatus?.reputation.level }}</span>
           </div>
           <div class="detail-item">
             <span class="detail-label">位置</span>
-            <span class="detail-value">{{ playerStatus.location.description }}</span>
+            <span class="detail-value">{{ characterData?.location.name }}</span>
           </div>
         </div>
 
@@ -166,71 +166,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue';
+import { computed, ref } from 'vue';
 import DetailModal from '@/components/common/DetailModal.vue';
-import { getTavernHelper } from '@/utils/tavern';
-
-// 酒馆数据类型定义
-interface PlayerStatusData {
-  境界?: {
-    名称?: string;
-    等级?: number;
-    修为进度?: number;
-    突破所需?: number;
-  };
-  修为?: {
-    当前?: number;
-    最大?: number;
-  };
-  声望?: number;
-  气血?: {
-    当前?: number;
-    最大?: number;
-  };
-  灵气?: {
-    当前?: number;
-    最大?: number;
-  };
-  神识?: {
-    当前?: number;
-    最大?: number;
-  };
-  寿命?: {
-    当前?: number;
-    最大?: number;
-  };
-  位置?: {
-    描述?: string;
-  };
-  当前活动?: string;
-  心境状态?: string;
-  状态效果?: Array<{
-    状态名称?: string;
-    name?: string;
-    类型?: string;
-    持续时间?: string;
-    强度?: string | number;
-    剩余时间?: string | number;
-    来源?: string;
-  }>;
-}
-
-interface SaveData {
-  玩家角色状态?: PlayerStatusData;
-  天赋神通?: Record<string, {
-    等级?: number;
-    level?: number;
-    经验?: {
-      当前?: number;
-      最大?: number;
-    };
-    exp?: {
-      current?: number;
-      max?: number;
-    };
-  }>;
-  [key: string]: unknown;
-}
+import { useUnifiedCharacterData } from '@/composables/useCharacterData';
+import { useCharacterStore } from '@/stores/characterStore';
+import type { StatusEffect } from '@/types/game';
 
 type TextSection = {
   title?: string;
@@ -250,20 +190,19 @@ type TableSection = {
   data: { label: string; value: string | number }[];
 };
 
-interface TavernData {
-  characterInfo?: {
-    name: string;
-    gender: string;
-    world: string;
-    talents: string[];
-    spiritRoot: string;
-    talent: string;
-    origin: string;
-  };
-  saveData?: SaveData;
-}
+const { characterData, isDataLoaded } = useUnifiedCharacterData();
+const characterStore = useCharacterStore();
 
-const tavernData = ref<TavernData | null>(null);
+// 角色基础信息
+const characterInfo = computed(() => characterData.value?.basicInfo);
+// 玩家状态信息
+const playerStatus = computed(() => characterData.value?.status);
+// 状态效果
+const statusEffects = computed(() => characterData.value?.statusEffects || []);
+
+// 安全地访问存档数据
+const saveData = computed(() => characterStore.activeSaveSlot?.存档数据);
+const daoData = computed(() => saveData.value?.三千大道);
 
 // 收缩状态
 const talentsCollapsed = ref(false);
@@ -279,134 +218,6 @@ const modalData = ref<{
   title: '',
   icon: '',
   content: []
-});
-
-// 获取酒馆数据
-const loadTavernData = async () => {
-  try {
-    const helper = getTavernHelper();
-    if (!helper) {
-      console.warn('[右侧面板] 酒馆Helper不可用');
-      return;
-    }
-
-    // 读取全局变量（角色基础信息）
-    const globalVars = await helper.getVariables({ type: 'global' });
-    // 读取聊天变量（动态游戏数据）
-    const chatVars = await helper.getVariables({ type: 'chat' });
-    const saveData = chatVars['character.saveData'];
-
-    if (saveData && typeof saveData === 'object') {
-      // 角色基础信息
-      const characterInfo = {
-        name: (globalVars['character.name'] || '未名道友') as string,
-        gender: (globalVars['character.gender'] || '未知') as string,
-        world: (globalVars['character.world'] || '未知世界') as string,
-        talents: (globalVars['character.talents'] || []) as string[],
-        spiritRoot: (globalVars['character.spirit_root'] || '未知') as string,
-        talent: (globalVars['character.talent_tier'] || '未知') as string,
-        origin: (globalVars['character.origin'] || '未知') as string
-      };
-
-      tavernData.value = {
-        characterInfo,
-        saveData: saveData as SaveData
-      };
-
-      console.log('[右侧面板] 酒馆数据加载成功:', {
-        characterInfo,
-        saveData,
-        location: (saveData as SaveData)?.玩家角色状态?.位置?.描述
-      });
-    } else {
-      console.warn('[右侧面板] 未找到存档数据');
-    }
-  } catch (error) {
-    console.warn('[右侧面板] 获取酒馆数据失败:', error);
-  }
-};
-
-// 数据加载状态
-const isDataLoaded = computed(() => {
-  return tavernData.value?.characterInfo && tavernData.value?.saveData;
-});
-
-// 角色基础信息
-const characterInfo = computed(() => {
-  if (!tavernData.value?.characterInfo) return null;
-  return tavernData.value.characterInfo;
-});
-
-// 玩家状态信息
-const playerStatus = computed(() => {
-  const saveData = tavernData.value?.saveData;
-  const status = saveData?.玩家角色状态 || {};
-  if (!status || Object.keys(status).length === 0) {
-    return {
-      realm: { name: '凡人', level: 0, progress: 0, required: 100 },
-      cultivationExp: { current: 0, max: 100 },
-      reputation: 0,
-      vitals: {
-        qiBlood: { current: 100, max: 100 },
-        lingQi: { current: 50, max: 100 },
-        shenShi: { current: 30, max: 100 },
-        lifespan: { current: 18, max: 100 }
-      },
-      location: { description: '新手村' },
-      activity: '修行',
-      mood: '平静'
-    };
-  }
-
-  return {
-    realm: {
-      name: status.境界?.名称 || '凡人',
-      level: status.境界?.等级 || 0,
-      progress: status.境界?.修为进度 || status.修为?.当前 || 0,
-      required: status.境界?.突破所需 || status.修为?.最大 || 100
-    },
-    cultivationExp: {
-      current: status.修为?.当前 || 0,
-      max: status.修为?.最大 || 100
-    },
-    reputation: status.声望 || 0,
-    vitals: {
-      qiBlood: {
-        current: status.气血?.当前 || 100,
-        max: status.气血?.最大 || 100
-      },
-      lingQi: {
-        current: status.灵气?.当前 || 50,
-        max: status.灵气?.最大 || 100
-      },
-      shenShi: {
-        current: status.神识?.当前 || 30,
-        max: status.神识?.最大 || 100
-      },
-      lifespan: {
-        current: status.寿命?.当前 || 18,
-        max: status.寿命?.最大 || 100
-      }
-    },
-    location: { description: status.位置?.描述 || '新手村' },
-    activity: status.当前活动 || '修行',
-    mood: status.心境状态 || '平静'
-  };
-});
-
-// 状态效果 - 基于标准 StatusEffect 接口
-const statusEffects = computed(() => {
-  const effects = tavernData.value?.saveData?.玩家角色状态?.状态效果 || [];
-  return effects.map((effect) => {
-    return {
-      状态名称: effect.状态名称 || effect.name || '未知状态',
-      类型: (effect.类型 === 'BUFF' ? 'BUFF' : 'DEBUFF') as 'BUFF' | 'DEBUFF',
-      时间: String(effect.持续时间 || effect.剩余时间 || '永久'),
-      状态描述: '', // 从内置描述数据库获取
-      强度: typeof effect.强度 === 'number' ? effect.强度 : (effect.强度 ? parseInt(String(effect.强度)) : 1),
-      来源: effect.来源
-    };
-  });
 });
 
 // 时间显示格式化
@@ -429,45 +240,46 @@ const formatTimeDisplay = (time: string): string => {
 
 // 计算百分比的工具方法
 const realmProgressPercent = computed(() => {
-  const { progress, required } = playerStatus.value.realm;
-  return progress && required ? Math.round((progress / required) * 100) : 0;
+  if (!playerStatus.value) return 0;
+  const { progress, maxProgress } = playerStatus.value.realm;
+  return progress && maxProgress ? Math.round((progress / maxProgress) * 100) : 0;
 });
 
 // 计算生命体征百分比
 const getVitalPercent = (type: 'qiBlood' | 'lingQi' | 'shenShi' | 'lifespan') => {
-  const vitals = playerStatus.value.vitals[type];
+  if (!playerStatus.value) return 0;
+  if (type === 'lifespan') {
+    const lifespan = playerStatus.value.lifespan;
+    if (!lifespan?.current || !lifespan?.max) return 0;
+    return Math.round((lifespan.current / lifespan.max) * 100);
+  }
+  const vitals = playerStatus.value.vitals[type as keyof typeof playerStatus.value.vitals];
   if (!vitals?.current || !vitals?.max) return 0;
   return Math.round((vitals.current / vitals.max) * 100);
 };
 
 // 计算天赋等级
 const getTalentLevel = (talent: string): number => {
-  const talentData = tavernData.value?.saveData?.天赋神通?.[talent];
-  return talentData?.等级 || talentData?.level || 1;
+  const daoProgress = daoData.value?.大道进度[talent];
+  return daoProgress?.当前阶段 || 1;
 };
 
 // 计算天赋经验
 const getTalentExp = (talent: string): number => {
-  const talentData = tavernData.value?.saveData?.天赋神通?.[talent];
-  return talentData?.经验?.当前 || talentData?.exp?.current || 0;
+  const daoProgress = daoData.value?.大道进度[talent];
+  return daoProgress?.当前经验 || 0;
 };
 
 // 计算天赋最大经验
 const getTalentMaxExp = (talent: string): number => {
-  const talentData = tavernData.value?.saveData?.天赋神通?.[talent];
-  return talentData?.经验?.最大 || talentData?.exp?.max || 100;
-};
-
-// 计算天赋最大等级
-const getTalentMaxLevel = (talent: string): number => {
-  const talentDescriptions: Record<string, number> = {
-    '天命主角': 10,
-    '慧根': 8,
-    '灵眼': 7,
-    '天灵根': 5,
-    '不朽体质': 6
-  };
-  return talentDescriptions[talent] || 10;
+  const daoProgress = daoData.value?.大道进度[talent];
+  const currentStageIndex = daoProgress?.当前阶段 || 0;
+  const daoPath = daoData.value?.大道路径定义[talent];
+  // 确保 daoPath 和 阶段列表 存在
+  if (daoPath && daoPath.阶段列表 && daoPath.阶段列表[currentStageIndex]) {
+    return daoPath.阶段列表[currentStageIndex].突破经验 || 100;
+  }
+  return 100;
 };
 
 // 计算天赋进度百分比
@@ -561,14 +373,7 @@ const showTalentDetail = (talent: string) => {
 };
 
 // 显示状态效果详情
-const showStatusDetail = (effect: { 状态名称: string; 类型: string; 时间: string; 强度?: number; 来源?: string }) => {
-  // 从酒馆数据中获取详细的状态效果信息
-  const statusData = tavernData.value?.saveData?.玩家角色状态;
-  const effectsArray = statusData?.状态效果 || [];
-  const detailData = effectsArray.find((s) =>
-    (s.状态名称 || s.name) === effect.状态名称
-  );
-
+const showStatusDetail = (effect: StatusEffect) => {
   // 状态效果描述数据库
   const effectDescriptions: Record<string, {
     description: string;
@@ -635,10 +440,10 @@ const showStatusDetail = (effect: { 状态名称: string; 类型: string; 时间
       value: effect.强度
     });
   }
-  if (detailData?.剩余时间) {
+  if (effect.剩余时间) {
     additionalInfo.push({
       label: '剩余时间',
-      value: detailData.剩余时间
+      value: effect.剩余时间
     });
   }
   if (effect.来源) {
@@ -685,10 +490,6 @@ const showStatusDetail = (effect: { 状态名称: string; 类型: string; 时间
   };
   showModal.value = true;
 };
-
-onMounted(async () => {
-  await loadTavernData();
-});
 </script>
 
 <style scoped>

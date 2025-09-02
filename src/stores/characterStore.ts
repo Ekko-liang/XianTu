@@ -1,8 +1,9 @@
 import { ref, computed } from 'vue';
 import { defineStore } from 'pinia';
 import { toast } from '@/utils/toast';
+import { useUIStore } from './uiStore'; // 导入UI Store
 import * as storage from '@/utils/localStorageManager';
-import { getTavernHelper } from '@/utils/tavern';
+import { getTavernHelper, clearAllCharacterData } from '@/utils/tavern';
 import { initializeCharacter } from '@/services/characterInitialization';
 import { createCharacter as createCharacterAPI, updateCharacterSave } from '@/services/request';
 import type { World } from '@/types';
@@ -108,17 +109,24 @@ export const useCharacterStore = defineStore('characterV3', () => {
    * @returns 创建成功则返回角色的基础信息，否则返回 undefined
    */
   const createNewCharacter = async (payload: CreationPayload): Promise<CharacterBaseInfo | undefined> => {
+    const uiStore = useUIStore();
     const { charId, baseInfo, world, mode, age } = payload;
     if (rootState.value.角色列表[charId]) {
       toast.error(`角色ID ${charId} 已存在，创建失败！`);
       return undefined;
     }
 
+    // const toastId = `create-char-${charId}`; // 不再需要独立的toastId
     try {
-      // 1. 如果是联机模式，先向后端提交角色创建信息
+      uiStore.updateLoadingText('即将开始角色创建...');
+      
+      // [核心改造] 1. 创建角色前，彻底清理酒馆环境
+      await clearAllCharacterData(); // 不再需要传递toastId
+
+      // 2. 如果是联机模式，先向后端提交角色创建信息
       if (mode === '联机') {
         try {
-          toast.info('正在向云端提交角色信息...');
+          uiStore.updateLoadingText('正在向云端提交角色信息...');
           
           // 构造符合后端schema的数据结构
           const characterSubmissionData = {
@@ -137,16 +145,15 @@ export const useCharacterStore = defineStore('characterV3', () => {
           console.log('[角色创建] 向后端提交的数据:', characterSubmissionData);
           const backendResult = await createCharacterAPI(characterSubmissionData);
           console.log('[角色创建] 后端返回结果:', backendResult);
-          toast.success('角色信息已成功提交至云端！');
+          uiStore.updateLoadingText('角色信息已成功提交至云端！');
         } catch (error) {
           console.error('[角色创建] 向后端提交失败:', error);
-          toast.error('向云端提交角色信息失败，但会继续本地创建流程');
+          toast.warning('向云端提交角色信息失败，将继续本地创建流程'); // 保留一个toast警告
           // 不要抛出错误，允许继续本地创建流程
         }
       }
 
-      // 2. 使用AI增强的初始化服务创建完整的存档数据
-      toast.info('正在铸造法身...');
+      // 3. 使用AI增强的初始化服务创建完整的存档数据
       const initialSaveData = await initializeCharacter(charId, baseInfo, world, age);
 
       let newProfile: CharacterProfile;
@@ -191,13 +198,14 @@ export const useCharacterStore = defineStore('characterV3', () => {
       
       commitToStorage();
       
-      // 3. 同步到酒馆
+      // 4. 同步到酒馆
+      uiStore.updateLoadingText('正在将角色档案同步至酒馆...');
       await setActiveCharacterInTavern(charId);
       
-      // 4. 如果是联机模式，同步完整存档数据到云端
+      // 5. 如果是联机模式，同步完整存档数据到云端
       if (mode === '联机') {
         try {
-          toast.info('正在同步存档数据到云端...');
+          uiStore.updateLoadingText('正在同步完整存档到云端...');
           
           const saveDataToSync = {
             save_data: initialSaveData,
@@ -207,20 +215,22 @@ export const useCharacterStore = defineStore('characterV3', () => {
           
           console.log('[角色存档] 准备同步到云端的存档数据:', saveDataToSync);
           await updateCharacterSave(charId, saveDataToSync);
-          toast.success('存档数据已成功同步到云端！');
+          uiStore.updateLoadingText('完整存档已成功同步到云端！');
         } catch (error) {
           console.warn('[角色存档] 同步存档数据到云端失败:', error);
-          toast.warning('存档同步失败，但角色创建成功。可在游戏中手动同步。');
+          const errorMessage = error instanceof Error ? error.message : '未知错误';
+          toast.warning(`存档同步失败: ${errorMessage}`);
           // 不要抛出错误，允许角色创建继续完成
         }
       }
       
-      toast.success(`法身【${baseInfo.名字}】铸造完成！天机已定，修仙之路即将开启。`);
+      // 最终的成功提示由App.vue处理
       return baseInfo;
     } catch (error) {
       console.error('角色创建失败:', error);
-      toast.error('法身铸造失败，请重试');
-      return undefined;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      // 错误也由App.vue处理
+      throw new Error(`角色创建失败: ${errorMessage}`);
     }
   };
   
@@ -247,210 +257,106 @@ export const useCharacterStore = defineStore('characterV3', () => {
    * @param slotKey 存档槽位关键字 (e.g., "存档1")
    */
   const loadGame = async (charId: string, slotKey: string) => {
-    console.log('[存档加载] 开始加载游戏，角色ID:', charId, '存档槽:', slotKey);
-    
-    const profile = rootState.value.角色列表[charId];
-    if (!profile) {
-      console.error('[存档加载] 找不到要加载的角色:', charId);
-      toast.error('找不到要加载的角色！');
-      return false;
-    }
-
-    let targetSlot: SaveSlot | undefined | null;
-    if (profile.模式 === '单机') {
-      targetSlot = profile.存档列表?.[slotKey];
-    } else {
-      targetSlot = profile.存档;
-    }
-    
-    if (!targetSlot) {
-      console.error('[存档加载] 找不到指定的存档槽位:', slotKey);
-      toast.error('找不到指定的存档槽位！');
-      return false;
-    }
-
-    try {
-      // 1. 先设置激活存档
-      console.log('[存档加载] 设置当前激活存档');
+      console.log('[存档加载] 开始加载游戏，角色ID:', charId, '存档槽:', slotKey);
+      const uiStore = useUIStore();
+      
+      const profile = rootState.value.角色列表[charId];
+      if (!profile) {
+        console.error('[存档加载] 找不到要加载的角色:', charId);
+        toast.error('找不到要加载的角色！');
+        return false;
+      }
+  
+      let targetSlot: SaveSlot | undefined | null;
+      if (profile.模式 === '单机') {
+        targetSlot = profile.存档列表?.[slotKey];
+      } else {
+        targetSlot = profile.存档;
+      }
+      
+      if (!targetSlot) {
+        console.error('[存档加载] 找不到指定的存档槽位:', slotKey);
+        toast.error('找不到指定的存档槽位！');
+        return false;
+      }
+  
+      const loadId = 'load-game-process';
+      try {
+        uiStore.startLoading('开始加载存档...');
+        // [核心改造] 1. 加载游戏前，彻底清理酒馆变量环境
+        await clearAllCharacterData();
+  
+        uiStore.updateLoadingText('天机重置完毕，正在加载存档...');
+        
+        // 2. 设置激活存档
+        console.log('[存档加载] 设置当前激活存档');
       rootState.value.当前激活存档 = { 角色ID: charId, 存档槽位: slotKey };
-      commitToStorage();
+      commitToStorage(); // 立即保存激活状态
 
-      // 2. 同步角色档案到酒馆
+      // 3. 将激活的存档数据同步到酒馆
       console.log('[存档加载] 同步角色档案到酒馆');
       await setActiveCharacterInTavern(charId);
-
-      // 3. 如果存档有数据，加载存档内容到酒馆
-      if (targetSlot.存档数据) {
-        console.log('[存档加载] 加载存档数据到酒馆');
-        const helper = getTavernHelper();
-        if (helper) {
-          // 将存档数据写入酒馆变量
-          const gameVariables = {
-            'character.saveData': targetSlot.存档数据,
-            'character.name': profile.角色基础信息.名字,
-            'character.realm': targetSlot.存档数据.玩家角色状态?.境界 || '凡人',
-            'character.location': targetSlot.存档数据.玩家角色状态?.位置?.描述 || '新手村'
-          };
-          
-          await helper.insertOrAssignVariables(gameVariables, { type: 'chat' });
-          console.log('[存档加载] 游戏变量已设置到酒馆');
-        }
-      } else {
-        console.log('[存档加载] 这是一个新存档，无需加载存档数据');
-      }
-
+      
       console.log('[存档加载] 加载完成');
-      toast.success(`已成功加载角色【${profile.角色基础信息.名字}】的存档: ${targetSlot.存档名 || slotKey}`);
+      toast.success(`已成功加载【${profile.角色基础信息.名字}】的存档: ${targetSlot.存档名 || slotKey}`);
       return true;
       
     } catch (error) {
       console.error('[存档加载] 加载过程出错:', error);
-      toast.error('存档加载失败：' + (error instanceof Error ? error.message : '未知错误'));
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      toast.error(`存档加载失败：${errorMessage}`);
       return false;
+    } finally {
+      uiStore.stopLoading();
     }
   };
 
   /**
-   * [核心] 将指定的角色档案设置为酒馆中的当前激活角色
+   * [核心] 将激活存档的完整数据同步到酒馆的 `character.saveData` 聊天变量中
+   * 这是唯一向酒馆写入角色数据的地方
    * @param charId 要设置为激活的角色ID
    */
   const setActiveCharacterInTavern = async (charId: string) => {
     const profile = rootState.value.角色列表[charId];
     if (!profile) {
-      toast.error(`无法找到ID为 ${charId} 的角色档案`);
+      throw new Error(`[存档核心] 无法找到ID为 ${charId} 的角色档案`);
+    }
+    
+    // 必须获取当前激活的存档数据，因为这是唯一的数据源
+    const currentSlot = activeSaveSlot.value;
+    if (!currentSlot || !currentSlot.存档数据) {
+      // 这是一个警告而不是错误，因为新角色可能还没有存档数据
+      console.warn(`[存档核心] 角色 ${charId} 没有可用的存档数据来同步到酒馆。`);
       return;
     }
+    
     try {
       const helper = getTavernHelper();
       if (!helper) {
-        toast.error('酒馆连接尚未建立！');
-        return;
+        throw new Error('[存档核心] 酒馆连接尚未建立！');
       }
-      
-      // 设置全局变量（基础信息，不变）
-      const globalVars = {
-        'character.name': profile.角色基础信息.名字,
-        'character.gender': profile.角色基础信息.性别,
-        'character.world': profile.角色基础信息.世界,
-        'character.talent_tier': profile.角色基础信息.天资,
-        'character.origin': profile.角色基础信息.出生,
-        'character.spirit_root': profile.角色基础信息.灵根,
-        'character.talents': profile.角色基础信息.天赋,
-        'character.innate_attributes': {
-          root_bone: profile.角色基础信息.先天六司?.根骨 || 10,
-          spirituality: profile.角色基础信息.先天六司?.灵性 || 10,
-          comprehension: profile.角色基础信息.先天六司?.悟性 || 10,
-          fortune: profile.角色基础信息.先天六司?.气运 || 10,
-          charm: profile.角色基础信息.先天六司?.魅力 || 10,
-          temperament: profile.角色基础信息.先天六司?.心性 || 10
-        },
-        'character.creation_time': profile.角色基础信息.创建时间 || new Date().toISOString(),
-        // 新增：灵根详细信息
-        'character.spirit_root_details': profile.角色基础信息.灵根详情 || null,
-        'character.world_details': profile.角色基础信息.世界详情 || null,
-        'character.talent_tier_details': profile.角色基础信息.天资详情 || null,
-        'character.origin_details': profile.角色基础信息.出身详情 || null,
-        'character.talents_details': profile.角色基础信息.天赋详情 || []
+
+      // 唯一的写入操作：将整个SaveData对象写入到 'character.saveData'
+      const chatVars = {
+        'character.saveData': currentSlot.存档数据
       };
-      await helper.insertOrAssignVariables(globalVars, { type: 'global' });
       
-      // 获取当前激活的存档数据
-      const currentSlot = activeSaveSlot.value;
-      if (currentSlot && currentSlot.存档数据) {
-        // 设置聊天变量（动态数据）
-        const chatVars = {
-          'character.saveData': currentSlot.存档数据
-        };
-        await helper.insertOrAssignVariables(chatVars, { type: 'chat' });
-      }
+      await helper.insertOrAssignVariables(chatVars, { type: 'chat' });
       
-      toast.success(`已将【${profile.角色基础信息.名字}】的档案同步至酒馆。`);
+      console.log(`[存档核心] 已将【${profile.角色基础信息.名字}】的激活存档同步至酒馆 'character.saveData'。`);
+      // toast.info(`已将【${profile.角色基础信息.名字}】的档案同步至酒馆。`); // 由调用者处理通知
+
     } catch (error) {
       console.error('同步角色档案至酒馆失败:', error);
       toast.error('同步角色档案至酒馆失败，请检查控制台。');
+      // 重新抛出错误，以便调用堆栈可以捕获它
+      throw error;
     }
   };
 
   /**
-   * [核心] 从酒馆加载当前激活的角色档案
-   * 从全局变量和聊天变量分别读取角色信息并更新store
-   */
-  const syncWithTavern = async () => {
-    try {
-      console.log('【角色神殿】开始从酒馆加载当前角色...');
-      const helper = getTavernHelper();
-      if (!helper) {
-        toast.error('酒馆连接尚未建立！');
-        return;
-      }
-      
-      // 读取全局变量（基础信息）
-      const globalVars = await helper.getVariables({ type: 'global' });
-      const characterName = globalVars['character.name'];
-      const characterGender = globalVars['character.gender'];
-      const characterWorld = globalVars['character.world'];
-      const characterTalents = globalVars['character.talents'] || [];
-      const innateAttributes = globalVars['character.innate_attributes'] || {};
-      
-      // 读取聊天变量（动态数据）
-      const chatVars = await helper.getVariables({ type: 'chat' });
-      const saveData = chatVars['character.saveData'];
-
-      if (characterName && (saveData || Object.keys(globalVars).some(key => key.startsWith('character.')))) {
-        // 构建角色基础信息
-        const baseInfo: CharacterBaseInfo = {
-          名字: (characterName as string),
-          性别: (characterGender as string) || '未知',
-          世界: (characterWorld as string) || '未知世界',
-          天资: (globalVars['character.talent_tier'] as string) || '普通',
-          出生: (globalVars['character.origin'] as string) || '未知出身',
-          灵根: (globalVars['character.spirit_root'] as string) || '未知灵根',
-          天赋: (characterTalents as string[]),
-          先天六司: {
-            根骨: (innateAttributes as any).root_bone || 10,
-            灵性: (innateAttributes as any).spirituality || 10,
-            悟性: (innateAttributes as any).comprehension || 10,
-            气运: (innateAttributes as any).fortune || 10,
-            魅力: (innateAttributes as any).charm || 10,
-            心性: (innateAttributes as any).temperament || 10
-          },
-          创建时间: (globalVars['character.creation_time'] as string) || new Date().toISOString()
-        };
-        
-        // 构建角色档案
-        const charId = `char_${Date.now()}`;
-        const newProfile: CharacterProfile = {
-          模式: '单机', // 默认单机模式
-          角色基础信息: baseInfo,
-          存档列表: {
-            '当前存档': {
-              存档名: '当前存档',
-              保存时间: new Date().toISOString(),
-              存档数据: (saveData as SaveData) || null
-            }
-          }
-        };
-        
-        rootState.value.角色列表 = { [charId]: newProfile };
-        rootState.value.当前激活存档 = { 角色ID: charId, 存档槽位: '当前存档' };
-        
-        commitToStorage();
-        toast.success(`已从酒馆加载【${characterName}】`);
-        console.log('【角色神殿】加载完成。', rootState.value);
-      } else {
-        console.log('【角色神殿】酒馆中无激活的角色档案。');
-        rootState.value.当前激活存档 = null;
-        commitToStorage();
-      }
-    } catch (error) {
-      console.error('从酒馆加载角色失败:', error);
-      toast.error('从酒馆加载角色失败，请检查控制台。');
-    }
-  };
-
-  /**
-   * 保存当前游戏进度到当前激活的存档
-   * 从Tavern获取聊天记录，并更新到激活的存档槽位中
+   * [核心改造] 保存当前游戏进度到激活的存档槽
+   * 新逻辑: 从酒馆的 `character.saveData` 变量读取完整状态，然后写入 Pinia store
    */
   const saveCurrentGame = async () => {
     const active = rootState.value.当前激活存档;
@@ -462,31 +368,81 @@ export const useCharacterStore = defineStore('characterV3', () => {
       return;
     }
 
-    // TODO: 从Tavern获取当前的游戏状态/聊天记录
-    // const helper = getTavernHelper();
-    // const chatHistory = await helper?.getChatHistory();
-    // if (!chatHistory) {
-    //   toast.error('无法获取当前游戏进度，保存失败！');
-    //   return;
-    // }
-    
-    // TODO: 将获取到的游戏状态（chatHistory等）转化为完整的 SaveData 结构
-    const newSaveData: SaveData | null = slot.存档数据 ? { ...slot.存档数据 } : null; // 这是一个示例
-    // newSaveData.聊天记录 = chatHistory;
+    const saveId = `save-game-${Date.now()}`;
+    try {
+      toast.loading('正在保存进度...', { id: saveId });
 
-    // 更新存档槽位信息
-    slot.保存时间 = new Date().toISOString();
-    slot.存档数据 = newSaveData; // 将新数据写回
-    
-    // 将修改后的slot写回rootState
-    if (profile.模式 === '单机' && profile.存档列表) {
-      profile.存档列表[active.存档槽位] = slot;
-    } else if (profile.模式 === '联机') {
-      profile.存档 = slot;
+      const helper = getTavernHelper();
+      if (!helper) {
+        throw new Error('酒馆连接尚未建立！');
+      }
+
+      // 1. 从酒馆的聊天变量中获取最新的游戏状态
+      const chatVars = await helper.getVariables({ type: 'chat' });
+      const currentSaveData = chatVars['character.saveData'] as SaveData | undefined;
+
+      if (!currentSaveData) {
+        throw new Error('无法从酒馆获取当前存档数据(character.saveData)，可能尚未初始化。');
+      }
+      
+      // 2. 更新 Pinia Store 中的存档槽位
+      slot.保存时间 = new Date().toISOString();
+      slot.存档数据 = currentSaveData;
+      // TODO: 更新游戏内时间等元数据
+      // slot.游戏内时间 = currentSaveData.游戏内时间.当前时间;
+
+      // 3. 将修改写回 rootState
+      if (profile.模式 === '单机' && profile.存档列表) {
+        profile.存档列表[active.存档槽位] = slot;
+      } else if (profile.模式 === '联机') {
+        profile.存档 = slot;
+      }
+      
+      // 4. 持久化到本地存储
+      commitToStorage();
+      
+      // 5. 如果是联机模式，则触发云端同步
+      if (profile.模式 === '联机') {
+        try {
+          toast.loading('正在同步存档到云端...', { id: saveId });
+          const saveDataToSync = {
+            save_data: currentSaveData,
+            world_map: {}, // 根据需要填充
+            game_time: slot.游戏内时间 || '未知时间'
+          };
+          await updateCharacterSave(active.角色ID, saveDataToSync);
+          toast.success('存档已成功同步到云端！', { id: saveId });
+
+          // 更新云端同步信息
+          if (profile.存档?.云端同步信息) {
+            profile.存档.云端同步信息.最后同步 = new Date().toISOString();
+            profile.存档.云端同步信息.需要同步 = false;
+            profile.存档.云端同步信息.版本++;
+            commitToStorage();
+          }
+
+        } catch (error) {
+          console.error('[云端同步] 保存时同步失败:', error);
+          const errorMessage = error instanceof Error ? error.message : '未知错误';
+          toast.error(`云端同步失败: ${errorMessage}`, { id: saveId });
+          // 标记为需要同步
+           if (profile.存档?.云端同步信息) {
+            profile.存档.云端同步信息.需要同步 = true;
+            commitToStorage();
+          }
+        }
+      }
+
+      // 如果不是联机模式，在这里就显示最终成功
+      if (profile.模式 !== '联机') {
+        toast.success(`存档【${slot.存档名}】已成功保存！`, { id: saveId });
+      }
+
+    } catch (error) {
+      console.error('[存档保存] 过程出错:', error);
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      toast.error(`存档保存失败：${errorMessage}`, { id: saveId });
     }
-
-    commitToStorage();
-    toast.success(`存档【${slot.存档名}】已成功保存！`);
   };
 
   /**
@@ -766,7 +722,6 @@ export const useCharacterStore = defineStore('characterV3', () => {
     importSave,
     clearAllSaves,
     commitToStorage, // 导出给外部使用
-    syncWithTavern,
     setActiveCharacterInTavern,
   };
 });
