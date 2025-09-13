@@ -10,7 +10,7 @@ import type { SaveData, Equipment, Item } from '@/types/game.d';
  * @param chatVariables - 从酒馆获取的聊天变量
  * @returns 清理后的SaveData
  */
-export function cleanDuplicateData(chatVariables: Record<string, any>): SaveData | null {
+export function cleanDuplicateData(chatVariables: Record<string, unknown>): SaveData | null {
   console.log('[数据清理] 开始检查重复数据...');
   
   const characterSaveData = chatVariables['character.saveData'] as SaveData;
@@ -21,14 +21,14 @@ export function cleanDuplicateData(chatVariables: Record<string, any>): SaveData
     return null;
   }
   
-  let cleanedData = { ...characterSaveData };
+  const cleanedData = { ...characterSaveData };
   let hasDuplicates = false;
   
   // 检查背包数据重复
   if (rootData.背包 && cleanedData.背包) {
-    const rootItems = Object.keys(rootData.背包?.物品 || {}).length;
-    const rootSpirit = (rootData.背包.灵石?.下品 || 0) + (rootData.背包.灵石?.中品 || 0) + 
-                     (rootData.背包.灵石?.上品 || 0) + (rootData.背包.灵石?.极品 || 0);
+    const rootItems = Object.keys((rootData.背包 as any)?.物品 || {}).length;
+    const rootSpirit = ((rootData.背包 as any).灵石?.下品 || 0) + ((rootData.背包 as any).灵石?.中品 || 0) + 
+                     ((rootData.背包 as any).灵石?.上品 || 0) + ((rootData.背包 as any).灵石?.极品 || 0);
     
     const saveDataItems = Object.keys(cleanedData.背包?.物品 || {}).length;
     const saveDataSpirit = (cleanedData.背包.灵石?.下品 || 0) + (cleanedData.背包.灵石?.中品 || 0) + 
@@ -45,18 +45,18 @@ export function cleanDuplicateData(chatVariables: Record<string, any>): SaveData
       console.log('[数据清理] 发现根路径背包数据，进行合并...');
       
       // 合并灵石（取最大值）
-      if (rootData.背包.灵石 && cleanedData.背包.灵石) {
+      if ((rootData.背包 as any).灵石 && cleanedData.背包.灵石) {
         cleanedData.背包.灵石 = {
-          下品: Math.max(rootData.背包.灵石.下品 || 0, cleanedData.背包.灵石.下品 || 0),
-          中品: Math.max(rootData.背包.灵石.中品 || 0, cleanedData.背包.灵石.中品 || 0),
-          上品: Math.max(rootData.背包.灵石.上品 || 0, cleanedData.背包.灵石.上品 || 0),
-          极品: Math.max(rootData.背包.灵石.极品 || 0, cleanedData.背包.灵石.极品 || 0),
+          下品: Math.max((rootData.背包 as any).灵石.下品 || 0, cleanedData.背包.灵石.下品 || 0),
+          中品: Math.max((rootData.背包 as any).灵石.中品 || 0, cleanedData.背包.灵石.中品 || 0),
+          上品: Math.max((rootData.背包 as any).灵石.上品 || 0, cleanedData.背包.灵石.上品 || 0),
+          极品: Math.max((rootData.背包 as any).灵石.极品 || 0, cleanedData.背包.灵石.极品 || 0),
         };
       }
       
       // 合并物品（优先使用有效物品）
-      if (rootData.背包.物品) {
-        for (const [itemId, item] of Object.entries(rootData.背包.物品)) {
+      if ((rootData.背包 as any).物品) {
+        for (const [itemId, item] of Object.entries((rootData.背包 as any).物品)) {
           if (item && item !== 'null' && item !== 'undefined') {
             cleanedData.背包.物品[itemId] = item as Item;
             console.log(`[数据清理] 合并物品: ${itemId}`);
@@ -69,7 +69,7 @@ export function cleanDuplicateData(chatVariables: Record<string, any>): SaveData
   // 检查其他可能的重复字段
   const fieldsToCheck = ['装备栏', '修炼功法', '人物关系', '宗门系统'];
   fieldsToCheck.forEach(field => {
-    if (rootData[field] && JSON.stringify(rootData[field]) !== JSON.stringify(cleanedData[field])) {
+    if (rootData[field] && JSON.stringify(rootData[field]) !== JSON.stringify((cleanedData as any)[field])) {
       console.log(`[数据清理] 发现重复字段: ${field}`);
       hasDuplicates = true;
     }
@@ -88,7 +88,10 @@ export function cleanDuplicateData(chatVariables: Record<string, any>): SaveData
  * 清理酒馆变量中的重复数据
  * @param tavernHelper - 酒馆助手实例
  */
-export async function cleanTavernDuplicates(tavernHelper: any) {
+export async function cleanTavernDuplicates(tavernHelper: {
+  getVariables(options: { type: string }): Promise<Record<string, unknown>>;
+  deleteVariable(key: string, options: { type: string }): Promise<void>;
+}) {
   console.log('[数据清理] 开始清理酒馆重复变量...');
   
   try {
@@ -126,7 +129,7 @@ export async function cleanTavernDuplicates(tavernHelper: any) {
  * @param saveData - 从酒馆获取的存档数据
  * @returns 修复后的存档数据
  */
-export function validateAndFixSaveData(saveData: any): SaveData {
+export function validateAndFixSaveData(saveData: SaveData): SaveData {
   console.log('[数据验证] 开始验证和修复酒馆数据...');
   
   // 1. 修复装备栏中的 "null" 字符串问题
@@ -148,7 +151,7 @@ export function validateAndFixSaveData(saveData: any): SaveData {
     const itemsToDelete: string[] = [];
     
     for (const [itemId, item] of Object.entries(items)) {
-      if (item === 'null' || item === 'undefined' || item === null) {
+      if ((item as any) === 'null' || (item as any) === 'undefined' || item === null || item === undefined) {
         console.log(`[数据验证] 标记删除无效物品: ${itemId}`);
         itemsToDelete.push(itemId);
       }
@@ -164,7 +167,7 @@ export function validateAndFixSaveData(saveData: any): SaveData {
   if (saveData.修炼功法) {
     const cultivation = saveData.修炼功法;
     
-    if (cultivation.功法 === 'null' || cultivation.功法 === 'undefined') {
+    if ((cultivation.功法 as any) === 'null' || (cultivation.功法 as any) === 'undefined') {
       console.log('[数据验证] 修复修炼功法: "null" -> null');
       cultivation.功法 = null;
     }
