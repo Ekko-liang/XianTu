@@ -135,7 +135,7 @@ export type SectPosition = '散修' | '外门弟子' | '内门弟子' | '核心�
 export type SectRelationship = '仇敌' | '敌对' | '冷淡' | '中立' | '友好' | '盟友' | '附庸';
 
 /** 修为境界等级 */
-export type RealmLevel = '练气' | '筑基' | '金丹' | '元婴' | '化神' | '炼虚' | '合体' | '大乘' | '渡劫' | '真仙';
+export type RealmLevel = '练气' | '筑基' | '金丹' | '元婴' | '化神' | '炼虚' | '合体' | '渡劫';
 
 /** 宗门成员信息 */
 export interface SectMemberInfo {

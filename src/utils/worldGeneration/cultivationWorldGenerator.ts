@@ -189,6 +189,43 @@ export class CultivationWorldGenerator {
           大洲边界: continent.continent_bounds
         })),
         势力信息: (worldData.factions || []).map((faction: any): WorldFaction => {
+          // 清洗势力境界：仅保留 凡人→渡劫，移除“大乘”“真仙”等更高境界
+          const sanitizeRealmName = (name?: string) => {
+            if (!name || typeof name !== 'string') return name as any;
+            const base = name.replace(/(初期|中期|后期|圆满|极境)/g, '');
+            const suffixMatch = name.match(/(初期|中期|后期|圆满|极境)/);
+            const suffix = suffixMatch ? suffixMatch[1] : '';
+            if (base.includes('大乘') || base.includes('真仙')) {
+              return `渡劫${suffix}`.trim();
+            }
+            return name;
+          };
+
+          const sanitizeByRealm = (byRealm: any) => {
+            if (!byRealm || typeof byRealm !== 'object') return byRealm;
+            const cleaned: Record<string, number> = { ...byRealm } as any;
+            let moved = 0;
+            if (Object.prototype.hasOwnProperty.call(cleaned, '大乘')) {
+              moved += Number((cleaned as any)['大乘']) || 0;
+              delete (cleaned as any)['大乘'];
+            }
+            if (Object.prototype.hasOwnProperty.call(cleaned, '真仙')) {
+              moved += Number((cleaned as any)['真仙']) || 0;
+              delete (cleaned as any)['真仙'];
+            }
+            if (moved > 0) {
+              (cleaned as any)['渡劫'] = (Number((cleaned as any)['渡劫']) || 0) + moved;
+            }
+            return cleaned;
+          };
+
+          if (faction?.leadership) {
+            faction.leadership.宗主修为 = sanitizeRealmName(faction.leadership.宗主修为);
+            faction.leadership.最强修为 = sanitizeRealmName(faction.leadership.最强修为);
+          }
+          if (faction?.memberCount?.byRealm) {
+            faction.memberCount.byRealm = sanitizeByRealm(faction.memberCount.byRealm);
+          }
           // 先准备计算数据
           const calcData: SectCalculationData = {
             名称: faction.name || faction.名称,

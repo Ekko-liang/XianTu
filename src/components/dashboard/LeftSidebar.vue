@@ -129,7 +129,7 @@
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
           
-          <button class="function-btn accent" @click="handleOnlinePlay">
+          <button class="function-btn accent" v-if="isOnlineMode" @click="handleOnlinePlay">
             <div class="btn-icon">
               <Globe :size="18" />
             </div>
@@ -147,7 +147,7 @@
       <!-- 系统功能区 -->
       <div class="system-section">
         <div class="function-group">
-          <button class="function-btn system no-arrow" @click="handleSaveGame" :disabled="!activeCharacter">
+          <button class="function-btn system" @click="handleSaveGame" :disabled="!activeCharacter">
             <div class="btn-icon">
               <Save :size="18" />
             </div>
@@ -155,6 +155,7 @@
               <span class="btn-text">保存游戏</span>
               <span class="btn-desc">保存修行进度</span>
             </div>
+            <ChevronRight :size="14" class="btn-arrow" />
           </button>
           
           <button class="function-btn system" @click="handleTavernData">
@@ -226,6 +227,7 @@ const isQuestSystemEnabled = computed(() => {
 
 // 使用 store 的 getters 获取数据
 const activeCharacter = computed(() => characterStore.activeCharacterProfile);
+const isOnlineMode = computed(() => activeCharacter.value?.模式 === '联机');
 
 const handleSaveGame = async () => {
   router.push('/game/save');

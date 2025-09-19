@@ -105,6 +105,8 @@ import TopBar from '@/components/dashboard/TopBar.vue'
 import LeftSidebar from '@/components/dashboard/LeftSidebar.vue'
 import RightSidebar from '@/components/dashboard/RightSidebar.vue'
 import CharacterManagement from '@/components/character-creation/CharacterManagement.vue';
+import { getTavernHelper } from '@/utils/tavern';
+import { syncHeavenlyPrecalcToTavern } from '@/utils/judgement/heavenlyRules';
 
 const characterStore = useCharacterStore();
 const uiStore = useUIStore();
@@ -248,8 +250,23 @@ const applySettings = () => {
 };
 
 // 组件挂载时应用设置
-onMounted(() => {
+onMounted(async () => {
   applySettings();
+  // 边玩边更：尝试刷新一次“天道演算”预计算，确保载入存档后也有数据
+  try {
+    const helper = getTavernHelper();
+    if (helper) {
+      const vars = await helper.getVariables({ type: 'chat' });
+      const saveData = vars['character.saveData'];
+      const baseInfo = saveData?.角色基础信息 || vars['character.baseInfo'] || null;
+      if (saveData && baseInfo) {
+        await syncHeavenlyPrecalcToTavern(saveData, baseInfo);
+        console.log('[GameView] 已刷新天道演算预计算');
+      }
+    }
+  } catch (e) {
+    console.warn('[GameView] 刷新天道演算失败（忽略）：', e);
+  }
 });
 
 // 监听面板状态变化，智能调整布局

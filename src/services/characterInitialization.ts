@@ -4,6 +4,7 @@
  */
 
 import { getTavernHelper } from '@/utils/tavern';
+import { syncHeavenlyPrecalcToTavern } from '@/utils/judgement/heavenlyRules';
 import { useUIStore } from '@/stores/uiStore';
 import { useCharacterCreationStore } from '@/stores/characterCreationStore';
 import { toast } from '@/utils/toast';
@@ -633,6 +634,14 @@ export async function initializeCharacter(
         'character.saveData': currentSaveData,
       };
       await helper.insertOrAssignVariables(chatVars, { type: 'chat' });
+
+      // 追加：计算并写入“天道演算 v4.2”预计算结果，供后续判定直接引用
+      try {
+        await syncHeavenlyPrecalcToTavern(currentSaveData as any, currentSaveData.角色基础信息 as any);
+        console.log('[角色初始化] 已写入天道演算预计算结果');
+      } catch (e) {
+        console.warn('[角色初始化] 天道演算预计算写入失败（不阻塞游戏）：', e);
+      }
 
       console.log('角色基础信息已保存到全局变量，游戏数据已保存到聊天变量');
     } catch (err) {

@@ -215,4 +215,13 @@ export interface GM_Response {
   processedSpiritRoot?: string;
   /** AI缓存的世界数据 */
   cachedWorldData?: any;
+  /** 可选：当触发【判定】时，返回本次判定的结构化结果 */
+  judgement?: {
+    type: string;
+    dc: number;
+    roll: number; // 1-100
+    success_rate: number; // 0-100
+    grade: '天眷' | '完胜' | '险胜' | '失手' | '反噬' | string;
+    details?: any;
+  };
 }

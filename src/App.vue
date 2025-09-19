@@ -108,29 +108,15 @@ const uiStore = useUIStore();
 // --- 事件处理器 ---
 const handleStartCreation = async (mode: 'single' | 'cloud') => {
   try {
-    creationStore.setMode(mode);
-    if (mode === 'single') {
+    // 全局封锁联机模式，强制仅允许单机
+    if (mode !== 'single') {
+      toast.info('联机共修开发中，当前版本暂未开放');
+      switchView('ModeSelection');
+      return;
+    }
+    creationStore.setMode('single');
+    if (true) {
       switchView('CharacterCreation');
-    } else {
-      isLoggedIn.value = await verifyStoredToken();
-      if (isLoggedIn.value) {
-        try {
-          await creationStore.fetchAllCloudData();
-          const cloudWorlds = creationStore.creationData.worlds.filter(w => w.source === 'cloud');
-          if (cloudWorlds.length === 0) {
-            throw new Error('未获取到任何云端世界数据');
-          }
-          console.log('【应用】云端创世数据获取完成');
-          switchView('CharacterCreation');
-        } catch (fetchError) {
-          console.error("获取云端数据失败:", fetchError);
-          toast.error("无法连接到服务器获取创世数据，请检查网络连接后重试。");
-          switchView('ModeSelection');
-        }
-      } else {
-        toast.error('联机共修需先登入道籍！');
-        switchView('Login');
-      }
     }
   } catch (error) {
     console.error("Failed to initialize creation data:", error);

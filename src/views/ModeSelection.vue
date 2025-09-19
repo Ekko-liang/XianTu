@@ -30,8 +30,8 @@
           </div>
         </div>
 
-        <!-- Right Gate: Multiplayer -->
-        <div class="gate-card right-gate" @click="selectPath('cloud')">
+        <!-- Right Gate: Multiplayer (temporarily disabled) -->
+        <div class="gate-card right-gate disabled" @click="selectPath('cloud')">
           <div class="gate-icon">
             <!-- Icon: 联机共修 -->
             <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -40,9 +40,9 @@
             </svg>
           </div>
           <div class="gate-text">
-            <h2 class="gate-title">联机共修</h2>
-            <p class="gate-description">入世历练·与道友论道</p>
-            <p class="gate-detail">云端同修，可遇其他修士切磋论道<br/>法身数据云端保存，随处可续前缘</p>
+            <h2 class="gate-title">联机共修（未开放）</h2>
+            <p class="gate-description">功能研发中，敬请期待</p>
+            <p class="gate-detail">当前版本已封锁联机入口，不影响单机闭关体验</p>
           </div>
         </div>
       </div>
@@ -93,14 +93,14 @@ const selectPath = (mode: 'single' | 'cloud') => {
   // 检测环境并给出建议
   const hasTavernAI = !!(window.parent?.TavernHelper);
 
-  if (mode === 'cloud' && !hasTavernAI) {
-    // 联机模式但没有TavernAI环境 -> 使用项目弹窗
+  // 全局封锁联机模式
+  if (mode === 'cloud') {
     uiStore.showRetryDialog({
-      title: '环境提醒',
-      message: '联机模式需要在TavernAI中运行以保存数据和使用AI功能。\n\n当前环境未检测到TavernAI，建议选择单机模式。\n\n是否继续使用联机模式？（可能会遇到保存和AI功能问题）',
-      confirmText: '仍要联机',
-      cancelText: '返回',
-      onConfirm: () => emit('start-creation', mode),
+      title: '功能未开放',
+      message: '联机共修开发中，当前版本已封锁入口。请先选择“单机闭关”。',
+      confirmText: '知道了',
+      cancelText: '取消',
+      onConfirm: () => {},
       onCancel: () => {}
     });
     return;
@@ -223,6 +223,12 @@ const enterCharacterSelection = () => {
   border-color: var(--color-primary);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2), 0 0 20px rgba(var(--color-primary-rgb), 0.3);
   background: var(--color-surface);
+}
+
+.gate-card.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .gate-icon {
