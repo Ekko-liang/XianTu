@@ -232,6 +232,22 @@
                           <ArrowRightLeft :size="12" />
                           交易
                         </button>
+                        <button 
+                          class="request-btn" 
+                          @click="requestItemFromNpc(selectedPerson, item)"
+                          title="请求获得此物品"
+                        >
+                          🙏
+                          索要
+                        </button>
+                        <button 
+                          class="steal-btn" 
+                          @click="attemptStealFromNpc(selectedPerson, item)"
+                          title="尝试偷取此物品"
+                        >
+                          🥷
+                          偷窃
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -258,6 +274,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useCharacterStore } from '@/stores/characterStore';
+import { useActionQueueStore } from '@/stores/actionQueueStore';
 import type { NpcProfile } from '@/types/game';
 import { 
   Users2, User, Brain, BarChart3, Tag, Search, 
@@ -266,6 +283,7 @@ import {
 import { toast } from '@/utils/toast';
 
 const characterStore = useCharacterStore();
+const actionQueue = useActionQueueStore();
 const isLoading = ref(false);
 const selectedPerson = ref<NpcProfile | null>(null);
 const searchQuery = ref('');
@@ -283,13 +301,15 @@ const formatSpiritRoot = (spiritRoot: any): string => {
   // 如果是对象，解析其内容
   if (typeof spiritRoot === 'object') {
     const name = spiritRoot.名称 || spiritRoot.name || '';
-    const grade = spiritRoot.品级 || spiritRoot.grade;
+    const grade = spiritRoot.品级 || spiritRoot.grade || '';
     const quality = spiritRoot.品质 || spiritRoot.quality || '';
     
     let result = name;
     
-    // 添加品质信息（NPC不显示品级）
-    if (quality) {
+    // 添加品质或品级信息，优先显示品级
+    if (grade) {
+      result = `${name}(${grade})`;
+    } else if (quality) {
       result = `${name}(${quality})`;
     }
     
@@ -453,9 +473,63 @@ const getGradeText = (grade?: number): string => {
 };
 
 const initiateTradeWithNpc = (npc: NpcProfile, item: any) => {
-  toast.info(`正在与 ${npc.角色基础信息.名字} 交易 ${item.名称}...`);
-  // TODO: 实现具体的交易逻辑
-  console.log('发起交易:', { npc: npc.角色基础信息.名字, item: item.名称 });
+  // NPC交互类操作只能加入队列等待AI响应，不能直接执行
+  const actionDescription = `尝试与 ${npc.角色基础信息.名字} 交易 ${item.名称}`;
+  
+  // 添加到动作队列，等待AI处理
+  actionQueue.addAction({
+    type: 'npc_trade',
+    itemName: item.名称,
+    itemType: 'NPC交易',
+    description: actionDescription,
+    // NPC交互的额外数据
+    npcName: npc.角色基础信息.名字,
+    itemId: item.物品ID || item.名称,
+    tradeType: 'trade' // 交易类型
+  });
+  
+  toast.success(`已将与 ${npc.角色基础信息.名字} 的交易请求加入动作队列`);
+  console.log('已排队NPC交易:', { npc: npc.角色基础信息.名字, item: item.名称, type: 'trade' });
+};
+
+// 向NPC索要物品
+const requestItemFromNpc = (npc: NpcProfile, item: any) => {
+  const actionDescription = `向 ${npc.角色基础信息.名字} 索要 ${item.名称}`;
+  
+  // 添加到动作队列，等待AI处理
+  actionQueue.addAction({
+    type: 'npc_request',
+    itemName: item.名称,
+    itemType: 'NPC索要',
+    description: actionDescription,
+    // NPC交互的额外数据
+    npcName: npc.角色基础信息.名字,
+    itemId: item.物品ID || item.名称,
+    tradeType: 'request' // 索要类型
+  });
+  
+  toast.success(`已将向 ${npc.角色基础信息.名字} 索要物品的请求加入动作队列`);
+  console.log('已排队NPC索要:', { npc: npc.角色基础信息.名字, item: item.名称, type: 'request' });
+};
+
+// 尝试从NPC身上偷窃物品
+const attemptStealFromNpc = (npc: NpcProfile, item: any) => {
+  const actionDescription = `尝试从 ${npc.角色基础信息.名字} 身上偷取 ${item.名称}`;
+  
+  // 添加到动作队列，等待AI处理
+  actionQueue.addAction({
+    type: 'npc_steal',
+    itemName: item.名称,
+    itemType: 'NPC偷窃',
+    description: actionDescription,
+    // NPC交互的额外数据
+    npcName: npc.角色基础信息.名字,
+    itemId: item.物品ID || item.名称,
+    tradeType: 'steal' // 偷窃类型
+  });
+  
+  toast.success(`已将偷窃 ${npc.角色基础信息.名字} 物品的计划加入动作队列`);
+  console.log('已排队NPC偷窃:', { npc: npc.角色基础信息.名字, item: item.名称, type: 'steal' });
 };
 
 </script>
@@ -1025,6 +1099,8 @@ const initiateTradeWithNpc = (npc: NpcProfile, item: any) => {
 .item-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .trade-btn {
@@ -1049,6 +1125,56 @@ const initiateTradeWithNpc = (npc: NpcProfile, item: any) => {
 }
 
 .trade-btn:active {
+  transform: translateY(0);
+}
+
+.request-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  border: none;
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.request-btn:hover {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.request-btn:active {
+  transform: translateY(0);
+}
+
+.steal-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  color: white;
+  border: none;
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.steal-btn:hover {
+  background: linear-gradient(135deg, #b91c1c, #991b1b);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
+}
+
+.steal-btn:active {
   transform: translateY(0);
 }
 

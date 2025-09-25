@@ -46,6 +46,22 @@ interface LorebookEntry {
  */
 export interface TavernHelper {
   // 核心生成与命令
+  generate: (config: {
+    user_input?: string;
+    should_stream?: boolean;
+    image?: File | string | (File | string)[];
+    overrides?: any;
+    injects?: Array<{
+      role: string;
+      content: string;
+      position: string;
+      depth?: number;
+      should_scan?: boolean;
+    }>;
+    max_chat_history?: 'all' | number;
+    custom_api?: any;
+    generation_id?: string;
+  }) => Promise<string>; // 更新generate方法签名
   generateRaw: (config: any) => Promise<unknown>; // 更改为接受配置对象
   triggerSlash: (command: string) => Promise<unknown>;
   
@@ -91,8 +107,8 @@ interface WindowWithTavernHelper extends Window {
 export function getTavernHelper(): TavernHelper {
   console.log('【神识印记】开始检查TavernHelper可用性...');
   const parentWindow = window.parent as WindowWithTavernHelper;
-  if (parentWindow && parentWindow.TavernHelper?.generateRaw) {
-    console.log('【神识印记】TavernHelper检查通过，返回对象');
+  if (parentWindow && parentWindow.TavernHelper?.generate) {
+    console.log('【神识印记】TavernHelper检查通过，包含generate方法');
     return parentWindow.TavernHelper;
   }
 
@@ -114,7 +130,7 @@ interface AIResponse {
 }
 
 /**
- * 通用AI生成函数，使用SillyTavern原生斜杠命令绕过系统提示词覆盖
+ * 通用AI生成函数，使用TavernHelper.generate()方法直接调用
  */
 export async function generateItemWithTavernAI<T = unknown>(
   prompt: string,
@@ -122,7 +138,7 @@ export async function generateItemWithTavernAI<T = unknown>(
   showToast: boolean = true,
   retries: number = 3
 ): Promise<T | null> {
-  // 内部：对GM_Response进行严格校验，避免“嵌套读取/关键词修正”，让AI自行修正
+  // 内部：对GM_Response进行严格校验，避免"嵌套读取/关键词修正"，让AI自行修正
   const ensureValidGMResponse = (data: any): any => {
     try {
       if (!data || typeof data !== 'object') return data;
@@ -203,9 +219,12 @@ export async function generateItemWithTavernAI<T = unknown>(
   };
   let lastError: Error | null = null;
   
-  console.log(`【神识印记】开始生成${typeName}，使用原生/genraw命令`);
+  console.log(`【神识印记】开始生成${typeName}，使用TavernHelper.generate()方法`);
   console.log(`【神识印记-调试】提示词长度: ${prompt?.length || 0} 字符`);
   console.log(`【神识印记-调试】提示词前500字符:`, prompt.substring(0, 500));
+  console.log(`【神识印记-调试】提示词是否包含核心规则:`, prompt.includes('【核心规则'));
+  console.log(`【神识印记-调试】提示词是否包含格式化标记:`, prompt.includes('【格式化标记规范】'));
+  console.log(`【神识印记-调试】提示词是否包含INPUT_PLACEHOLDER:`, prompt.includes('INPUT_PLACEHOLDER'));
 
   for (let i = 0; i <= retries; i++) {
     try {
@@ -219,94 +238,34 @@ export async function generateItemWithTavernAI<T = unknown>(
         toast.info(`天机运转，推演${typeName}...`);
       }
 
-      console.log(`【神识印记】使用SillyTavern原生/genraw斜杠命令`);
+      console.log(`【神识印记】调用TavernHelper.generate()方法，将提示词作为系统注入`);
+      console.log(`【神识印记-调试】完整提示词长度:`, prompt.length);
+      console.log(`【神识印记-调试】完整提示词前300字符:`, prompt.substring(0, 300));
+      console.log(`【神识印记-调试】完整提示词后300字符:`, prompt.substring(Math.max(0, prompt.length - 300)));
       
-      // 使用SillyTavern的原生/genraw命令，它支持instruct=off来禁用指令模板，system参数来设置系统提示词
-      // 参考：/genraw [lock=on|off]? [instruct=on|off]?=on [stop=list]? [as=system|char]? [system=string]? [length=number]? (string)
+      // 使用TavernHelper.generate()方法，将完整提示词作为系统注入
+      const rawResult = await helper.generate({
+        user_input: "请按照系统指令执行，生成符合要求的JSON响应。",
+        injects: [{
+          role: "system",
+          content: prompt,
+          position: "in_chat",
+          depth: 0,
+          should_scan: false
+        }],
+        should_stream: false,
+        max_chat_history: 0  // 不使用聊天历史，避免干扰
+      });
       
-      let rawResult;
-      
-      // 方法1：使用/genraw命令，禁用指令模板，使用我们自己的系统提示词
-      try {
-        console.log(`【神识印记】方法1：使用/genraw instruct=off system=""`);
-        
-        // 构建genraw命令：禁用指令模板，清空系统提示词，直接使用我们的提示词
-        const genrawCommand = `/genraw instruct=off system="" ${prompt}`;
-        
-        rawResult = await helper.triggerSlash(genrawCommand);
-        
-        if (rawResult && typeof rawResult === 'string' && rawResult.trim()) {
-          console.log(`【神识印记】方法1成功，结果长度:`, rawResult.length);
-        } else {
-          throw new Error('方法1返回空结果');
-        }
-      } catch (error1) {
-        const errorMsg = error1 instanceof Error ? error1.message : String(error1);
-        console.log(`【神识印记】方法1失败:`, errorMsg);
-        
-        // 方法2：使用/genraw命令，设置系统提示词为我们的提示词
-        try {
-          console.log(`【神识印记】方法2：使用/genraw system设定`);
-          
-          // 将我们的提示词作为system参数传递
-          const escapedPrompt = prompt.replace(/"/g, '\\"');
-          const genrawCommand = `/genraw instruct=off system="${escapedPrompt}" 请按照系统指令执行。`;
-          
-          rawResult = await helper.triggerSlash(genrawCommand);
-          
-          if (rawResult && typeof rawResult === 'string' && rawResult.trim()) {
-            console.log(`【神识印记】方法2成功`);
-          } else {
-            throw new Error('方法2返回空结果');
-          }
-        } catch (error2) {
-          const errorMsg = error2 instanceof Error ? error2.message : String(error2);
-          console.log(`【神识印记】方法2失败:`, errorMsg);
-          
-          // 方法3：直接使用generateRaw但用简化参数
-          try {
-            console.log(`【神识印记】方法3：使用generateRaw简化参数`);
-            
-            // 根据@types.txt，generateRaw只支持temperature, top_p, max_tokens参数
-            rawResult = await helper.generateRaw({
-              user_input: prompt,
-              temperature: 0.1,  // 降低随机性，提高一致性
-              max_tokens: 8000
-            });
-            
-            console.log(`【神识印记】方法3成功`);
-          } catch (error3) {
-            const errorMsg = error3 instanceof Error ? error3.message : String(error3);
-            console.log(`【神识印记】方法3失败:`, errorMsg);
-            
-            // 方法4：回退到最基础的generateRaw调用
-            console.log(`【神识印记】方法4：最基础的generateRaw调用`);
-            rawResult = await helper.generateRaw({
-              user_input: prompt,
-              max_tokens: 8000
-            });
-          }
-        }
+      console.log(`【神识印记-调试】TavernHelper.generate()返回结果类型:`, typeof rawResult);
+      console.log(`【神识印记-调试】TavernHelper.generate()返回结果长度:`, rawResult?.length || 0);
+      console.log(`【神识印记-调试】TavernHelper.generate()返回结果前200字符:`, rawResult?.substring(0, 200));
+
+      if (!rawResult || typeof rawResult !== 'string' || rawResult.trim() === '') {
+        throw new Error(`TavernHelper.generate()返回了空的响应内容，响应类型: ${typeof rawResult}`);
       }
 
-      diagnoseAIResponse(rawResult, typeName);
-
-      // 处理OpenAI格式的响应
-      let text: string = '';
-      const aiResponse = rawResult as AIResponse;
-      if (aiResponse && typeof aiResponse === 'object' && aiResponse.choices && aiResponse.choices.length > 0) {
-        text = aiResponse.choices[0].message?.content || aiResponse.choices[0].text || '';
-      } else if (typeof rawResult === 'string') {
-        text = rawResult;
-      } else {
-        console.warn(`【神识印记】未识别的AI响应格式，尝试字符串化:`, rawResult);
-        text = String(rawResult || '');
-      }
-
-      if (!text || text.trim() === '') {
-        throw new Error(`AI返回了空的响应内容，响应类型: ${typeof rawResult}`);
-      }
-
+      const text = rawResult.trim();
       console.log(`【神识印记】AI原始响应文本 (前200字符):`, text.substring(0, 200));
 
       // 尝试提取JSON
@@ -318,7 +277,7 @@ export async function generateItemWithTavernAI<T = unknown>(
       if (!jsonMatch) {
         // 尝试直接解析整个响应为JSON
         try {
-          const parsed = JSON.parse(text.trim());
+          const parsed = JSON.parse(text);
           const checked = ensureValidGMResponse(parsed);
           if (showToast) {
             toast.success(`${typeName}推演完成！`);

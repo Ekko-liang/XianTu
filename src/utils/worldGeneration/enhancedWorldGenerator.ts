@@ -12,6 +12,7 @@ import {
   type ValidationResult,
   type RetryConfig
 } from '../gameDataValidator';
+import { EnhancedWorldPromptBuilder, type WorldPromptConfig } from './enhancedWorldPrompts';
 import type { WorldInfo } from '@/types/game.d';
 import { calculateSectData, type SectCalculationData } from './sectDataCalculator';
 
@@ -29,6 +30,7 @@ export interface EnhancedWorldGenConfig {
   factionCount: number;
   locationCount: number;
   secretRealmsCount: number;
+  continentCount: number; // 新增大陆数量配置
   maxRetries: number;
   retryDelay: number;
   characterBackground?: string;
@@ -119,154 +121,20 @@ export class EnhancedWorldGenerator {
    * 构建基础提示词
    */
   private buildPrompt(): string {
-    const { factionCount, locationCount, secretRealmsCount } = this.config;
+    const { factionCount, locationCount, secretRealmsCount, continentCount } = this.config;
     
-    return `
-# 修仙世界完整生成任务
-
-## 基本要求
-- 世界名称: ${this.config.worldName || '修仙界'}（仅作为参考，不要在JSON中输出世界名称/背景/纪元）
-- 重要约束：世界名称和世界背景等元数据已由玩家选择固定，严禁在输出JSON中生成或覆盖这些字段。
-- 输出JSON必须仅包含以下顶级字段：continents, factions, locations。
-- 势力数量: ${factionCount}个
-- 地点数量: ${locationCount}个
-- 特殊地点: ${secretRealmsCount}个
-
-##  continents (大陆信息) 生成要求
-1.  **必须生成多个大陆** - 建议生成3-5个大陆，构建完整的世界格局。
-2.  **坐标范围约束**：所有坐标必须在以下范围内
-    - 经度范围：100.0 ~ 130.0 度 (使用更紧密的核心区域)
-    - 纬度范围：25.0 ~ 45.0 度 (使用更紧密的核心区域)
-3.  **大陆分布和连接原则**：
-    - **相互连接**：大陆之间应该相邻或通过狭窄海峡连接，避免孤立岛屿
-    - **紧密布局**：大陆边界之间距离1-3度，形成连续的陆地群
-    - **集中分布**：所有大陆应在核心区域（经度110-125度，纬度30-40度）形成连续陆块
-    - **无大片海域**：避免大陆间出现超过5度的空旷海域
-4.  每个大陆对象必须包含以下字段：
-    *   \`name\` (名称) - 字符串。
-    *   \`description\` (描述) - 字符串，至少50字，描述大陆的地理特征和文化特色。
-    *   \`terrain_features\` (地理特征) - **字符串数组，绝对不能为空，必须包含至少2个特征**。例如: \`["连绵山脉", "广袤平原"]\`。
-    *   \`natural_barriers\` (天然屏障) - **字符串数组，绝对不能为空，必须包含至少2个屏障**。例如: \`["万丈深渊", "无尽沙海"]\`。
-    *   \`continent_bounds\` (大洲边界) - **坐标点对象数组，绝对不能为空，必须包含至少4个点来定义一个闭合区域**。例如: \`[{"longitude": 115.0, "latitude": 35.0}, {"longitude": 120.0, "latitude": 35.0}, {"longitude": 120.0, "latitude": 40.0}, {"longitude": 115.0, "latitude": 40.0}]\`。
-    *   **重要**：单个大陆建议经纬度跨度4-8度，确保大陆间能够连接。
-
-## 势力生成要求
-1. **等级分布必须合理**：
-   - 超级势力: 1个 (世界级统治势力)
-   - 一流势力: 2-3个 (各大陆的强势力)
-   - 二流势力: 3-4个 (区域性势力)
-   - 三流势力: 其余 (新兴或小型势力)
-
-2. **势力分布和领土原则**：
-   - **严禁非附属势力的领土重叠**：同级别或非附属关系的势力领土绝对不能重叠
-   - **附属关系处理**：如果存在附属关系，必须在势力描述中明确说明，如"XX宗门，隶属于YY帝国"
-   - **地理分离**：不同大陆的势力应相对独立，避免跨大陆的复杂重叠
-   - **缓冲区域**：势力领土之间应有合理的中立区域或无人区
-
-3. **势力领土大小限制**：
-   - **小于大洲**：任何单个势力的领土范围都必须明显小于其所在大洲
-   - **超级势力**：领土跨度最大不超过大洲面积的40%，约2-3度范围
-   - **一流势力**：领土跨度不超过大洲面积的25%，约1.5-2度范围  
-   - **二三流势力**：领土跨度不超过大洲面积的15%，约0.8-1.2度范围
-   - **势力总部**：必须在其势力范围的中心区域
-
-4. **势力领土生成规则**：
-   - 每个势力的territory（势力范围）必须是独立的、不与其他势力重叠的区域
-   - 势力总部位置必须在其势力范围内
-   - 超级势力可以跨越多个区域，但不应完全包围其他独立势力
-   - 一流势力通常占据一个大陆的核心区域的一部分
-   - 二三流势力分布在边缘地带或次要区域的小块领土
-
-5. **势力关系说明**：
-   - 如果势力A的领土包含势力B，则必须在描述中说明B是A的附属/分支/世家等
-   - 独立势力之间应保持明确的领土边界
-   - 同盟关系不等于领土重叠，应在描述中体现政治关系而非地理重叠
-
-6. **势力类型多样化**：
-   - 修仙宗门 (主要势力)
-   - 修仙世家 (血脉传承)
-   - 魔道势力 (对立阵营)
-   - 商会组织 (经济势力)
-   - 散修联盟 (松散组织)
-
-3. **🚨严格禁止重复名称**：
-   - 每个势力名称必须独特且不重复
-   - 必须创造性地生成全新的势力名称
-   - 避免使用常见的修仙小说模板名称
-   - 结合世界背景特色创造富有想象力的名称
-
-4. **名称生成多样性要求**：
-   - 宗门类：融合地理特征、修炼理念、创始人特色等元素
-   - 世家类：体现家族历史、血脉特色、传承特点
-   - 魔道类：展现邪异气质，但避免俗套命名
-   - 商会类：体现商业特色和经营范围
-   - 联盟类：反映组织松散和成员特点
-
-5. **每个势力必须包含**：
-   - 名称 (独特且符合修仙背景，严禁重复)
-   - 类型 (上述类型之一)
-   - 等级 (超级/一流/二流/三流)
-   - 位置 (详细地理位置)
-   - **territory** (势力范围) - **坐标点对象数组，绝对不能为空，必须包含至少4个点来定义一个闭合区域**。
-   - 描述 (至少50字的背景描述)
-   - 特色 (数组格式，至少2个特色)
-
-   另外，必须补充以下结构，前端宗门页面直接依赖：
-   - leadership 对象（宗门领导层，字段皆为必填）：
-     {
-       "宗主": "姓名",
-       "宗主修为": "如：元婴后期/化神中期",
-       "副宗主": "姓名或null",
-       "太上长老": "姓名或null（可选，德高望重的退隐长老）",
-       "太上长老修为": "境界或null（如有太上长老则必填）",
-       "长老数量": 数字,
-       "最强修为": "如：化神圆满（可能是太上长老或宗主的修为）",
-       "综合战力": 1-100 的数字,
-       "核心弟子数": 数字,
-       "内门弟子数": 数字,
-       "外门弟子数": 数字
-     }
-   - memberCount 对象（成员统计，字段皆为必填）：
-     {
-       "total": 数字,
-       "byRealm": {"练气": 数, "筑基": 数, "金丹": 数, "元婴": 数, "化神": 数, "炼虚": 数, "合体": 数, "渡劫": 数},
-       "byPosition": {"散修":0, "外门弟子": 数, "内门弟子": 数, "核心弟子": 数, "传承弟子": 数, "执事": 数, "长老": 数, "太上长老": 数, "副掌门": 数, "掌门": 1}
-     }
-   - 数据一致性：memberCount.total 必须等于 byPosition 合计；byRealm 合计必须等于 total。
-
-## 地点生成要求
-1. **地点类型分布**：
-   - 势力总部: ${factionCount}个 (对应各势力)
-   - 城镇坊市: ${Math.floor(locationCount * 0.3)}个
-   - 修炼圣地: ${Math.floor(locationCount * 0.2)}个
-   - 资源宝地: ${Math.floor(locationCount * 0.2)}个
-   - 危险区域: ${Math.floor(locationCount * 0.15)}个
-   - 特殊地点: ${locationCount - Math.floor(locationCount * 0.85)}个
-
-2. **每个地点必须包含**：
-   - 名称 (独特地名)
-   - 类型 (上述类型之一)
-   - 位置 (地理坐标，必须在经度100.0~130.0度，纬度25.0~45.0度范围内)
-   - 描述 (至少30字)
-   - 安全等级 (安全/较安全/危险/极危险)
-   - 开放状态 (开放/限制/封闭)
-
-3. **坐标生成要求**：
-   - 所有势力和地点的坐标都必须在对应大陆边界范围内
-   - 坐标格式：{"longitude": 数值, "latitude": 数值}
-   - **集中布局**：重点使用核心区域坐标（经度110-125度，纬度30-40度）
-   - **紧密分布**：避免过度分散的坐标，保持合理的地理集中度
-   - 避免生成过于密集或分散的坐标分布
-
-## 数据完整性要求
-- 仅输出地图相关数据：大陆、势力范围、地点坐标与类型（可含名称与描述），不得输出 world_name/world_background/world_era 等元数据。
-- 所有必需字段都必须有值，不能为空
-- 数组字段必须是真正的数组格式
-- 数值字段必须是数字类型
-- 所有名称必须唯一，不能重复
-
-请严格按照以上要求生成完整的修仙世界数据。
-`;
+    const promptConfig: WorldPromptConfig = {
+      factionCount,
+      totalLocations: locationCount,
+      secretRealms: secretRealmsCount,
+      continentCount,
+      characterBackground: this.config.characterBackground,
+      worldBackground: this.config.worldBackground,
+      worldEra: this.config.worldEra,
+      worldName: this.config.worldName
+    };
+    
+    return EnhancedWorldPromptBuilder.buildPrompt(promptConfig);
   }
   
   /**

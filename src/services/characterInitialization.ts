@@ -256,6 +256,7 @@ export async function initializeCharacter(
           factionCount: userWorldConfig.majorFactionsCount || 7,
           locationCount: userWorldConfig.totalLocations || 25,
           secretRealmsCount: userWorldConfig.secretRealmsCount || 8,
+          continentCount: userWorldConfig.continentCount || Math.floor(Math.random() * 5) + 3, // 3-7个大陆
           maxRetries: 3,
           retryDelay: 2000,
           characterBackground: extractName(baseInfo.出生)

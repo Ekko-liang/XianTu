@@ -58,6 +58,16 @@
           <!-- 地图生成选项（移入右侧详情内，避免整体高度溢出） -->
           <div class="map-options" v-show="showMapOptions">
             <div class="map-options-header">地图生成选项</div>
+            
+            <!-- 配置警告提示 -->
+            <div class="config-warning" v-if="isConfigRisky">
+              <div class="warning-icon">⚠️</div>
+              <div class="warning-text">
+                <div class="warning-title">配置过高警告</div>
+                <div class="warning-desc">当前配置可能导致生成失败，建议调整至合理范围</div>
+              </div>
+            </div>
+            
             <div class="map-options-grid">
               <label class="option-item">
                 <span class="option-label">主要势力</span>
@@ -67,7 +77,9 @@
                   max="20"
                   step="1"
                   v-model.number="worldConfig.majorFactionsCount"
+                  :class="{ 'config-risky': worldConfig.majorFactionsCount > 8 }"
                 />
+                <span class="config-hint">推荐: 3-8</span>
               </label>
               <label class="option-item">
                 <span class="option-label">地点总数</span>
@@ -77,7 +89,9 @@
                   max="100"
                   step="1"
                   v-model.number="worldConfig.totalLocations"
+                  :class="{ 'config-risky': worldConfig.totalLocations > 15 }"
                 />
+                <span class="config-hint">推荐: 8-15</span>
               </label>
               <label class="option-item">
                 <span class="option-label">秘境数量</span>
@@ -87,7 +101,21 @@
                   max="30"
                   step="1"
                   v-model.number="worldConfig.secretRealmsCount"
+                  :class="{ 'config-risky': worldConfig.secretRealmsCount > 10 }"
                 />
+                <span class="config-hint">推荐: 3-10</span>
+              </label>
+              <label class="option-item">
+                <span class="option-label">大陆数量</span>
+                <input
+                  type="number"
+                  min="3"
+                  max="7"
+                  step="1"
+                  v-model.number="worldConfig.continentCount"
+                  title="大陆数量决定世界的宏观格局，3-7片大陆形成不同的地缘政治结构"
+                />
+                <span class="config-hint">范围: 3-7</span>
               </label>
             </div>
             <div class="map-options-actions">
@@ -136,9 +164,10 @@ const showMapOptions = ref(false);
 
 // 世界生成配置
 const worldConfig = ref({
-  majorFactionsCount: 5,
-  totalLocations: 15,
-  secretRealmsCount: 4
+  majorFactionsCount: Math.floor(Math.random() * 3) + 4, // 4-6
+  totalLocations: Math.floor(Math.random() * 4) + 10, // 10-13
+  secretRealmsCount: Math.floor(Math.random() * 3) + 4, // 4-6
+  continentCount: Math.floor(Math.random() * 3) + 3 // 3-5
 });
 
 // 监听配置变化并自动保存到store
@@ -249,14 +278,16 @@ function handleSelectWorld(world: World) {
 
 // 随机配置功能
 function randomizeConfig() {
-  const factionOptions = [3, 5, 7, 10];
-  const locationOptions = [10, 15, 20, 25];
-  const realmOptions = [2, 4, 6, 8];
+  const factionOptions = [3, 4, 5, 6];
+  const locationOptions = [8, 10, 12, 15];
+  const realmOptions = [3, 4, 5, 6];
+  const continentOptions = [3, 4, 5];
   
   worldConfig.value = {
     majorFactionsCount: factionOptions[Math.floor(Math.random() * factionOptions.length)],
     totalLocations: locationOptions[Math.floor(Math.random() * locationOptions.length)],
-    secretRealmsCount: realmOptions[Math.floor(Math.random() * realmOptions.length)]
+    secretRealmsCount: realmOptions[Math.floor(Math.random() * realmOptions.length)],
+    continentCount: continentOptions[Math.floor(Math.random() * continentOptions.length)]
   };
   
   // 立即保存配置到store
@@ -267,15 +298,23 @@ function randomizeConfig() {
 // 重置为默认配置
 function resetConfig() {
   worldConfig.value = {
-    majorFactionsCount: 5,
-    totalLocations: 15,
-    secretRealmsCount: 4
+    majorFactionsCount: Math.floor(Math.random() * 3) + 4, // 4-6
+    totalLocations: Math.floor(Math.random() * 4) + 10, // 10-13
+    secretRealmsCount: Math.floor(Math.random() * 3) + 4, // 4-6
+    continentCount: Math.floor(Math.random() * 3) + 3 // 3-5
   };
   
   // 立即保存配置到store
   store.setWorldGenerationConfig(worldConfig.value);
-  toast.info('已重置为默认配置');
+  toast.info('已重置为随机默认配置');
 }
+
+// 检查配置是否存在风险
+const isConfigRisky = computed(() => {
+  return worldConfig.value.majorFactionsCount > 8 ||
+         worldConfig.value.totalLocations > 15 ||
+         worldConfig.value.secretRealmsCount > 10;
+});
 
 // fetchData 方法已不再需要，组件现在通过计算属性自动响应store的变化
 </script>
@@ -448,6 +487,62 @@ function resetConfig() {
   /* 当显示设置时，该区域可占满并内部滚动 */
   flex: 1 1 auto;
   overflow: auto;
+}
+
+/* 配置警告样式 */
+.config-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 6px;
+  color: #856404;
+}
+
+.warning-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.warning-text {
+  flex: 1;
+}
+
+.warning-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 0.25rem;
+  color: #856404;
+}
+
+.warning-desc {
+  font-size: 0.85rem;
+  color: #6c5ce7;
+  line-height: 1.4;
+}
+
+/* 风险配置输入框样式 */
+.option-item input.config-risky {
+  border-color: #ffc107;
+  background-color: rgba(255, 193, 7, 0.05);
+  box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.1);
+}
+
+.option-item input.config-risky:focus {
+  border-color: #ff9800;
+  box-shadow: 0 0 0 2px rgba(255, 152, 0, 0.2);
+}
+
+/* 配置提示文字 */
+.config-hint {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  opacity: 0.8;
+  margin-top: 0.2rem;
 }
 
 .map-options-header {

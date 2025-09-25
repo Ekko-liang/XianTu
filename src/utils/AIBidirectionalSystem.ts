@@ -1,6 +1,6 @@
 /**
  * AIBidirectionalSystem
- * 
+ *
  * 实现AI指令集方案中定义的双向数据流系统
  * 核心功能：
  * 1. 监听AI回复并解析指令
@@ -41,7 +41,7 @@ export interface StateChangeLog {
 class AIBidirectionalSystemClass {
   private static instance: AIBidirectionalSystemClass | null = null;
   private stateHistory: StateChangeLog[] = [];
-  
+
   private constructor() {}
 
   public static getInstance(): AIBidirectionalSystemClass {
@@ -93,7 +93,7 @@ class AIBidirectionalSystemClass {
     // 3. 状态快照 - 记录执行前的状态
     options?.onProgressUpdate?.('获取当前状态快照…');
     const beforeState = await this.captureCurrentState(tavernHelper!);
-    
+
     // 4. 构建游戏数据并调用AI生成（含用户提示词防护与“行动趋向”包装）
     options?.onProgressUpdate?.('构建提示词并请求AI生成…');
     let gmResponse: GM_Response;
@@ -113,49 +113,47 @@ class AIBidirectionalSystemClass {
         userActionForAI,
         { wrapper: '', tendencies: [] }
       );
-      
+
       // 使用标准的GM生成器
       gmResponse = await generateInGameResponse(
         currentGameData,
         userActionForAI
       );
-      
+
       if (!gmResponse || !gmResponse.text) {
         throw new Error('AI生成器返回了无效的响应');
       }
       // guardSystemMessages 已在上方准备
-      
+
     } catch (err) {
       console.error('[AI双向系统] AI生成失败:', err);
       toast.error('天机推演失败，请稍后重试。');
-      
-      const errorText = '风起云涌，天机未明（AI生成失败）。';
-      options?.onStreamChunk?.(errorText);
-      return { finalContent: errorText };
+
+      throw (err instanceof Error ? err : new Error(String(err)));
     }
 
     // 5. 执行AI指令（如果有）
     let stateChanges: StateChangeLog | null = null;
     if (gmResponse.tavern_commands && gmResponse.tavern_commands.length > 0) {
       options?.onProgressUpdate?.('执行AI指令并更新游戏状态…');
-      
+
       try {
         // 处理AI指令
         await processGmResponse(gmResponse, character);
-        
+
         // 获取执行后的状态
         const afterState = await this.captureCurrentState(tavernHelper!);
-        
+
         // 生成状态变更日志
         stateChanges = this.generateStateChangeLog(beforeState, afterState);
-        
+
         console.log('[AI双向系统] 状态变更:', stateChanges);
-        
+
         // 通知状态变化
         if (options?.onStateChange && stateChanges.changes.length > 0) {
           options.onStateChange(afterState);
         }
-        
+
       } catch (error) {
         console.error('[AI双向系统] 执行AI指令失败:', error);
         toast.warning(`部分指令执行失败: ${error instanceof Error ? error.message : String(error)}`);
@@ -326,13 +324,13 @@ class AIBidirectionalSystemClass {
     currentState: string;
   } {
     const recentChanges = this.stateHistory.slice(-5); // 最近5次变更
-    
+
     let currentState = '当前状态稳定，无重大变化。';
     if (recentChanges.length > 0) {
       const latestChanges = recentChanges[recentChanges.length - 1];
       if (latestChanges.changes.length > 0) {
-        currentState = `最近有${latestChanges.changes.length}项状态变更，包括：` + 
-          latestChanges.changes.slice(0, 3).map(c => 
+        currentState = `最近有${latestChanges.changes.length}项状态变更，包括：` +
+          latestChanges.changes.slice(0, 3).map(c =>
             `${c.action === 'add' ? '新增' : c.action === 'set' ? '修改' : '删除'} ${c.key}`
           ).join('、');
       }

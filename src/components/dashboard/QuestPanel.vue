@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="quest-panel game-panel" :class="{ 'mobile-layout': isMobile }">
 
     <!-- 任务分类选项卡 -->
@@ -62,7 +62,7 @@
             </div>
             <div class="quest-time" :class="{ 'mobile-time': isMobile }">
               <span v-if="quest.timeLimit">⏰ {{ formatTimeLimit(quest.timeLimit) }}</span>
-              <span v-else class="no-limit" v-if="!isMobile">无时限</span>
+              <span v-else-if="!isMobile" class="no-limit">无时限</span>
             </div>
           </div>
         </div>
@@ -190,9 +190,9 @@ const currentQuests = computed(() => {
 });
 
 // 任务概要
-const questSummary = computed(() => {
-  return '任务系统暂未启用';
-});
+// const questSummary = computed(() => {
+//   return '任务系统暂未启用';
+// });
 
 // 工具函数（占位）
 const getEmptyMessage = () => {
@@ -215,21 +215,24 @@ const getEmptyDescription = () => {
   return descriptions[activeTab.value as keyof typeof descriptions] || '';
 };
 
-const getQuestTypeLabel = (type: string) => {
+const getQuestTypeLabel = (type?: string) => {
   const labels = {
     main: '主线',
     side: '支线', 
     daily: '每日',
     event: '事件'
   };
+  if (!type) return 'δ֪';
   return labels[type as keyof typeof labels] || type;
 };
 
-const getQuestProgress = (quest: Quest) => {
+const getQuestProgress = (quest: Quest | null) => {
+  if (!quest) return 0;
   return quest.maxProgress > 0 ? Math.round((quest.progress / quest.maxProgress) * 100) : 0;
 };
 
-const formatTimeLimit = (minutes: number) => {
+const formatTimeLimit = (minutes?: number) => {
+  minutes = minutes ?? 0;
   if (minutes >= 1440) {
     const days = Math.floor(minutes / 1440);
     return `${days}天`;
@@ -1117,3 +1120,9 @@ panelBus.on('refresh', () => refreshQuests());
   border-bottom-color: #374151;
 }
 </style>
+
+
+
+
+
+

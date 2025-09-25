@@ -99,12 +99,7 @@
             <span class="detail-label">声望</span>
             <span class="detail-value">{{ playerStatus?.reputation.level }}</span>
           </div>
-          <div class="detail-item">
-            <span class="detail-label">位置</span>
-            <span class="detail-value">{{ characterData?.location.name }}</span>
-          </div>
         </div>
-
         <!-- 当前状态显示 -->
         <!-- 隐藏活动和心境状态信息 -->
       </div>
@@ -209,7 +204,7 @@ import DetailModal from '@/components/common/DetailModal.vue';
 import { useUnifiedCharacterData } from '@/composables/useCharacterData';
 import { useCharacterStore } from '@/stores/characterStore';
 import { calculateFinalAttributes } from '@/utils/attributeCalculation';
-import type { StatusEffect } from '@/types/game';
+
 
 type TextSection = {
   title?: string;
@@ -240,7 +235,8 @@ const playerStatus = computed(() => characterData.value?.status);
 const statusEffects = computed(() => characterData.value?.statusEffects || []);
 
 // 安全地访问存档数据
-const saveData = computed(() => characterStore.activeSaveSlot?.存档数据);
+
+// 位置详情（固定格式：世界 · 大州 · 区域 · 地点）
 const daoData = computed(() => saveData.value?.三千大道);
 
 // 收缩状态
@@ -1443,3 +1439,7 @@ const showStatusDetail = (effect: StatusEffect) => {
   }
 }
 </style>
+
+
+
+

@@ -44,6 +44,7 @@ export interface CultivationWorldSettings {
   neutralZonesCount: number;     // 中立区域数量
   secretRealmsCount: number;     // 秘境数量
   continentCount: number;        // 大陆数量
+  locationsPerContinent?: number; // 每个大陆的地点数量（可选）
   majorCitiesCount: number;      // 主要城市数量
   tradingHubsCount: number;      // 贸易中心数量
   
@@ -144,57 +145,57 @@ export class WorldGenerationConfig {
     switch (scale) {
       case WorldScale.SMALL:
         return {
-          majorFactionsCount: 4,
-          minorFactionsCount: 3,
-          neutralZonesCount: 2,
-          secretRealmsCount: 4,
-          continentCount: Math.floor(Math.random() * 2) + 2, // 2-3个大陆
-          majorCitiesCount: 6,
-          tradingHubsCount: 2,
+          majorFactionsCount: Math.floor(Math.random() * 3) + 3, // 3-5
+          minorFactionsCount: Math.floor(Math.random() * 3) + 2, // 2-4
+          neutralZonesCount: Math.floor(Math.random() * 3) + 1, // 1-3
+          secretRealmsCount: Math.floor(Math.random() * 4) + 3, // 3-6
+          continentCount: Math.floor(Math.random() * 2) + 3, // 3-4个大陆
+          majorCitiesCount: Math.floor(Math.random() * 4) + 5, // 5-8
+          tradingHubsCount: Math.floor(Math.random() * 2) + 2, // 2-3
         };
       
       case WorldScale.MEDIUM:
         return {
-          majorFactionsCount: 6,
-          minorFactionsCount: 4,
-          neutralZonesCount: 3,
-          secretRealmsCount: 6,
-          continentCount: Math.floor(Math.random() * 2) + 3, // 3-4个大陆
-          majorCitiesCount: 10,
-          tradingHubsCount: 3,
+          majorFactionsCount: Math.floor(Math.random() * 4) + 5, // 5-8
+          minorFactionsCount: Math.floor(Math.random() * 4) + 3, // 3-6
+          neutralZonesCount: Math.floor(Math.random() * 3) + 2, // 2-4
+          secretRealmsCount: Math.floor(Math.random() * 5) + 5, // 5-9
+          continentCount: Math.floor(Math.random() * 3) + 4, // 4-6个大陆
+          majorCitiesCount: Math.floor(Math.random() * 6) + 8, // 8-13
+          tradingHubsCount: Math.floor(Math.random() * 3) + 3, // 3-5
         };
       
       case WorldScale.LARGE:
         return {
-          majorFactionsCount: 9,
-          minorFactionsCount: 6,
-          neutralZonesCount: 4,
-          secretRealmsCount: 10,
-          continentCount: Math.floor(Math.random() * 3) + 4, // 4-6个大陆
-          majorCitiesCount: 15,
-          tradingHubsCount: 5,
+          majorFactionsCount: Math.floor(Math.random() * 5) + 7, // 7-11
+          minorFactionsCount: Math.floor(Math.random() * 5) + 5, // 5-9
+          neutralZonesCount: Math.floor(Math.random() * 4) + 3, // 3-6
+          secretRealmsCount: Math.floor(Math.random() * 8) + 8, // 8-15
+          continentCount: Math.floor(Math.random() * 3) + 5, // 5-7个大陆
+          majorCitiesCount: Math.floor(Math.random() * 8) + 12, // 12-19
+          tradingHubsCount: Math.floor(Math.random() * 3) + 4, // 4-6
         };
       
       case WorldScale.EPIC:
         return {
-          majorFactionsCount: 12,
-          minorFactionsCount: 8,
-          neutralZonesCount: 6,
-          secretRealmsCount: 15,
-          continentCount: Math.floor(Math.random() * 4) + 5, // 5-8个大陆
-          majorCitiesCount: 20,
-          tradingHubsCount: 7,
+          majorFactionsCount: Math.floor(Math.random() * 6) + 10, // 10-15
+          minorFactionsCount: Math.floor(Math.random() * 6) + 6, // 6-11
+          neutralZonesCount: Math.floor(Math.random() * 5) + 4, // 4-8
+          secretRealmsCount: Math.floor(Math.random() * 10) + 12, // 12-21
+          continentCount: Math.floor(Math.random() * 3) + 5, // 5-7个大陆
+          majorCitiesCount: Math.floor(Math.random() * 10) + 18, // 18-27
+          tradingHubsCount: Math.floor(Math.random() * 4) + 6, // 6-9
         };
       
       default:
         return {
-          majorFactionsCount: 6,
-          minorFactionsCount: 4,
-          neutralZonesCount: 3,
-          secretRealmsCount: 6,
-          continentCount: 3,
-          majorCitiesCount: 10,
-          tradingHubsCount: 3,
+          majorFactionsCount: Math.floor(Math.random() * 4) + 5, // 5-8
+          minorFactionsCount: Math.floor(Math.random() * 4) + 3, // 3-6
+          neutralZonesCount: Math.floor(Math.random() * 3) + 2, // 2-4
+          secretRealmsCount: Math.floor(Math.random() * 5) + 5, // 5-9
+          continentCount: Math.floor(Math.random() * 3) + 4, // 4-6个大陆
+          majorCitiesCount: Math.floor(Math.random() * 6) + 8, // 8-13
+          tradingHubsCount: Math.floor(Math.random() * 3) + 3, // 3-5
         };
     }
   }

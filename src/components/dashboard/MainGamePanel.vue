@@ -69,6 +69,37 @@
 
     <!-- 输入区域 -->
     <div class="input-section">
+      <!-- 动作队列显示区域 -->
+      <div v-if="actionQueue.pendingActions.length > 0" class="action-queue-display">
+        <div class="queue-header">
+          <span class="queue-title">📝 待执行动作</span>
+          <button @click="clearActionQueue" class="clear-queue-btn" title="清空队列">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <div class="queue-actions">
+          <div 
+            v-for="(action, index) in actionQueue.pendingActions" 
+            :key="action.id" 
+            class="queue-action-item"
+          >
+            <span class="action-text">{{ action.description }}</span>
+            <div class="action-controls">
+              <span v-if="isUndoableAction(action)" class="undo-indicator" title="可撤回">🔄</span>
+              <button 
+                @click="removeActionFromQueue(index)" 
+                class="remove-action-btn"
+                :title="isUndoableAction(action) ? '撤回并恢复' : '删除此动作'"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="input-wrapper">
         <button
           @click="showActionSelector"
@@ -208,6 +239,7 @@ import { ref, onMounted, nextTick, computed } from 'vue';
 import { Send, Loader2, ChevronDown, ChevronRight } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
+import { EnhancedActionQueueManager } from '@/utils/enhancedActionQueue';
 import { getTavernHelper } from '@/utils/tavern';
 import { MultiLayerMemorySystem } from '@/utils/MultiLayerMemorySystem';
 import { AIBidirectionalSystem } from '@/utils/AIBidirectionalSystem';
@@ -245,6 +277,7 @@ interface ActionItem {
 
 const characterStore = useCharacterStore();
 const actionQueue = useActionQueueStore();
+const enhancedActionQueue = EnhancedActionQueueManager.getInstance();
 const memorySystem = MultiLayerMemorySystem.getInstance();
 const bidirectionalSystem = AIBidirectionalSystem.getInstance();
 const gameStateManager = GameStateManager.getInstance();
@@ -550,6 +583,50 @@ const handleStreamingResponse = (chunk: string) => {
   }
 };
 
+// 检查动作是否可撤回
+const isUndoableAction = (action: any): boolean => {
+  // NPC交互类操作不支持撤回，只能删除
+  const npcInteractionTypes = ['npc_trade', 'npc_request', 'npc_steal'];
+  if (npcInteractionTypes.includes(action.type)) {
+    return false;
+  }
+  // 其他操作支持撤回
+  return ['equip', 'unequip', 'use', 'cultivate'].includes(action.type);
+};
+
+// 动作队列管理方法
+const clearActionQueue = async () => {
+  actionQueue.clearActions();
+  toast.success('动作队列已清空');
+};
+
+const removeActionFromQueue = async (index: number) => {
+  if (index >= 0 && index < actionQueue.pendingActions.length) {
+    const action = actionQueue.pendingActions[index];
+    
+    // NPC交互类操作不支持撤回，只能删除
+    const npcInteractionTypes = ['npc_trade', 'npc_request', 'npc_steal'];
+    if (npcInteractionTypes.includes(action.type)) {
+      actionQueue.removeAction(action.id);
+      toast.success('已移除NPC交互动作');
+      return;
+    }
+    
+    // 如果是装备、卸下或使用类操作，尝试撤回
+    if (['equip', 'unequip', 'use'].includes(action.type)) {
+      const success = await enhancedActionQueue.undoLastAction();
+      if (success) {
+        toast.success('已撤回并恢复');
+        return;
+      }
+    }
+    
+    // 普通删除操作
+    actionQueue.removeAction(action.id);
+    toast.success('已移除动作');
+  }
+};
+
 // 发送消息给AI（优化版）
 const sendMessage = async () => {
   if (!inputText.value.trim()) return;
@@ -564,11 +641,18 @@ const sendMessage = async () => {
 
   const userMessage = inputText.value.trim();
 
-  // 获取并消费操作队列中的提示词
-  const actionPrompt = actionQueue.consumeActions();
+  // 获取动作队列中的文本
+  const actionQueueText = actionQueue.getActionPrompt();
 
-  // 将操作提示词附加到用户消息
-  const finalUserMessage = actionPrompt ? userMessage + actionPrompt : userMessage;
+  // 将动作队列文本和用户输入合并
+  const finalUserMessage = actionQueueText ? 
+    `${userMessage}${actionQueueText}` : 
+    userMessage;
+
+  // 清空动作队列（动作已经添加到消息中）
+  if (actionQueueText) {
+    actionQueue.clearActions();
+  }
 
   inputText.value = '';
 
@@ -1478,9 +1562,7 @@ const saveConversationHistory = async () => {
   font-weight: 500;
 }
 
-.narrative-text {
-  /* 移除重复的样式，让内部FormattedText组件处理 */
-}
+/* 移除重复的样式，让内部FormattedText组件处理 */
 
 .empty-narrative {
   display: flex;
@@ -1490,6 +1572,105 @@ const saveConversationHistory = async () => {
   color: #9ca3af;
   font-style: italic;
   font-size: 0.9rem;
+}
+
+/* 动作队列显示区域 */
+.action-queue-display {
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.queue-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.queue-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #6366f1;
+}
+
+.clear-queue-btn {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.clear-queue-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.queue-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.queue-action-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(99, 102, 241, 0.05);
+  border: 1px solid rgba(99, 102, 241, 0.1);
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.action-text {
+  flex: 1;
+  color: #374151;
+  line-height: 1.4;
+  margin-right: 8px;
+}
+
+.action-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.undo-indicator {
+  font-size: 12px;
+  opacity: 0.7;
+  animation: rotate 2s linear infinite;
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.remove-action-btn {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 16px;
+  line-height: 1;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.remove-action-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
 }
 
 .input-section {
@@ -2114,5 +2295,50 @@ const saveConversationHistory = async () => {
 
 [data-theme="dark"] .cancel-btn:hover {
   background: #4b5563;
+}
+
+/* 深色主题动作队列样式 */
+[data-theme="dark"] .action-queue-display {
+  background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+  border-color: #4b5563;
+}
+
+[data-theme="dark"] .queue-title {
+  color: #818cf8;
+}
+
+[data-theme="dark"] .clear-queue-btn {
+  color: #9ca3af;
+}
+
+[data-theme="dark"] .clear-queue-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+[data-theme="dark"] .queue-action-item {
+  background: rgba(129, 140, 248, 0.1);
+  border-color: rgba(129, 140, 248, 0.2);
+}
+
+[data-theme="dark"] .action-text {
+  color: #e5e7eb;
+}
+
+[data-theme="dark"] .remove-action-btn {
+  color: #9ca3af;
+}
+
+[data-theme="dark"] .remove-action-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+[data-theme="dark"] .action-controls {
+  color: #d1d5db;
+}
+
+[data-theme="dark"] .undo-indicator {
+  filter: brightness(1.2);
 }
 </style>

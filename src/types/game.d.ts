@@ -605,7 +605,7 @@ export interface CharacterBaseInfo {
   };
   灵根: string | {
     名称: string;
-    品质: string; // 灵根品质：凡品、下品、中品、上品、极品、天品、神品、特殊
+    品质: string; // 灵根品质：凡品、下品、中品、上品、极品、仙品、神品、特殊
     描述: string;
   };
   天赋: string[] | Array<{
@@ -721,6 +721,42 @@ export interface CharacterProfile {
       需要同步: boolean;
     };
   };
+}
+
+// --- 动作队列系统 ---
+
+/** 动作类型 */
+export type QueueActionType = 
+  | 'item_use'      // 使用物品
+  | 'item_equip'    // 装备物品
+  | 'item_discard'  // 丢弃物品
+  | 'item_practice' // 修炼功法
+  | 'npc_interact'  // NPC互动
+  | 'custom';       // 自定义动作
+
+/** 动作撤回数据 */
+export interface ActionUndoData {
+  type: QueueActionType;
+  itemId?: string;
+  itemName?: string;
+  quantity?: number;
+  originalQuantity?: number;
+  [key: string]: any; // 其他撤回需要的数据
+}
+
+/** 单个动作项 */
+export interface QueueActionItem {
+  id: string;
+  text: string; // 显示给用户的文本
+  type: QueueActionType;
+  canUndo: boolean; // 是否可以撤回
+  undoData?: ActionUndoData; // 撤回时需要的数据
+  timestamp: number;
+}
+
+/** 动作队列 - 用于收集用户操作的文本描述 */
+export interface ActionQueue {
+  actions: QueueActionItem[]; // 动作列表
 }
 
 // --- 顶层本地存储结构 ---

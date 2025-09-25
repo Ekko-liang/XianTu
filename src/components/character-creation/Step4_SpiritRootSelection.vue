@@ -223,7 +223,7 @@ const spiritRootTiers = [
   { key: 'middle', name: '中品', multiplier: 1.3, cost: 6, desc: '资质尚可，小有成就' },
   { key: 'high', name: '上品', multiplier: 1.6, cost: 10, desc: '天赋卓越，前途无量' },
   { key: 'supreme', name: '极品', multiplier: 2.0, cost: 15, desc: '万中无一，天之骄子' },
-  { key: 'heaven', name: '天品', multiplier: 2.4, cost: 20, desc: '天降异象，举世罕见' },
+  { key: 'heaven', name: '仙品', multiplier: 2.4, cost: 20, desc: '天降异象，举世罕见' },
   { key: 'divine', name: '神品', multiplier: 2.8, cost: 25, desc: '神鬼莫测，逆天改命' },
   { key: 'special', name: '特殊', multiplier: 0, cost: 0, desc: '特殊体质，另有奥妙' }
 ]
@@ -1311,4 +1311,7 @@ const statsDisplay = computed(() => {
   display: flex;
   gap: 0.5rem;
 }
+
+/* 兼容新等级名称“仙品” */
+.spirit-root-tier.tier-仙品 { background: linear-gradient(135deg, #EF4444, #F87171); color: white; }
 </style>

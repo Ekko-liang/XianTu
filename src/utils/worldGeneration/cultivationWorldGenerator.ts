@@ -89,6 +89,7 @@ export class CultivationWorldGenerator {
       factionCount: this.userConfig?.majorFactionsCount || 7,
       totalLocations: this.userConfig?.totalLocations || 25,
       secretRealms: this.userConfig?.secretRealmsCount || 8,
+      continentCount: this.userConfig?.continentCount || Math.floor(Math.random() * 5) + 3, // 3-7个大陆
       characterBackground: this.characterBackground,
       worldBackground: this.userConfig?.worldBackground,
       worldEra: this.userConfig?.worldEra,

@@ -8,6 +8,7 @@ export interface WorldPromptConfig {
   factionCount: number;
   totalLocations: number;
   secretRealms: number;
+  continentCount: number; // 新增大陆数量配置
   characterBackground?: string;
   worldBackground?: string;
   worldEra?: string;
@@ -21,6 +22,7 @@ export class EnhancedWorldPromptBuilder {
     // 严格按照配置值生成，确保AI看到的数字是正确的
     const finalFactionCount = config.factionCount;
     const finalLocationCount = config.totalLocations;
+    const finalContinentCount = config.continentCount;
     const finalSecretRealmCount = Math.min(config.secretRealms, finalLocationCount); // 特殊属性不能超过总地点数
 
     // 删除固定的势力分级限制，让AI自然生成有影响力的大势力
@@ -188,24 +190,24 @@ ${styleGuide}
 ## 🌍 地理层级结构
 
 ### 大洲级别区域
-为了营造更宏大的世界观，需要创造6-11个大洲级别的地理区域来包裹各个势力：
+为了营造更宏大的世界观，需要创造${finalContinentCount}个大洲级别的地理区域来包裹各个势力：
 
 **大洲创造要求**：
-- **数量控制**: 必须创造6-11个大洲，增加板块数量，让世界更丰富复杂
+- **数量控制**: 必须创造${finalContinentCount}个大洲，增加板块数量，让世界更丰富复杂
 - **命名创新**: 创造独特的大洲名称，避免使用"东西南北"等方位词
 - **地理特色**: 每个大洲要有独特的地理特征（如：雪域、沙漠、森林、海岛等）
-- **势力分布**: 由于大洲增多，每个大洲包含1-2个主要势力，形成更细致的地缘政治格局
-- **边界设计**: 大洲边界用中型多边形表示（8-15个坐标点），让更多大洲能够合理分布
+- **势力分布**: 大洲数量为${finalContinentCount}，每个大洲包含1-3个主要势力，形成更细致的地缘政治格局
+- **边界设计**: 大洲边界用中型多边形表示（6-12个坐标点），让所有大洲能够合理分布
 - **紧密分布**: 🔥**关键要求**🔥 大洲之间必须紧密相邻，几乎无缝连接，形成完整连贯的世界地图
 - **🚫 重叠禁令**: 绝对禁止大陆边界重叠！每个大洲边界多边形必须完全独立，互不交叉
 - **📏 边界间距**: 大洲之间必须保持至少0.3-0.5经纬度的安全距离，避免重叠
 - **🗺️ 分布策略**:
-  * 在经度${minLng}-${maxLng}，纬度${minLat}-${maxLat}范围内合理分布大洲
-  * 建议将地图区域划分为3x3或2x4网格，每个网格区域放置1个大洲
+  * 在经度${minLng}-${maxLng}，纬度${minLat}-${maxLat}范围内合理分布${finalContinentCount}个大洲
+  * 根据大洲数量自动调整网格：${finalContinentCount <= 4 ? '2x2' : finalContinentCount <= 6 ? '2x3' : '3x3'}网格，每个网格区域放置1个大洲
   * 确保每个大洲的中心点之间有足够距离
 - **📐 边界生成规则**:
-  * 每个大洲的经度跨度不超过(${maxLng - minLng}/3)度
-  * 每个大洲的纬度跨度不超过(${maxLat - minLat}/3)度
+  * 每个大洲的经度跨度不超过${Math.round(((maxLng - minLng) / Math.ceil(Math.sqrt(finalContinentCount))) * 10) / 10}度
+  * 每个大洲的纬度跨度不超过${Math.round(((maxLat - minLat) / Math.ceil(Math.sqrt(finalContinentCount))) * 10) / 10}度
   * 边界坐标必须在指定的经纬度范围内
 
 **本次大洲形状指导**（每个大洲选择不同的形状类型）:
@@ -356,8 +358,8 @@ ${selectedShapes.map((shape, index) => `- 大洲${index + 1}: ${shape}`).join('\
 ## 📋 JSON输出格式 (严格数量控制, 仅地图字段)
 
 **数量检查清单**:
-- ✅ continents数组包含6-11个大洲对象，彼此边界不重叠
-- ✅ 每个大洲的"大洲边界"数组包含至少8个坐标点，绝不为空
+- ✅ continents数组包含${finalContinentCount}个大洲对象，彼此边界不重叠
+- ✅ 每个大洲的"大洲边界"数组包含至少6个坐标点，绝不为空
 - ✅ 每个大洲的"地理特征"数组包含至少3个特征，绝不为空
 - ✅ 每个大洲的"天然屏障"数组包含至少2个屏障，绝不为空
 - ✅ factions数组包含${finalFactionCount}个势力对象

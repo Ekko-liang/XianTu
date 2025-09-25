@@ -2,7 +2,7 @@
   <div class="character-details-wrapper">
     <div v-if="isLoading" class="loading-container">
       <div class="loading-spinner"></div>
-      <p>加载角色数据�?..</p>
+      <p>加载角色数据..</p>
     </div>
 
     <div v-else-if="!baseInfo || !saveData" class="error-container">
@@ -1340,12 +1340,12 @@ const parseSpiritRoot = (spiritRoot: string | { 名称: string; 品级?: number;
 const getSpiritRootDisplay = (spiritRoot: string | { 名称: string; 品级?: number; 品质?: string; 等级?: string; 描述?: string } | undefined): string => {
   const parsed = parseSpiritRoot(spiritRoot);
   let result = parsed.name;
-  
+
   // 如果是对象格式的灵根，只显示品质信息（不显示品级）
   if (typeof spiritRoot === 'object' && spiritRoot && parsed.quality) {
     result += ` (${parsed.quality})`;
   }
-  
+
   return result;
 };
 
@@ -3422,10 +3422,8 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   color: white;
 }
 
-.spirit-root-grade.grade-天品 {
-  background: linear-gradient(135deg, #EF4444, #F87171);
-  color: white;
-}
+.spirit-root-grade.grade-仙品 { background: linear-gradient(135deg, #EF4444, #F87171); color: white; }
+.spirit-root-grade.grade-天品 { background: linear-gradient(135deg, #EF4444, #F87171); color: white; }
 
 .spirit-root-grade.grade-圣品 {
   background: linear-gradient(135deg, #EC4899, #F472B6);
@@ -3469,6 +3467,7 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   margin-top: 0.25rem;
 }
 
+.quality-仙品 { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: white; }
 .quality-天品 { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: white; }
 .quality-地品 { background: linear-gradient(135deg, #a78bfa, #8b5cf6); color: white; }
 .quality-玄品 { background: linear-gradient(135deg, #60a5fa, #3b82f6); color: white; }

@@ -1,6 +1,6 @@
 ﻿import { generateItemWithTavernAI } from '../tavernCore';
 import { buildInitialMessagePrompt } from '../prompts/gameMasterPrompts';
-import { getRandomizedInGamePrompt } from '../prompts/inGameGMPromptsV2';
+import { getRandomizedInGamePrompt, debugPromptInfo } from '../prompts/inGameGMPromptsV2';
 import { buildGmRequest } from '../AIGameMaster';
 /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
 import type { GM_Response, TavernCommand } from '../../types/AIGameMaster';
@@ -500,7 +500,7 @@ export async function generateInGameResponse(
             efficiency: (() => {
               let eff = 5;
               const spiritRootName = save?.角色基础信息?.灵根?.名称 || save?.角色基础信息?.灵根 || '';
-              if (spiritRootName.includes('天品')) eff += 5;
+              if (spiritRootName.includes('仙品')) eff += 5;
               if (spiritRootName.includes('极品')) eff += 3;
               const technique = save?.修炼功法?.功法;
               if (technique?.品质?.quality === '仙') eff += 5;
@@ -508,7 +508,7 @@ export async function generateInGameResponse(
               return Math.round(eff);
             })(),
             breakthrough_chance: Math.round(Math.min(80, Math.max(5, 10 + safeAfterSix.心性 * 2 + safeAfterSix.气运))),
-            description: '天品灵根和仙品功法带来了极高的修炼效率。'
+            description: '仙品灵根和仙品功法带来了极高的修炼效率。'
           },
           exploration: { // 探索
             risk_level: (() => {
@@ -603,8 +603,12 @@ export async function generateInGameResponse(
     };
 
     // 获取通用提示词
+    debugPromptInfo(); // 调试提示词完整性
     const prompt = getRandomizedInGamePrompt();
     console.log('【剧情推进】使用通用提示词');
+    console.log('【剧情推进】原始提示词长度:', prompt.length);
+    console.log('【剧情推进-调试】原始提示词前500字符:', prompt.substring(0, 500));
+    console.log('【剧情推进-调试】原始提示词后500字符:', prompt.substring(prompt.length - 500));
 
     // 替换提示词中的占位符
     const promptInput = {
@@ -623,7 +627,10 @@ export async function generateInGameResponse(
     const finalPromptWithContinuity = finalPrompt + previousBlock + continuityGuide;
     console.log('【连续性】上一条对话字数:', typeof lastTextMemory === 'string' ? lastTextMemory.length : 0);
 
-    console.log('【剧情推进】最终提示词长度:', finalPrompt.length);
+    console.log('【剧情推进】最终提示词长度:', finalPromptWithContinuity.length);
+    console.log('【剧情推进-调试】最终提示词前500字符:', finalPromptWithContinuity.substring(0, 500));
+    console.log('【剧情推进-调试】最终提示词是否包含核心规则:', finalPromptWithContinuity.includes('【核心规则'));
+    console.log('【剧情推进-调试】最终提示词是否包含格式化标记:', finalPromptWithContinuity.includes('【格式化标记规范】'));
     console.log('【剧情推进】GM请求数据:', gmRequest);
 
     // 调用AI生成响应

@@ -113,9 +113,10 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
   
   // 世界生成配置
   const worldGenerationConfig = ref({
-    majorFactionsCount: 7,
-    totalLocations: 25,
-    secretRealmsCount: 8,
+    majorFactionsCount: Math.floor(Math.random() * 4) + 5, // 5-8 随机势力数量
+    totalLocations: Math.floor(Math.random() * 11) + 20, // 20-30 随机地点数量
+    secretRealmsCount: Math.floor(Math.random() * 6) + 6, // 6-11 随机秘境数量
+    continentCount: Math.floor(Math.random() * 5) + 3, // 3-7 随机大陆数量
     hasImmortalEmpires: false,
     hasDemonicFactions: true,
     hasAncientSects: true

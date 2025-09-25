@@ -183,6 +183,34 @@
                 {{ getGradeText(item.品质.grade) }}({{ item.品质.grade }})
               </div>
             </div>
+
+            <!-- 快捷动作按钮 -->
+            <div class="item-quick-actions">
+              <button 
+                v-if="item.类型 === '装备'" 
+                @click.stop="addEquipActionToQueue(item)"
+                class="quick-action-btn equip-action"
+                title="添加装备动作到队列"
+              >
+                🔧
+              </button>
+              <button 
+                v-else-if="item.类型 === '功法'" 
+                @click.stop="addCultivateActionToQueue(item)"
+                class="quick-action-btn cultivate-action"
+                title="添加修炼动作到队列"
+              >
+                📖
+              </button>
+              <button 
+                v-else 
+                @click.stop="addUseActionToQueue(item)"
+                class="quick-action-btn use-action"
+                title="添加使用动作到队列"
+              >
+                ✨
+              </button>
+            </div>
           </div>
         </div>
 
@@ -410,6 +438,7 @@ import { ref, computed, onMounted } from 'vue';
 import { Search, BoxSelect, Gem, Package, X, RotateCcw, Sword } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
+import { EnhancedActionQueueManager } from '@/utils/enhancedActionQueue';
 import type { Item, Inventory, SaveData, CultivationTechniqueData } from '@/types/game';
 import { toast } from '@/utils/toast';
 import { getTavernHelper } from '@/utils/tavern';
@@ -419,6 +448,7 @@ import QuantitySelectModal from '@/components/common/QuantitySelectModal.vue';
 
 const characterStore = useCharacterStore();
 const actionQueue = useActionQueueStore();
+const enhancedActionQueue = EnhancedActionQueueManager.getInstance();
 const loading = ref(false);
 const refreshing = ref(false);
 const selectedItem = ref<Item | null>(null);
@@ -1028,12 +1058,11 @@ const toggleCultivate = async (item: Item) => {
   cultivateBusy.value = true;
   try {
     if (isCultivating(item)) {
-      await stopCultivation(item);
+      await enhancedActionQueue.stopCultivation(item);
     } else {
-      await cultivateItem(item);
+      await enhancedActionQueue.cultivateItem(item);
     }
   } finally {
-    // 注意：若进入切换确认流程，cultivateItem 内部会很快返回，此处解锁即可
     cultivateBusy.value = false;
   }
 };
@@ -1065,29 +1094,16 @@ const useItem = async (item: Item) => {
 
 const useItemWithQuantity = async (item: Item, quantity: number) => {
   try {
-    // 1. 减少或移除物品
-    if (item.数量 > quantity) {
-      item.数量 -= quantity;
-      await updateItemInInventory(item);
-      toast.success(`使用了 ${quantity} 个《${item.名称}》`);
-    } else {
-      await removeItemFromInventory(item);
-      toast.success(`已用完《${item.名称}》`);
-    }
-
-    // 2. 添加到操作队列，让AI来决定效果
-    actionQueue.addAction({
-      type: 'use',
-      itemName: item.名称,
-      itemType: item.类型,
-      description: `使用了 ${quantity} 个《${item.名称}》。`
-    });
-
-    // 3. 更新UI状态
+    // 使用增强版动作队列管理器
+    await enhancedActionQueue.useItem(item, quantity);
+    
+    // 更新UI状态
     if (isMobile.value) {
       showItemModal.value = false;
     }
     selectedItem.value = null;
+
+    debug.log('背包面板', '使用物品成功', item.名称);
 
   } catch (error) {
     debug.error('背包面板', '使用物品失败', error);
@@ -1270,30 +1286,16 @@ const toggleEquip = async (item: Item) => {
   if (!item || equipBusy.value) return;
   equipBusy.value = true;
   
-  console.log('[装备按钮] 点击装备切换，物品:', item);
-  
   try {
     if (isEquipped(item)) {
-      console.log('[装备按钮] 物品已装备，执行卸下操作');
-      const itemId = item.物品ID;
-      if (!itemId) {
-        console.error('[装备按钮] 物品ID为空，无法卸下');
-        toast.error('物品ID缺失，无法卸下装备');
-        return;
-      }
-      const slot = equipmentSlots.value.find(s => s.item && s.item.物品ID && s.item.物品ID === itemId);
-      if (slot) {
-        await unequipItem(slot);
-      } else {
-        console.error('[装备按钮] 未找到对应装备槽位');
-        toast.error('未找到装备槽位');
-      }
+      // 卸下装备
+      await enhancedActionQueue.unequipItem(item);
     } else {
-      console.log('[装备按钮] 物品未装备，执行装备操作');
-      await equipItem(item);
+      // 装备物品
+      await enhancedActionQueue.equipItem(item);
     }
   } catch (error) {
-    console.error('[装备按钮] 装备切换失败:', error);
+    console.error('装备切换失败:', error);
     toast.error('装备操作失败，请稍后重试');
   } finally {
     equipBusy.value = false;
@@ -1445,6 +1447,19 @@ onMounted(async () => {
     selectedItem.value = filteredItems.value[0];
   }
 });
+
+// 添加快捷动作到队列的方法
+const addEquipActionToQueue = (item: Item) => {
+  ActionQueueManager.addEquipAction(item);
+};
+
+const addUseActionToQueue = async (item: Item) => {
+  await ActionQueueManager.addItemUseAction(item, 1);
+};
+
+const addCultivateActionToQueue = (item: Item) => {
+  ActionQueueManager.addPracticeAction(item, '30天');
+};
 </script>
 
 <style scoped>
@@ -1945,6 +1960,53 @@ onMounted(async () => {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   background: var(--color-surface-light);
+}
+
+/* 快捷动作按钮 */
+.item-quick-actions {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.item-card:hover .item-quick-actions {
+  opacity: 1;
+}
+
+.quick-action-btn {
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+}
+
+.quick-action-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.quick-action-btn.equip-action:hover {
+  background: #10b981;
+}
+
+.quick-action-btn.use-action:hover {
+  background: #3b82f6;
+}
+
+.quick-action-btn.cultivate-action:hover {
+  background: #8b5cf6;
 }
 
 /* 顶部区域：图标和品质 */
