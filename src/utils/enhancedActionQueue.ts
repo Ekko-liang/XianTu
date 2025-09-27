@@ -10,7 +10,7 @@ import { toast } from './toast';
 import { getTavernHelper } from '@/utils/tavern';
 
 export interface UndoAction {
-  type: 'equip' | 'unequip' | 'use' | 'discard' | 'cultivate';
+  type: 'equip' | 'unequip' | 'use' | 'discard' | 'cultivate' | 'stop_cultivation';
   itemId: string;
   itemName: string;
   quantity?: number;
@@ -27,6 +27,7 @@ export interface UndoAction {
       wasInInventory: boolean;
     };
   };
+  itemData?: Item;
 }
 
 export class EnhancedActionQueueManager {
@@ -149,12 +150,12 @@ export class EnhancedActionQueueManager {
         type: 'equip',
         itemName: item.名称,
         itemType: item.类型,
-        description: replacedItem 
+        description: replacedItem
           ? `装备了《${item.名称}》，替换了《${replacedItem.名称}》`
           : `装备了《${item.名称}》`
       });
       
-      toast.success(`已装备《${item.名称}》`);
+      // toast.success(`已装备《${item.名称}》`); // 弹窗逻辑已移至Store
       return true;
       
     } catch (error) {
@@ -270,7 +271,7 @@ export class EnhancedActionQueueManager {
         description: `卸下了《${item.名称}》`
       });
       
-      toast.success(`已卸下《${item.名称}》`);
+      // toast.success(`已卸下《${item.名称}》`); // 弹窗逻辑已移至Store
       return true;
       
     } catch (error) {
@@ -301,6 +302,7 @@ export class EnhancedActionQueueManager {
       }
       
       const originalQuantity = inventoryItem.数量;
+      const itemToStore = JSON.parse(JSON.stringify(inventoryItem)); // Deep copy before modification
       
       // 执行使用操作
       if (inventoryItem.数量 === quantity) {
@@ -319,7 +321,8 @@ export class EnhancedActionQueueManager {
         quantity,
         restoreData: {
           originalQuantity
-        }
+        },
+        itemData: itemToStore
       };
       this.undoActions.push(undoAction);
       this.saveUndoHistoryToStorage();
@@ -332,7 +335,7 @@ export class EnhancedActionQueueManager {
         description: `使用了 ${quantity} 个《${item.名称}》`
       });
       
-      toast.success(`使用了 ${quantity} 个《${item.名称}》`);
+      // toast.success(`使用了 ${quantity} 个《${item.名称}》`); // 弹窗逻辑已移至Store
       return true;
       
     } catch (error) {
@@ -452,7 +455,7 @@ export class EnhancedActionQueueManager {
           : `开始修炼《${item.名称}》功法`
       });
       
-      toast.success(`开始修炼《${item.名称}》`);
+      // toast.success(`开始修炼《${item.名称}》`); // 弹窗逻辑已移至Store
       return true;
       
     } catch (error) {
@@ -523,13 +526,13 @@ export class EnhancedActionQueueManager {
       
       // 添加到动作队列显示
       actionQueue.addAction({
-        type: 'cultivate',
+        type: 'stop_cultivation',
         itemName: item.名称,
         itemType: item.类型,
         description: `停止修炼《${item.名称}》功法`
       });
       
-      toast.success(`已停止修炼《${item.名称}》`);
+      // toast.success(`已停止修炼《${item.名称}》`); // 弹窗逻辑已移至Store
       return true;
       
     } catch (error) {
@@ -584,7 +587,7 @@ export class EnhancedActionQueueManager {
         }
       }
       
-      toast.success(`已撤回：${lastAction.itemName}`);
+      // toast.success(`已撤回：${lastAction.itemName}`); // 弹窗逻辑已移至Store
       return true;
       
     } catch (error) {
@@ -646,9 +649,20 @@ export class EnhancedActionQueueManager {
           break;
       }
 
+      // NEW: Also remove from the UI action queue
+      const actionQueue = useActionQueueStore();
+      const uiActions = actionQueue.pendingActions;
+      // Find the corresponding UI action and remove it
+      for (let i = uiActions.length - 1; i >= 0; i--) {
+          if (uiActions[i].itemName === itemName && uiActions[i].type === type) {
+              actionQueue.removeAction(uiActions[i].id);
+              break; // Remove only one, the last one
+          }
+      }
+
       // 保存更新
       await useCharacterStore().commitToStorage();
-      toast.success(`已撤回：${action.itemName}`);
+      // toast.success(`已撤回：${action.itemName}`); // 弹窗逻辑已移至Store
       return true;
     } catch (error) {
       console.error('按名称撤回失败:', error);
@@ -691,6 +705,20 @@ export class EnhancedActionQueueManager {
       }
     }
   }
+
+  /**
+   * 从撤回历史中移除一个动作记录
+   */
+  removeUndoAction(type: string, itemName: string): void {
+    const index = this.undoActions.findIndex(
+      a => a.type === type && a.itemName === itemName
+    );
+    if (index !== -1) {
+      this.undoActions.splice(index, 1);
+      this.saveUndoHistoryToStorage();
+      console.log('[撤销历史] 移除了一个已抵消的动作:', { type, itemName });
+    }
+  }
   
   private async undoUnequip(action: UndoAction, _saveData: SaveData): Promise<void> {
     // 由于卸下装备不涉及背包操作，撤回时需要从装备栏历史数据恢复
@@ -703,17 +731,14 @@ export class EnhancedActionQueueManager {
   }
   
   private async undoUse(action: UndoAction, saveData: SaveData): Promise<void> {
-    const originalQuantity = action.restoreData?.originalQuantity;
-    if (!originalQuantity) return;
-    
-    // 恢复物品数量
-    const existingItem = saveData.背包?.物品?.[action.itemId];
-    if (existingItem) {
-      existingItem.数量 = originalQuantity;
+    if (action.itemData) {
+        if (!saveData.背包) saveData.背包 = { 物品: {}, 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 } };
+        if (!saveData.背包.物品) saveData.背包.物品 = {};
+        
+        // Restore the item to its state before it was used
+        saveData.背包.物品[action.itemId] = JSON.parse(JSON.stringify(action.itemData));
     } else {
-      // 需要重新创建物品（这需要从某处获取物品模板）
-      // 这里暂时只恢复数量，实际实现时需要完整的物品数据
-      toast.warning('物品已完全消失，无法完全恢复');
+        toast.warning('物品已完全消失，且无备份数据，无法恢复');
     }
   }
   

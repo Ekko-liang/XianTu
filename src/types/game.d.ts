@@ -274,9 +274,9 @@ export interface SectSystemData extends AIMetadata {
 
 /** 大道阶段定义 */
 export interface DaoStage {
-  level: number;
-  name: string;
-  exp_needed: number;
+  名称: string;
+  描述: string;
+  突破经验: number;
 }
 
 /** 大道路径定义 */

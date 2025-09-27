@@ -9,6 +9,26 @@
 
       <!-- 大道概览 -->
       <div v-else class="dao-overview">
+        <!-- 当前修炼功法 -->
+        <div v-if="cultivatingTechnique" class="cultivating-section">
+          <h4 class="section-title">
+            <span class="title-icon">🔥</span>
+            当前修炼
+          </h4>
+          <div class="cultivating-card">
+            <div class="cultivating-info">
+              <div class="cultivating-name">{{ cultivatingTechnique.名称 }}</div>
+              <div v-if="cultivatingTechnique.品质" class="cultivating-level">{{ cultivatingTechnique.品质 }}</div>
+            </div>
+            <div class="cultivating-progress">
+              <div class="progress-bar">
+                <div class="progress-fill" :style="{ width: (cultivatingTechnique.修炼进度 || 0) + '%' }"></div>
+              </div>
+              <span class="progress-text">{{ cultivatingTechnique.修炼进度 || 0 }}%</span>
+            </div>
+          </div>
+        </div>
+
         <div class="dao-stats">
           <div class="stat-card">
             <div class="stat-icon">🎯</div>
@@ -197,13 +217,23 @@ import { ref, computed, onMounted } from 'vue';
 import { RotateCcw, X, Zap } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
-import type { DaoProgress, DaoPath, ThousandDaoSystem } from '@/types/game.d.ts';
+import type { DaoProgress, DaoPath, ThousandDaoSystem, TechniqueItem } from '@/types/game.d.ts';
 import { panelBus } from '@/utils/panelBus';
 
 const characterStore = useCharacterStore();
 const actionQueueStore = useActionQueueStore();
 const loading = ref(false);
 const selectedDao = ref<string | null>(null);
+
+// 当前修炼的功法
+const cultivatingTechnique = computed((): TechniqueItem | undefined => {
+  const items = characterStore.activeSaveSlot?.存档数据?.背包?.物品;
+  if (!items) return undefined;
+
+  return Object.values(items).find(
+    (item): item is TechniqueItem => item.类型 === '功法' && item.修炼中 === true
+  );
+});
 
 // 获取三千大道系统数据
 const daoSystem = computed((): ThousandDaoSystem => {
@@ -241,7 +271,23 @@ const highestStageCount = computed(() => {
 
 // 获取大道路径定义
 const getDaoPath = (daoName: string): DaoPath | null => {
-  return daoSystem.value.大道路径定义[daoName] || null;
+  const pathData = daoSystem.value.大道路径定义[daoName];
+  if (!pathData) return null;
+
+  // 类型守卫：检查返回的是完整的DaoPath对象还是只是阶段列表数组
+  if ('道名' in pathData && typeof pathData.道名 === 'string') {
+    return pathData as DaoPath;
+  }
+  
+  // 如果是数组，则包装成一个DaoPath对象
+  if (Array.isArray(pathData)) {
+    return {
+      道名: daoName,
+      阶段列表: pathData
+    };
+  }
+
+  return null;
 };
 
 // 获取大道阶段显示
@@ -490,6 +536,47 @@ onMounted(async () => {
   flex: 1;
   padding: 1rem;
   overflow-y: auto;
+}
+
+.cultivating-section {
+  padding: 1rem;
+  padding-bottom: 0;
+}
+
+.cultivating-card {
+  background: var(--color-surface);
+  border: 2px solid var(--color-primary);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.1);
+}
+
+.cultivating-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.cultivating-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.cultivating-level {
+  background: var(--color-primary);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.cultivating-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .dao-section {

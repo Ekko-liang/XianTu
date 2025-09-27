@@ -91,6 +91,7 @@
               <button @click="activeTab = 'memory'" :class="{ active: activeTab === 'memory' }">记忆</button>
               <button @click="activeTab = 'inventory'" :class="{ active: activeTab === 'inventory' }">背包</button>
               <button @click="activeTab = 'behavior'" :class="{ active: activeTab === 'behavior' }">行为</button>
+              <button @click="activeTab = 'raw'" :class="{ active: activeTab === 'raw' }">原始数据</button>
             </div>
 
             <!-- 详情主体 -->
@@ -210,6 +211,17 @@
               <!-- 背包 Tab -->
               <div v-if="activeTab === 'inventory'" class="tab-content">
                 <div class="detail-section">
+                  <h5 class="section-title">灵石</h5>
+                  <div v-if="selectedPerson.背包?.灵石" class="spirit-stones-grid">
+                    <div class="spirit-stone-item"><span>下品灵石</span><span>{{ selectedPerson.背包.灵石.下品 || 0 }}</span></div>
+                    <div class="spirit-stone-item"><span>中品灵石</span><span>{{ selectedPerson.背包.灵石.中品 || 0 }}</span></div>
+                    <div class="spirit-stone-item"><span>上品灵石</span><span>{{ selectedPerson.背包.灵石.上品 || 0 }}</span></div>
+                    <div class="spirit-stone-item"><span>极品灵石</span><span>{{ selectedPerson.背包.灵石.极品 || 0 }}</span></div>
+                  </div>
+                  <div v-else class="empty-state-small">无灵石信息</div>
+                </div>
+
+                <div class="detail-section">
                   <h5 class="section-title">随身物品</h5>
                   <div class="npc-inventory">
                     <div class="inventory-note"><Info :size="14" /><span>商人或重要人物可能携带物品进行交易</span></div>
@@ -253,10 +265,20 @@
                     <div v-else class="empty-state-small">暂无特定路线</div>
                  </div>
               </div>
-            </div>
-          </div>
-          <div v-else class="no-selection">
-            <Users2 :size="64" class="placeholder-icon" />
+              
+              <!-- 原始数据 Tab -->
+               <div v-if="activeTab === 'raw'" class="tab-content">
+                 <div class="detail-section">
+                   <h5 class="section-title">原始数据 (JSON)</h5>
+                   <div class="raw-data-container">
+                     <pre><code>{{ JSON.stringify(selectedPerson, null, 2) }}</code></pre>
+                   </div>
+                 </div>
+               </div>
+           </div>
+         </div>
+         <div v-else class="no-selection">
+           <Users2 :size="64" class="placeholder-icon" />
             <p class="placeholder-text">选择一个人物查看详细信息</p>
             <p class="placeholder-hint">在游戏中与人物互动会建立关系记录</p>
           </div>
@@ -347,7 +369,7 @@ const formatSpiritRoot = (spiritRoot: NpcProfile['角色基础信息']['灵根']
   if (!spiritRoot) return '未知';
   if (typeof spiritRoot === 'string') return spiritRoot;
   if (typeof spiritRoot === 'object') {
-    return `${spiritRoot.名称}(${spiritRoot.品质})`;
+    return `${spiritRoot.名称}(${spiritRoot.品级})`;
   }
   return '未知';
 };
@@ -588,63 +610,54 @@ const requestItemFromNpc = (npc: NpcProfile, item: Item) => {
 
 // 切换NPC关注状态
 const toggleAttention = async (person: NpcProfile) => {
-  console.log('[关注切换] 开始切换关注状态:', person.角色基础信息.名字);
-  try {
-    const helper = getTavernHelper();
-    if (!helper) {
-      console.warn('[关注切换] 酒馆助手不可用');
-      toast.error('无法连接到游戏核心，请重试');
-      return;
-    }
+  const npcName = person.角色基础信息.名字;
+  console.log('[关注切换] 开始切换关注状态:', npcName);
 
-    const npcName = person.角色基础信息.名字;
-    const attentionKey = `npc.attention.${npcName}`;
-    
-    // 获取当前关注状态（默认为false）
-    const isCurrentlyAttended = tavernVariables.value[attentionKey] || false;
-    
-    // 切换状态
-    const newState = !isCurrentlyAttended;
-    
-    // 直接修改酒馆变量
-    await helper.insertOrAssignVariables({ 
-      [attentionKey]: newState 
-    }, { type: 'chat' });
-    
-    // 更新本地状态
-    tavernVariables.value[attentionKey] = newState;
-    
+  const saveData = characterStore.activeSaveSlot?.存档数据;
+  if (!saveData?.人物关系) {
+    toast.error('人物关系数据不存在');
+    return;
+  }
+
+  // 找到人物关系中的对应条目
+  const npcKey = Object.keys(saveData.人物关系).find(
+    key => saveData.人物关系[key]?.角色基础信息?.名字 === npcName
+  );
+
+  if (!npcKey) {
+    toast.error(`找不到名为 ${npcName} 的人物`);
+    return;
+  }
+
+  try {
+    // 切换实时关注状态
+    const currentState = saveData.人物关系[npcKey].实时关注 || false;
+    const newState = !currentState;
+    saveData.人物关系[npcKey].实时关注 = newState;
+
+    // 持久化存储
+    await characterStore.commitToStorage();
+
+    // 更新UI反馈
     if (newState) {
-      console.log('[关注切换] 已添加关注标记到酒馆变量');
       toast.success(`已关注 ${npcName}`);
     } else {
-      console.log('[关注切换] 已移除关注标记从酒馆变量');
       toast.success(`已取消关注 ${npcName}`);
     }
+    console.log(`[关注切换] ${npcName} 的实时关注状态已更新为: ${newState}`);
     
-    console.log('[关注切换] 酒馆变量已更新');
+    // 手动触发响应式更新
+    selectedPerson.value = { ...saveData.人物关系[npcKey] };
+
   } catch (error) {
     console.error('[关注切换] 切换关注状态失败:', error);
     toast.error('操作失败，请重试');
   }
 };
 
-// 检查NPC是否被关注（从酒馆变量读取，默认为false）
+// 检查NPC是否被关注（直接从NpcProfile读取）
 const isAttentionEnabled = (person: NpcProfile): boolean => {
-  try {
-    const helper = getTavernHelper();
-    if (!helper) return false;
-    
-    const npcName = person.角色基础信息.名字;
-    const attentionKey = `npc.attention.${npcName}`;
-    
-    // 同步获取酒馆变量状态
-    const currentState = tavernVariables.value;
-    return currentState?.[attentionKey] || false;
-  } catch (error) {
-    console.warn('[关注检查] 检查关注状态失败:', error);
-    return false; // 默认为未关注
-  }
+  return person.实时关注 || false;
 };
 
 // 尝试从NPC身上偷窃物品
@@ -670,6 +683,45 @@ const attemptStealFromNpc = (npc: NpcProfile, item: Item) => {
 </script>
 
 <style scoped>
+.raw-data-container {
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 1rem;
+  max-height: 600px;
+  overflow-y: auto;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.spirit-stones-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.spirit-stone-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  background: var(--color-surface);
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  font-size: 0.85rem;
+}
+
+.spirit-stone-item span:first-child {
+  color: var(--color-text-secondary);
+}
+
+.spirit-stone-item span:last-child {
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
 .relationship-network-panel {
   height: 100%;
   display: flex;
