@@ -89,16 +89,17 @@ const parsedText = computed(() => {
       }
     }
     // 中文引号
-    const zhDialogStart = processedText.indexOf('"', currentIndex)
+    const zhDialogStart = processedText.indexOf('“', currentIndex)
     if (zhDialogStart !== -1) {
-      const zhDialogEnd = processedText.indexOf('"', zhDialogStart + 1)
+      const zhDialogEnd = processedText.indexOf('”', zhDialogStart + 1)
       if (zhDialogEnd !== -1) {
-        markers.push({ 
-          start: zhDialogStart, 
-          end: zhDialogEnd + 1, 
+        markers.push({
+          start: zhDialogStart,
+          end: zhDialogEnd + 1,
           type: 'dialogue' as const,
-          contentStart: zhDialogStart + 1,
-          contentEnd: zhDialogEnd
+          // 包含引号本身
+          contentStart: zhDialogStart,
+          contentEnd: zhDialogEnd + 1
         })
       }
     }
@@ -147,7 +148,7 @@ const parsedText = computed(() => {
       }
     }
 
-    // 添加标记内容（不包括标记符号）
+    // 添加标记内容（包括标记符号）
     const markedContent = processedText.slice(nextMarker.contentStart, nextMarker.contentEnd)
     if (markedContent.trim()) {
       parts.push({
@@ -197,10 +198,15 @@ const getPartClass = (type: string) => {
   font-weight: 500;
 }
 
-/* 对话 - 橙色 */
+/* 对话 - 橙色，增加背景和内外边距以突出显示 */
 .text-dialogue {
-  color: #ea580c;
-  font-weight: 600;
+  color: #c2410c; /* 更深的橙色 */
+  font-weight: 500;
+  font-style: italic;
+  background-color: rgba(251, 146, 60, 0.08);
+  padding: 0.1em 0.3em;
+  border-radius: 4px;
+  margin: 0 0.1em;
 }
 
 /* 判定结果 - 金色高亮 */

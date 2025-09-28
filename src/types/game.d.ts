@@ -183,7 +183,7 @@ export interface Inventory extends AIMetadata {
     上品: number;
     极品: number;
   };
-  物品: Record<string, Item>; // 物品以ID为键存储
+  物品: Item[]; // 物品存储为数组
 }
 
 /** 功法中的技能信息 */
@@ -589,7 +589,7 @@ export interface NpcProfile {
     状态: StatusEffect[];
     境界: number;
     声望: number;
-    位置: {
+    最后出现位置: {
       描述: string;
     };
     当前气血: number; 最大气血: number;
@@ -690,7 +690,7 @@ export interface CharacterBaseInfo {
   };
   灵根: string | {
     名称: string;
-    品级: string;
+    品级: string; // 统一的品级字段
     描述: string;
     base_multiplier?: number;
     cultivation_speed?: string;
@@ -708,6 +708,7 @@ export interface CharacterBaseInfo {
   天资详情?: any;
   出身详情?: any;
   灵根详情?: {
+    品级?: string; // 确保详情中也包含品级
     base_multiplier?: number;
     cultivation_speed?: string;
     special_effects?: string[];

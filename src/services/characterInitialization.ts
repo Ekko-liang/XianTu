@@ -14,7 +14,7 @@ import { validateAndFixSaveData } from '@/utils/dataValidation';
 import { generateInitialMessage } from '@/utils/tavernAI';
 import { processGmResponse } from '@/utils/AIGameMaster';
 import { createEmptyThousandDaoSystem } from '@/data/thousandDaoData';
-import { GAME_START_INITIALIZATION_PROMPT } from '@/utils/prompts/characterInitializationPrompts';
+import { CHARACTER_INITIALIZATION_PROMPT } from '@/utils/prompts/characterInitializationPrompts';
 // 移除未使用的旧生成器导入，改用增强版生成器
 // import { WorldGenerationConfig } from '@/utils/worldGeneration/gameWorldConfig';
 import { EnhancedWorldGenerator } from '@/utils/worldGeneration/enhancedWorldGenerator';
@@ -43,11 +43,15 @@ async function retryableAICall<T>(
       if (i > 0) {
         uiStore.updateLoadingText(`${progressMessage} (第 ${i} 次重试)`);
       }
+      console.log(`[retryableAICall] 正在尝试: ${progressMessage}, 第 ${i + 1} 次`);
       const response = await aiFunction();
-      if (validator(response)) {
+      console.log(`[retryableAICall] 收到响应 for ${progressMessage}:`, response);
+      const isValid = validator(response);
+      console.log(`[retryableAICall] 响应验证结果 for ${progressMessage}: ${isValid}`);
+      if (isValid) {
         return response;
       }
-      throw new Error('AI响应格式无效');
+      throw new Error(`AI响应格式无效或未通过验证`);
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
       console.warn(`[AI调用重试] 第 ${i} 次尝试失败:`, lastError.message);
@@ -290,9 +294,11 @@ export async function initializeCharacter(
 
       try {
         // 使用增强世界生成器生成，带错误处理和重试机制
+        console.log('--- [AI DEBUG] 即将开始世界生成 ---');
         console.log('[角色初始化] 开始调用EnhancedWorldGenerator');
 
         const worldGenerationResult = await enhancedWorldGenerator.generateValidatedWorld();
+        console.log('--- [AI DEBUG] 世界生成调用完成 ---');
 
         console.log('[角色初始化] 增强世界生成结果:', worldGenerationResult);
 
@@ -369,7 +375,7 @@ export async function initializeCharacter(
         三千大道: createEmptyThousandDaoSystem(),
         背包: {
             灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 },
-            物品: {},
+            物品: [], // [REFACTORED] 物品现在是数组
         },
         人物关系: {}, // 正确的字段名
         宗门系统: {
@@ -379,7 +385,7 @@ export async function initializeCharacter(
             短期记忆: [], 中期记忆: [], 长期记忆: [],
         },
         游戏时间: {
-            年: 1, 月: 1, 日: 1, 小时: 0, 分钟: 0,
+            年: 1, 月: 1, 日: 1, 小时: Math.floor(Math.random() * 12) + 6, 分钟: Math.floor(Math.random() * 60),
         },
         修炼功法: {
             功法: null, 熟练度: 0, 已解锁技能: [], 修炼时间: 0, 突破次数: 0, 正在修炼: false, 修炼进度: 0,
@@ -428,16 +434,22 @@ export async function initializeCharacter(
       world,
       creationDetails,
     };
+    console.log('--- [AI DEBUG] 即将调用AI生成初始消息 ---');
+    console.log('[AI DEBUG] 传递给AI的初始数据 (initialGameDataForAI):', JSON.parse(JSON.stringify(initialGameDataForAI)));
+
 
     // 5.2 生成初始信息（开场对话设计）
     // 注意：由于地图数据由CultivationWorldGenerator保存到酒馆变量，传递null即可
     // 但需要根据变量数据以便保证
     const initialMessageResponse = await retryableAICall(
-      () => generateInitialMessage(initialGameDataForAI, {}, GAME_START_INITIALIZATION_PROMPT),
+      () => generateInitialMessage(initialGameDataForAI, {}, CHARACTER_INITIALIZATION_PROMPT),
       (response) => Boolean(response && response.text && Array.isArray(response.tavern_commands)), // 验证响应是否有效
       2, // 最大重试次数
       '天道正在书写命运之章'
     );
+
+    console.log('--- [AI DEBUG] AI初始消息生成调用完成 ---');
+    console.log('[AI DEBUG] AI返回的初始消息响应 (initialMessageResponse):', initialMessageResponse);
 
     // 5.3 严格保护用户选择的固定字段，避免被AI确认功能
     // 这些核心字段，除非用户确选择"随机"时才允许AI精细化
@@ -531,7 +543,11 @@ export async function initializeCharacter(
 
     // 5.5 调用 processGmResponse 来执行AI返回的命令指令（物品、装备等）
     // 删除格式检查 - 现在只支持数组格式
+    console.log('--- [AI DEBUG] 即将处理AI指令 ---');
+    console.log('[AI DEBUG] 处理前存档数据:', JSON.parse(JSON.stringify(currentSaveData)));
     currentSaveData = await processGmResponse(initialMessageResponse, currentSaveData);
+    console.log('--- [AI DEBUG] AI指令处理完成 ---');
+    console.log('[AI DEBUG] 处理后存档数据:', JSON.parse(JSON.stringify(currentSaveData)));
 
     // 5.6 统一校验和修复异常字段（角色物品/角色状态 等），清理装备栏/背包中的"null"字符串等
     try {

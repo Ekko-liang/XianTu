@@ -567,7 +567,7 @@ const inventory = computed<Inventory>(() => {
   return (
     characterStore.activeSaveSlot?.存档数据?.背包 || {
       灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 },
-      物品: {},
+      物品: [], // [REFACTORED] 物品现在是数组
     }
   )
 })
@@ -596,8 +596,8 @@ const equipmentSlots = computed(() => {
     ) {
       // 从背包获取完整物品信息
       const itemId = equippedItem.物品ID
-      const bag = saveData?.背包?.物品 || {}
-      const fromInv = bag[itemId]
+      const bag = saveData?.背包?.物品 || [] // [REFACTORED] 物品是数组
+      const fromInv = Array.isArray(bag) ? bag.find(i => i.物品ID === itemId) : undefined
       if (fromInv && typeof fromInv === 'object') {
         item = fromInv as Item
       } else {
@@ -649,8 +649,9 @@ const unequipItem = async (slot: { name: string; item: Item | null }) => {
     equipment[slotKey] = null // 设置为null
 
     // 清除物品的已装备标记
-    if (saveData.背包?.物品?.[itemToUnequip.物品ID]) {
-      saveData.背包.物品[itemToUnequip.物品ID].已装备 = false
+    const itemInInventory = saveData.背包?.物品?.find(i => i.物品ID === itemToUnequip.物品ID)
+    if (itemInInventory) {
+      itemInInventory.已装备 = false
     }
 
     // 保存数据
@@ -678,49 +679,28 @@ const unequipItem = async (slot: { name: string; item: Item | null }) => {
 }
 
 const itemList = computed<Item[]>(() => {
-  const raw = inventory.value?.物品 || {}
-  // 适配新的数据结构：支持最新的物品字段格式
-  return Object.entries(raw)
-    .filter(([key, val]) => !String(key).startsWith('_') && val && typeof val === 'object')
-    .map(([, val]) => {
-      const item = val as unknown as Record<string, unknown>
-      // 支持新数据结构的字段映射
-      const baseInfo =
-        ((item as Record<string, unknown>)?.基本信息 as Record<string, unknown>) || {}
-      const equipInfo =
-        ((item as Record<string, unknown>)?.装备信息 as Record<string, unknown>) || {}
-      const consumableInfo =
-        ((item as Record<string, unknown>)?.消耗品信息 as Record<string, unknown>) || {}
-
+  const items = inventory.value?.物品 || []
+  if (!Array.isArray(items)) {
+    // 如果数据格式仍然是旧的对象格式，进行兼容转换
+    console.warn('[InventoryPanel] 检测到旧的物品对象格式，正在进行兼容转换。')
+    return Object.values(items) as Item[]
+  }
+  // [REFACTORED] 直接使用数组，不再需要Object.entries
+  return items
+    .filter(val => val && typeof val === 'object')
+    .map(val => {
+      const item = val as any
       return {
-        物品ID: String(item.物品ID || baseInfo?.物品ID || ''),
-        名称: String(item.物品名称 || item.名称 || baseInfo?.物品名称 || ''),
-        类型: String(item.物品类型 || item.类型 || baseInfo?.物品类型 || '') as
-          | '功法'
-          | '装备'
-          | '其他',
-        品质: item.稀有度
-          ? { quality: String(item.稀有度), grade: 1 }
-          : item.品质 || baseInfo?.物品品质 || { quality: '普通', grade: 1 },
-        描述: String(item.物品描述 || item.描述 || baseInfo?.物品描述 || ''),
-        数量: Number(item.物品数量 || item.数量 || baseInfo?.堆叠数量 || 1),
-        可叠加: Boolean(item.可叠加 ?? baseInfo?.可堆叠 ?? true),
-        // 装备状态
-        已装备: Boolean(item.已装备),
-        // 装备信息
-        装备部位: String(item.装备部位 || equipInfo?.装备类型 || ''),
-        耐久度: item.耐久度 || equipInfo?.耐久度 || null,
-        装备增幅: item.装备增幅 || equipInfo?.属性加成 || null,
-        装备特效: item.装备特效 || item.特殊效果 || equipInfo?.特殊效果 || null,
-        // 消耗品信息
-        使用效果: String(item.使用效果 || consumableInfo?.使用效果 || ''),
-        // 功法相关属性（可选）
-        功法效果: item.功法效果 || null,
-        功法技能: item.功法技能 || null,
-        修炼进度: Number(item.修炼进度 || 0),
+        ...item,
+        物品ID: String(item.物品ID || ''),
+        名称: String(item.名称 || ''),
+        类型: String(item.类型 || '其他') as '功法' | '装备' | '其他',
+        品质: item.品质 || { quality: '凡', grade: 1 },
+        描述: String(item.描述 || ''),
+        数量: Number(item.数量 || 1),
       } as Item
     })
-    .filter((item: Item) => typeof item.名称 === 'string' && typeof item.类型 === 'string')
+    .filter((item: Item) => item.名称 && item.类型)
 })
 
 const itemCategories = computed(() => {
@@ -887,12 +867,13 @@ const getGradeClass = (grade: number): string => {
 
 // 从背包中移除物品的辅助函数
 const removeItemFromInventory = async (item: Item) => {
-  if (!characterStore.activeSaveSlot?.存档数据?.背包?.物品) {
-    throw new Error('背包数据不存在')
+  const inventory = characterStore.activeSaveSlot?.存档数据?.背包
+  if (!inventory || !Array.isArray(inventory.物品)) {
+    throw new Error('背包数据不存在或格式不正确')
   }
 
-  // 从背包中移除物品
-  delete characterStore.activeSaveSlot.存档数据.背包.物品[item.物品ID]
+  // [REFACTORED] 从数组中移除物品
+  inventory.物品 = inventory.物品.filter(i => i.物品ID !== item.物品ID)
   await characterStore.commitToStorage()
 
   debug.log('背包面板', '物品移除成功', item.名称)
@@ -910,15 +891,20 @@ const removeItemFromInventory = async (item: Item) => {
 
 // 更新背包中物品的辅助函数
 const updateItemInInventory = async (item: Item) => {
-  if (!characterStore.activeSaveSlot?.存档数据?.背包?.物品) {
-    throw new Error('背包数据不存在')
+  const inventory = characterStore.activeSaveSlot?.存档数据?.背包
+  if (!inventory || !Array.isArray(inventory.物品)) {
+    throw new Error('背包数据不存在或格式不正确')
   }
 
-  // 更新背包中的物品
-  characterStore.activeSaveSlot.存档数据.背包.物品[item.物品ID] = item
-  await characterStore.commitToStorage()
-
-  debug.log('背包面板', '物品更新成功', item.名称)
+  // [REFACTORED] 更新数组中的物品
+  const index = inventory.物品.findIndex(i => i.物品ID === item.物品ID)
+  if (index !== -1) {
+    inventory.物品[index] = item
+    await characterStore.commitToStorage()
+    debug.log('背包面板', '物品更新成功', item.名称)
+  } else {
+    throw new Error(`尝试更新一个不存在于背包的物品: ${item.名称}`)
+  }
 
   // 如果当前选中的是被更新的物品，更新选择
   if (selectedItem.value?.物品ID === item.物品ID) {
@@ -1126,11 +1112,11 @@ const isEquipped = (item: Item | null): boolean => {
   if (!item || !item.物品ID) return false
 
   const inventoryItems = characterStore.activeSaveSlot?.存档数据?.背包?.物品
-  if (!inventoryItems) return false
+  if (!Array.isArray(inventoryItems)) return false
 
-  const currentItemState = inventoryItems[item.物品ID]
+  // [REFACTORED] 从数组中查找物品
+  const currentItemState = inventoryItems.find(i => i.物品ID === item.物品ID)
   if (!currentItemState) {
-    // 如果背包里找不到这个物品了（可能被丢弃等），那肯定没装备
     return false
   }
 

@@ -248,6 +248,21 @@ async function executeCommand(command: any, saveData: any): Promise<any> {
         } else {
           set(saveData, path, value);
         }
+
+        // [特例修复] 当设置大道进度时，自动将其添加到已解锁大道数组中
+        if (path.startsWith('三千大道.大道进度.')) {
+          try {
+            const daoName = path.substring('三千大道.大道进度.'.length);
+            const unlockedDaos = get(saveData, '三千大道.已解锁大道', []);
+            if (Array.isArray(unlockedDaos) && !unlockedDaos.includes(daoName)) {
+              unlockedDaos.push(daoName);
+              set(saveData, '三千大道.已解锁大道', unlockedDaos);
+              console.log(`[executeCommand] 特例：已自动解锁大道 "${daoName}"`);
+            }
+          } catch (e) {
+            console.error('[executeCommand] 自动解锁大道失败:', e);
+          }
+        }
         break;
         
       case 'add':

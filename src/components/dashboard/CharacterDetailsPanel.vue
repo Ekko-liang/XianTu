@@ -152,10 +152,6 @@
                 <span class="prop-badge speed-badge">
                   {{ getSpiritRootCultivationSpeed(baseInfo) }}
                 </span>
-                <span v-if="getSpiritRootQuality(baseInfo.灵根) && getSpiritRootQuality(baseInfo.灵根) !== '普通'"
-                      class="prop-badge quality-badge" :class="`quality-${getSpiritRootQuality(baseInfo.灵根)}`">
-                  {{ getSpiritRootQuality(baseInfo.灵根) }}
-                </span>
               </div>
             </div>
             <div v-if="getSpiritRootDescription(baseInfo.灵根)" class="root-description">
@@ -828,7 +824,9 @@ const cultivationData = computed(() => {
 // 获取完整的功法对象
 const fullTechnique = computed((): TechniqueItem | Item | null => {
   const techniqueRef = cultivationData.value.功法;
-  if (!techniqueRef || !saveData.value?.背包?.物品) return null;
+  const inventoryItems = saveData.value?.背包?.物品;
+
+  if (!techniqueRef || !inventoryItems || !Array.isArray(inventoryItems)) return null;
 
   let techniqueId: string | null = null;
   if (typeof techniqueRef === 'string') {
@@ -838,7 +836,7 @@ const fullTechnique = computed((): TechniqueItem | Item | null => {
   }
 
   if (techniqueId) {
-    const item = saveData.value.背包.物品[techniqueId];
+    const item = inventoryItems.find(i => i.物品ID === techniqueId);
     if (item?.类型 === '功法') {
       return item as TechniqueItem;
     }
@@ -1467,11 +1465,6 @@ const getSpiritRootDisplay = (spiritRoot: string | { 名称: string; 品级?: st
     return `${parsed.name}(${parsed.grade})`;
   }
   return parsed.name;
-};
-
-const getSpiritRootQuality = (spiritRoot: string | { 名称: string; 品级?: string; 描述?: string } | undefined): string => {
-  const parsed = parseSpiritRoot(spiritRoot);
-  return parsed.grade || '未知';
 };
 
 const getSpiritRootGrade = (spiritRoot: string | { 名称: string; 品级?: string; 描述?: string } | undefined): string => {

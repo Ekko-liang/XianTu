@@ -71,19 +71,16 @@
           <div v-if="currentNarrative" class="narrative-content">
             <div class="narrative-meta">
               <span class="narrative-time">{{ currentNarrative.time }}</span>
-              <!-- 变量更新按钮 -->
+              <!-- 命令日志按钮 -->
               <button
-                @click="toggleVariableUpdates"
+                @click="showCommandLogModal = true"
                 class="variable-updates-toggle"
-                :class="{
-                  active: variableUpdatesExpanded,
-                  disabled: !currentNarrativeStateChanges || currentNarrativeStateChanges.changes.length === 0
-                }"
-                :disabled="!currentNarrativeStateChanges || currentNarrativeStateChanges.changes.length === 0"
-                :title="currentNarrativeStateChanges && currentNarrativeStateChanges.changes.length > 0 ? '查看本次对话的变量更新' : '暂无变量更新记录'"
+                :class="{ disabled: currentNarrativeStateChanges.length === 0 }"
+                :disabled="currentNarrativeStateChanges.length === 0"
+                :title="currentNarrativeStateChanges.length > 0 ? '查看本次对话的变更日志' : '本次对话无变更记录'"
               >
-                <Activity :size="16" />
-                <span class="update-count">{{ currentNarrativeStateChanges?.changes.length || 0 }}</span>
+                <ScrollText :size="16" />
+                <span class="update-count">{{ currentNarrativeStateChanges.length }}</span>
               </button>
             </div>
             <div class="narrative-text">
@@ -97,56 +94,39 @@
       </div>
     </div>
 
-    <!-- 悬浮的变量更新面板 -->
-    <Transition name="variable-updates-modal">
-      <div v-if="variableUpdatesExpanded"
-           class="variable-updates-overlay"
-           @click.self="variableUpdatesExpanded = false">
-        <div class="variable-updates-modal">
-          <div class="updates-header">
-            <h4>🔄 {{ currentNarrativeStateChanges && currentNarrativeStateChanges.changes.length > 0 ? '本次对话更新' : '变量更新记录' }}</h4>
-            <button @click="variableUpdatesExpanded = false" class="close-updates-btn">
-              <ChevronRight :size="16" />
+    <!-- 新增：命令日志弹窗 -->
+    <Transition name="command-log-modal">
+      <div v-if="showCommandLogModal" class="command-log-overlay" @click.self="showCommandLogModal = false">
+        <div class="command-log-modal">
+          <div class="command-log-header">
+            <h3>📜 变更日志</h3>
+            <button @click="showCommandLogModal = false" class="close-log-btn">
+              <X :size="20" />
             </button>
           </div>
-
-          <div class="updates-content">
-            <div v-if="currentNarrativeStateChanges && currentNarrativeStateChanges.changes.length > 0" class="changes-list">
-              <div
-                v-for="(change, index) in currentNarrativeStateChanges.changes"
-                :key="index"
-                class="change-item"
-                :class="change.action"
-              >
-                <div class="change-header">
-                  <span class="change-action">{{ getActionText(change.action) }}</span>
-                  <span class="change-key">{{ getVariableDisplayName(change.key) }}</span>
+          <div class="command-log-content">
+            <div v-if="currentNarrativeStateChanges.length > 0" class="command-list">
+              <div v-for="(change, index) in currentNarrativeStateChanges" :key="index" class="command-item">
+                <div class="command-icon-wrapper">
+                  <component :is="getIconForCommand(change)" :size="20" class="command-icon" />
                 </div>
-                <div class="change-details">
-                  <!-- 详细变更说明 -->
-                  <div class="change-description">
-                    {{ getChangeDescription(change) }}
-                  </div>
-
-                  <!-- 数值变化显示 -->
-                  <div v-if="change.action === 'set' || change.action === 'update'" class="change-values">
-                    <span class="old-value">{{ formatValue(change.oldValue) }}</span>
-                    <span class="arrow">→</span>
-                    <span class="new-value">{{ formatValue(change.newValue) }}</span>
-                  </div>
-                  <div v-else-if="change.action === 'add'" class="change-add">
-                    <span class="added-value">+ {{ formatValue(change.newValue) }}</span>
-                  </div>
-                  <div v-else-if="change.action === 'remove'" class="change-remove">
-                    <span class="removed-value">- {{ formatValue(change.oldValue) }}</span>
+                <div class="command-details">
+                  <p class="command-description">{{ formatCommandDescription(change) }}</p>
+                  <div class="command-values">
+                    <!-- 旧值只在它非空时显示 -->
+                    <span v-if="change.oldValue !== null && change.oldValue !== undefined" class="old-value">{{ formatValue(change.oldValue) }}</span>
+                    <!-- 箭头只在有新旧两个值时显示 -->
+                    <span v-if="change.oldValue !== null && change.oldValue !== undefined && change.newValue !== null && change.newValue !== undefined" class="arrow">→</span>
+                    <!-- 新值只在它非空时显示 -->
+                    <span v-if="change.newValue !== null && change.newValue !== undefined" class="new-value">{{ formatValue(change.newValue) }}</span>
                   </div>
                 </div>
               </div>
             </div>
-            <div v-else class="no-changes">
-              <Activity :size="48" class="empty-icon" />
-              <p class="empty-text">暂无变量更新记录</p>
-              <p class="empty-hint">进行游戏对话后，这里会显示角色状态的变化</p>
+            <div v-else class="no-commands">
+              <Bot :size="48" class="empty-icon" />
+              <p class="empty-text">天道无为</p>
+              <p class="empty-hint">本次对话未引起任何状态变化</p>
             </div>
           </div>
         </div>
@@ -322,7 +302,11 @@
 <script setup lang="ts">
 import { checkCharacterDeath } from '@/utils/judgement/heavenlyRules';
 import { ref, onMounted, nextTick, computed, watch } from 'vue';
-import { Send, Loader2, ChevronDown, ChevronRight, Activity } from 'lucide-vue-next';
+import {
+  Send, Loader2, ChevronDown, ChevronRight, Activity, ScrollText, X,
+  PackagePlus, PackageMinus, ArrowUpRight, ArrowDownRight, UserPlus, UserMinus,
+  Swords, Shield, BookOpen, Heart, Bot
+} from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
 import { EnhancedActionQueueManager } from '@/utils/enhancedActionQueue';
@@ -345,6 +329,15 @@ interface StateChangeLog {
     newValue: unknown;
   }>;
 }
+
+// --- 命令日志相关状态 ---
+const showCommandLogModal = ref(false);
+
+// --- 计算属性：从当前叙述中安全地获取状态变更列表 ---
+const currentNarrativeStateChanges = computed(() => {
+  return currentNarrative.value?.stateChanges?.changes || [];
+});
+
 
 const inputText = ref('');
 const isInputFocused = ref(false);
@@ -427,19 +420,47 @@ const auditDifficulty = ref<DifficultyLevel>('normal');
 // gameMessages 数组将被移除，currentNarrative 成为显示内容的唯一来源
 // const gameMessages = ref<GameMessage[]>([]);
 
-// 变量更新面板状态
-const variableUpdatesExpanded = ref(false);
+// --- 移除旧的变量更新面板逻辑 ---
+// const variableUpdatesExpanded = ref(false);
+// const toggleVariableUpdates = () => { ... };
 
-// 计算属性：从当前叙述中获取状态变更
-const currentNarrativeStateChanges = computed(() => {
-  return currentNarrative.value?.stateChanges || null;
-});
+// --- 命令日志相关函数 ---
 
-// 切换变量更新面板
-const toggleVariableUpdates = () => {
-  variableUpdatesExpanded.value = !variableUpdatesExpanded.value;
-  console.log('[日志面板] Toggled variable updates visibility to:', variableUpdatesExpanded.value);
+// 根据命令内容获取对应的Lucide图标
+const getIconForCommand = (change: { key: string; action: string; oldValue: unknown; newValue: unknown }) => {
+  const key = change.key || '';
+  const action = change.action || '';
+
+  if (key.includes('物品')) {
+    return action === 'add' || action === 'push' ? PackagePlus : PackageMinus;
+  }
+  if (key.includes('人际关系')) {
+    return action === 'add' || action === 'set' ? UserPlus : UserMinus;
+  }
+  if (key.includes('装备')) {
+    return action === 'set' ? Swords : Shield;
+  }
+  if (key.includes('功法') || key.includes('技能')) {
+    return BookOpen;
+  }
+  if (key.includes('好感度') || key.includes('生命')) {
+    return Heart;
+  }
+  if (action === 'inc' || action === 'add' || (action === 'set' && Number(change.newValue) > Number(change.oldValue))) {
+    return ArrowUpRight;
+  }
+  if (action === 'dec' || action === 'remove' || (action === 'set' && Number(change.newValue) < Number(change.oldValue))) {
+    return ArrowDownRight;
+  }
+  
+  return Activity; // 默认图标
 };
+
+// 格式化命令为人类可读的描述
+const formatCommandDescription = (change: { key: string; action: string; oldValue: unknown; newValue: unknown }): string => {
+  return getChangeDescription(change);
+};
+
 
 // 获取操作文本 - 增强版本，提供详细的中文说明
 const getActionText = (action: string): string => {
@@ -566,12 +587,19 @@ const getChangeDescription = (change: { key: string; action: string; oldValue: u
   }
 
   if (key.includes('背包.物品')) {
-    if (action === 'add') {
-      return `获得了新物品`;
-    } else if (action === 'remove') {
-      return `失去了物品`;
+    const getItemName = (item: any): string => {
+      if (typeof item === 'object' && item !== null) {
+        return item.名称 || item.name || '未知物品';
+      }
+      return '未知物品';
+    };
+
+    if (action === 'add' || action === 'push') {
+      return `获得物品：${getItemName(newValue)}`;
+    } else if (action === 'remove' || action === 'pull') {
+      return `失去物品：${getItemName(oldValue)}`;
     } else if (action === 'set') {
-      return `物品属性发生变化`;
+      return `物品变化：${getItemName(newValue)}`;
     }
   }
 
@@ -644,39 +672,37 @@ const formatValue = (value: unknown): string => {
   }
 
   if (typeof value === 'number') {
-    // 格式化数字显示
-    if (value >= 10000) {
-      return `${(value / 10000).toFixed(1)}万`;
-    } else if (value >= 1000) {
-      return `${(value / 1000).toFixed(1)}千`;
-    }
+    if (value >= 10000) return `${(value / 10000).toFixed(1)}万`;
+    if (value >= 1000) return `${(value / 1000).toFixed(1)}千`;
     return value.toString();
   }
 
   if (typeof value === 'string') {
-    // 字符串长度控制和特殊值处理
     if (value.length === 0) return '空字符串';
-    if (value.length > 50) {
-      return `${value.substring(0, 47)}...`;
-    }
+    if (value.length > 50) return `${value.substring(0, 47)}...`;
     return value;
   }
 
   if (Array.isArray(value)) {
     if (value.length === 0) return '空数组';
-    if (value.length <= 3) {
-      return `[${value.map(v => formatValue(v)).join(', ')}]`;
-    }
+    if (value.length <= 3) return `[${value.map(v => formatValue(v)).join(', ')}]`;
     return `[${value.length}项数组]`;
   }
 
-  if (typeof value === 'object') {
+  if (typeof value === 'object' && value !== null) {
+    const valAsRecord = value as Record<string, unknown>;
+    if (typeof valAsRecord['当前'] === 'number' && typeof valAsRecord['最大'] === 'number') {
+      return `${valAsRecord['当前']} / ${valAsRecord['最大']}`;
+    }
+    
     const keys = Object.keys(value);
     if (keys.length === 0) return '空对象';
-    if (keys.length <= 2) {
-      return `{${keys.join(', ')}}`;
+    
+    const jsonString = JSON.stringify(value);
+    if (jsonString.length > 50) {
+      return `${jsonString.substring(0, 47)}...`;
     }
-    return `{${keys.length}个属性}`;
+    return jsonString;
   }
 
   return String(value);
@@ -1107,10 +1133,6 @@ const performReasonabilityAudit = async (
 const handleStreamingResponse = (chunk: string) => {
   if (streamingMessageIndex.value !== null) {
     streamingContent.value += chunk;
-    // 更新当前叙述的流式内容
-    if (currentNarrative.value) {
-      currentNarrative.value.content = streamingContent.value;
-    }
     // 自动滚动到底部
     nextTick(() => {
       if (contentAreaRef.value) {
@@ -1316,50 +1338,44 @@ const sendMessage = async () => {
       // 完成流式输出
       streamingMessageIndex.value = null;
 
-      // 处理AI返回的完整响应 - 支持三种数据结构
-      if (aiResponse.gmResponse) {
-        const gmResp = aiResponse.gmResponse as GM_Response;
+      // --- 核心逻辑：整合最终文本并更新状态 ---
+      let finalText = '';
+      const gmResp = aiResponse.gmResponse as GM_Response | undefined;
 
-        // 1. 处理正文内容 (text) - 用于短期记忆和显示
-        let finalText = '';
-        if (gmResp.text && typeof gmResp.text === 'string') {
-          finalText = gmResp.text;
-        } else if (aiResponse.finalContent && typeof aiResponse.finalContent === 'string') {
-          finalText = aiResponse.finalContent;
-        }
-
-        if (finalText) {
-          if (currentNarrative.value) {
-            currentNarrative.value.content = finalText;
-          }
-
-          // 缓存预生成的中期记忆总结到酒馆变量
-          if (gmResp.mid_term_memory && typeof gmResp.mid_term_memory === 'string') {
-            const summary = gmResp.mid_term_memory;
-            // 使用酒馆变量缓存系统
-            await characterStore.manageTavernMemoryCache.addSummary(finalText, summary);
-            console.log('[记忆管理] 预生成的中期记忆已缓存到酒馆变量');
-          }
-
-          // 添加正文内容到短期记忆
-          await addToShortTermMemory(finalText, 'assistant');
-          console.log('[AI响应处理] 正文内容已添加到短期记忆');
-        }
-
-
-        // 3. tavern_commands 在 AIBidirectionalSystem 中已处理
-        if (gmResp.tavern_commands && Array.isArray(gmResp.tavern_commands) && gmResp.tavern_commands.length > 0) {
-          console.log('[AI响应处理] tavern_commands 已由AI双向系统处理:', gmResp.tavern_commands.length, '条指令');
-        }
+      // 优先从结构化响应中获取最准确的文本
+      if (gmResp?.text && typeof gmResp.text === 'string') {
+        finalText = gmResp.text;
+        console.log('[AI响应处理] 使用 gmResponse.text 作为最终文本');
       } else if (aiResponse.finalContent && typeof aiResponse.finalContent === 'string') {
-        // 备用处理：如果没有 gmResponse 但有 finalContent
+        finalText = aiResponse.finalContent;
+        console.log('[AI响应处理] 使用 aiResponse.finalContent 作为最终文本');
+      } else if (streamingContent.value) {
+        // 如果以上都没有，使用流式输出的最终结果作为备用
+        finalText = streamingContent.value;
+        console.log('[AI响应处理] 使用 streamingContent 作为最终文本');
+      }
+
+      // 如果最终有文本内容，则进行处理
+      if (finalText) {
+        // 更新UI显示
         if (currentNarrative.value) {
-          currentNarrative.value.content = aiResponse.finalContent;
+          currentNarrative.value.content = finalText;
+        }
+
+        // 缓存预生成的中期记忆
+        if (gmResp?.mid_term_memory && typeof gmResp.mid_term_memory === 'string') {
+          await characterStore.manageTavernMemoryCache.addSummary(finalText, gmResp.mid_term_memory);
+          console.log('[记忆管理] 预生成的中期记忆已缓存');
         }
 
         // 添加到短期记忆
-        await addToShortTermMemory(aiResponse.finalContent, 'assistant');
-        console.log('[AI响应处理] 备用路径：finalContent 已添加到短期记忆');
+        await addToShortTermMemory(finalText, 'assistant');
+        console.log('[AI响应处理] 最终文本已添加到短期记忆');
+      }
+
+      // tavern_commands 已在 AIBidirectionalSystem 中处理
+      if (gmResp?.tavern_commands?.length) {
+        console.log(`[AI响应处理] ${gmResp.tavern_commands.length} 条 tavern_commands 已由AI双向系统处理`);
       }
 
     // 处理游戏状态更新（仅在有有效AI响应时执行）
@@ -1434,7 +1450,7 @@ const sendMessage = async () => {
 
     // 成功的提示
     if (aiResponse) {
-      toast.success('天道已应');
+      toast.success('天道已回');
     }
 
   } catch (error: unknown) {
@@ -1632,17 +1648,26 @@ const initializePanelForSave = async () => {
   try {
     if (hasActiveCharacter.value) {
       const memories = characterStore.activeSaveSlot?.存档数据?.记忆?.短期记忆;
-      if (memories && memories.length > 0) {
-        // 从短期记忆加载最新一条作为当前叙述
+
+      // 启发式判断：新角色在首次加载时，短期记忆中应仅包含一条由系统生成的开场白。
+      // 任何后续的玩家互动或游戏进展都会增加记忆条目。
+      // 因此，当记忆数量为1时，我们将其视为角色的“初次登场”，并调用能生成初始状态变更的函数。
+      const isInitialLoad = memories && memories.length === 1;
+
+      if (isInitialLoad) {
+        // 对于新角色，调用此函数以确保显示包含初始属性的“变更日志”。
+        await generateAndShowInitialMessage();
+      } else if (memories && memories.length > 0) {
+        // 对于已有进度的角色，加载最新记忆，此时不显示历史状态变更。
         currentNarrative.value = {
           type: 'ai',
           content: memories[0],
-          time: formatCurrentTime(), // 时间是加载时的时间，因为存档中没有保存
-          stateChanges: { changes: [] } // 状态变更在加载时丢失
+          time: formatCurrentTime(),
+          stateChanges: { changes: [] } // 历史状态变更在加载时不显示
         };
         console.log('[主面板] 已从短期记忆加载最新叙述');
       } else {
-        // 如果没有记忆，则显示初始欢迎消息
+        // 备用逻辑：如果角色没有任何记忆，也视为初始加载。
         await generateAndShowInitialMessage();
       }
       await syncGameState();
@@ -1676,8 +1701,11 @@ const resetPanelState = () => {
   console.log('[主面板] 检测到存档切换，正在重置面板状态...');
   actionQueue.clearActions();
   currentNarrative.value = null;
-  variableUpdatesExpanded.value = false;
   inputText.value = '';
+
+  // --- 重置命令日志相关状态 ---
+  showCommandLogModal.value = false;
+
   // isAIProcessing 在切换存档时应重置为 false
   isAIProcessing.value = false;
   persistAIProcessingState(); // 清除持久化状态
@@ -1886,6 +1914,220 @@ const generateAndShowInitialMessage = async () => {
 </script>
 
 <style scoped>
+/* 命令日志弹窗样式 */
+.command-log-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  backdrop-filter: blur(4px);
+}
+
+.command-log-modal {
+  background: var(--color-surface);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+}
+
+/* 弹窗动画 */
+.command-log-modal-enter-active,
+.command-log-modal-leave-active {
+  transition: all 0.3s ease;
+}
+.command-log-modal-enter-from,
+.command-log-modal-leave-to {
+  opacity: 0;
+  transform: scale(0.9) translateY(20px);
+}
+
+.command-log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, var(--color-surface-light) 0%, var(--color-surface-hover) 100%);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.command-log-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.close-log-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-log-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+  transform: rotate(90deg);
+}
+
+.command-log-content {
+  padding: 16px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.command-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.command-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.command-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: var(--color-primary);
+}
+
+.command-icon-wrapper {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.command-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.command-description {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-text);
+  line-height: 1.4;
+}
+
+.command-values {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-family: var(--font-family-mono);
+}
+
+.old-value, .new-value {
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.old-value {
+  background: rgba(var(--color-error-rgb), 0.1);
+  color: var(--color-danger);
+  text-decoration: line-through;
+}
+
+.new-value {
+  background: rgba(var(--color-success-rgb), 0.1);
+  color: var(--color-success);
+  font-weight: 600;
+}
+
+.arrow {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.no-commands {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.no-commands .empty-icon {
+  opacity: 0.5;
+  margin-bottom: 1rem;
+}
+
+.no-commands .empty-text {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--color-text);
+  font-size: 1rem;
+}
+
+.no-commands .empty-hint {
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+/* 深色主题适配 */
+[data-theme="dark"] .command-log-modal {
+  background: #1e293b;
+  border-color: #475569;
+}
+[data-theme="dark"] .command-log-header {
+  background: linear-gradient(135deg, #334155 0%, #1e293b 100%);
+  border-color: #475569;
+}
+[data-theme="dark"] .command-item {
+  background: #334155;
+  border-color: #475569;
+}
+[data-theme="dark"] .command-item:hover {
+  border-color: var(--color-primary);
+}
+[data-theme="dark"] .command-icon-wrapper {
+  background: rgba(var(--color-primary-rgb), 0.1);
+}
+[data-theme="dark"] .old-value {
+  background: rgba(var(--color-error-rgb), 0.2);
+}
+[data-theme="dark"] .new-value {
+  background: rgba(var(--color-success-rgb), 0.2);
+}
+
 .main-game-panel {
   width: 100%;
   height: 100%;

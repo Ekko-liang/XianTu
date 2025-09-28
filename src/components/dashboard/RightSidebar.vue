@@ -353,9 +353,16 @@ const getTalentMaxExp = (talent: string): number => {
   // 向后兼容：从大道进度获取
   const currentStageIndex = talentData?.当前阶段 || 0;
   const daoPath = daoData.value?.大道路径定义[talent];
-  // 确保 daoPath 和 阶段列表 存在
-  if (daoPath && daoPath.阶段列表 && daoPath.阶段列表[currentStageIndex]) {
-    return daoPath.阶段列表[currentStageIndex].突破经验 || 100;
+  // 添加类型守卫，处理 daoPath 可能是数组或对象两种情况
+  if (daoPath) {
+    // 如果 daoPath 不是数组，则假定它是一个包含“阶段列表”属性的对象
+    if (!Array.isArray(daoPath) && daoPath.阶段列表 && daoPath.阶段列表[currentStageIndex]) {
+      return daoPath.阶段列表[currentStageIndex].突破经验 || 100;
+    }
+    // 如果 daoPath 本身就是一个阶段数组
+    else if (Array.isArray(daoPath) && daoPath[currentStageIndex]) {
+      return daoPath[currentStageIndex].突破经验 || 100;
+    }
   }
   return 100; // 默认值
 };

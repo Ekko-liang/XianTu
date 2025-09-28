@@ -18,6 +18,12 @@ export const useUIStore = defineStore('ui', () => {
   const wasLoadingBeforeDialog = ref(false); // 记录显示弹窗前的loading状态
   const showCharacterManagement = ref(false);
 
+  // --- 新增：数据验证错误弹窗状态 ---
+  const showDataValidationError = ref(false);
+  const dataValidationErrorMessages = ref<string[]>([]);
+  const onDataValidationConfirm = ref<(() => void) | null>(null);
+
+
   function openCharacterManagement() {
     showCharacterManagement.value = true;
   }
@@ -78,6 +84,26 @@ export const useUIStore = defineStore('ui', () => {
     }
   }
 
+  // --- 新增：数据验证错误弹窗方法 ---
+  function showDataValidationErrorDialog(messages: string[], onConfirm: () => void) {
+    dataValidationErrorMessages.value = messages;
+    onDataValidationConfirm.value = onConfirm;
+    showDataValidationError.value = true;
+  }
+
+  function hideDataValidationErrorDialog() {
+    showDataValidationError.value = false;
+    dataValidationErrorMessages.value = [];
+    onDataValidationConfirm.value = null;
+  }
+
+  function confirmDataValidationError() {
+    if (onDataValidationConfirm.value) {
+      onDataValidationConfirm.value();
+    }
+    hideDataValidationErrorDialog();
+  }
+
   return {
     isLoading,
     loadingText,
@@ -93,5 +119,12 @@ export const useUIStore = defineStore('ui', () => {
     showCharacterManagement,
     openCharacterManagement,
     closeCharacterManagement,
+
+    // 暴露数据验证相关状态和方法
+    showDataValidationError,
+    dataValidationErrorMessages,
+    showDataValidationErrorDialog,
+    hideDataValidationErrorDialog,
+    confirmDataValidationError,
   };
 });

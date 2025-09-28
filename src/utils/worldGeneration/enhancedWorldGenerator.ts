@@ -4,19 +4,23 @@
  */
 
 import { getTavernHelper } from '../tavern';
-import { 
-  GameDataValidator, 
-  AIRetryGenerator, 
-  EnhancedPromptBuilder,
-  WORLD_INFO_VALIDATION_RULES,
-  type ValidationResult,
-  type RetryConfig
-} from '../gameDataValidator';
 import { EnhancedWorldPromptBuilder, type WorldPromptConfig } from './enhancedWorldPrompts';
 import type { WorldInfo } from '@/types/game.d';
 import { calculateSectData, type SectCalculationData } from './sectDataCalculator';
 import { WorldMapConfig } from '@/types/worldMap';
- 
+
+// 重新定义 ValidationResult 接口，解除对外部文件的依赖
+interface ValidationError {
+  path: string;
+  message: string;
+  expected?: any;
+  received?: any;
+}
+interface ValidationResult {
+  isValid: boolean;
+  errors: ValidationError[];
+}
+
  interface RawWorldData {
    continents?: Record<string, any>[];
   factions?: Record<string, any>[];
@@ -47,36 +51,41 @@ export class EnhancedWorldGenerator {
   }
   
   /**
-   * 生成验证过的世界数据
+   * 生成验证过的世界数据 (重构后)
    */
   async generateValidatedWorld(): Promise<{ success: boolean; worldInfo?: WorldInfo; errors?: string[] }> {
     console.log('[增强世界生成器] 开始生成验证过的世界数据...');
     
-    const retryConfig: RetryConfig = {
-      maxRetries: this.config.maxRetries,
-      retryDelay: this.config.retryDelay,
-      validationRules: WORLD_INFO_VALIDATION_RULES,
-      promptTemplate: this.buildPrompt()
-      // 用户要求：让AI生成稳定，不需要fallback数据
-    };
-    
-    const result = await AIRetryGenerator.generateWithRetry(
-      () => this.generateWorldData(),
-      (data) => this.validateWorldData(data),
-      retryConfig
-    );
-    
-    if (result.success && result.data) {
-      console.log('[增强世界生成器] 世界生成成功！');
-      return { success: true, worldInfo: result.data };
-    } else {
-      console.error('[增强世界生成器] 世界生成失败', result.errors);
-      return { success: false, errors: result.errors };
+    for (let i = 0; i <= this.config.maxRetries; i++) {
+      try {
+        if (i > 0) {
+          console.log(`[增强世界生成器] 第 ${i} 次重试...`);
+          await new Promise(resolve => setTimeout(resolve, this.config.retryDelay * i));
+        }
+
+        const worldData = await this.generateWorldData();
+        const validationResult = this.validateWorldData(worldData);
+
+        if (validationResult.isValid) {
+          console.log('[增强世界生成器] 世界生成并验证成功！');
+          return { success: true, worldInfo: worldData };
+        } else {
+          this.previousErrors = validationResult.errors.map(e => e.message);
+          console.warn(`[增强世界生成器] 第 ${i} 次尝试验证失败:`, this.previousErrors);
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`[增强世界生成器] 第 ${i} 次尝试生成失败:`, message);
+        this.previousErrors = [message];
+      }
     }
+    
+    console.error('[增强世界生成器] 世界生成失败，已达最大重试次数。');
+    return { success: false, errors: this.previousErrors };
   }
   
   /**
-   * 生成世界数据
+   * 生成世界数据 (重构后)
    */
   private async generateWorldData(): Promise<WorldInfo> {
     const tavern = getTavernHelper();
@@ -85,11 +94,7 @@ export class EnhancedWorldGenerator {
     }
     
     // 构建增强的提示词
-    const prompt = EnhancedPromptBuilder.buildValidatedPrompt(
-      this.buildPrompt(),
-      WORLD_INFO_VALIDATION_RULES,
-      this.previousErrors
-    );
+    const prompt = this.buildPromptWithErrors();
     
     console.log('[增强世界生成器] 发送AI请求...');
     console.log('[增强世界生成器] 提示词长度:', prompt.length);
@@ -117,6 +122,23 @@ export class EnhancedWorldGenerator {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`AI生成失败: ${message}`);
     }
+  }
+
+  /**
+   * 构建带有错误修正信息的提示词
+   */
+  private buildPromptWithErrors(): string {
+    const basePrompt = this.buildPrompt();
+    if (this.previousErrors.length > 0) {
+      const errorSection = `
+---
+请修正以下错误后重新生成:
+${this.previousErrors.join('\n')}
+---
+`;
+      return `${basePrompt}${errorSection}`;
+    }
+    return basePrompt;
   }
   
   /**
@@ -324,14 +346,14 @@ export class EnhancedWorldGenerator {
   }
   
   /**
-   * 校验世界数据
+   * 校验世界数据 (重构后)
    */
   private validateWorldData(worldInfo: WorldInfo): ValidationResult {
     console.log('[增强世界生成器] 开始校验世界数据...');
     
-    const result = GameDataValidator.validate(worldInfo, WORLD_INFO_VALIDATION_RULES);
+    const result: ValidationResult = { isValid: true, errors: [] };
     
-    // 额外的自定义校验
+    // 仅依赖自定义校验
     this.performCustomValidation(worldInfo, result);
     
     if (!result.isValid) {
@@ -420,123 +442,4 @@ export class EnhancedWorldGenerator {
     
     result.isValid = result.errors.length === 0;
   }
-  
-  /**
-   * 创建fallback世界数据，确保系统稳定运行
-   */
-  private createFallbackWorldData(): WorldInfo {
-    console.log('[增强世界生成器] 创建fallback世界数据');
-    
-    return {
-      世界名称: this.config.worldName || '修仙界',
-      世界背景: this.config.worldBackground || '一个充满修仙者的奇幻世界',
-      大陆信息: [
-        {
-          名称: '东胜洲',
-          描述: '大陆悬于虚空，形如古贝。中央为不周山脉，龙脉之祖，灵气自此分流八方。',
-          地理特征: [
-            '连绵山脉横贯大陆',
-            '灵脉纵横交错',
-            '古木参天的原始森林',
-            '水网密布的平原地带'
-          ],
-          修真环境: '灵气充沛，适宜修行',
-          气候: '四季分明，温和宜人',
-          天然屏障: [
-            '东临无垠归墟',
-            '西接万妖死泽',
-            '南有赤地熔岩',
-            '北为永寂冰原'
-          ],
-          大洲边界: [
-            { longitude: 105.0, latitude: 30.0 },
-            { longitude: 115.0, latitude: 30.0 },
-            { longitude: 115.0, latitude: 40.0 },
-            { longitude: 105.0, latitude: 40.0 },
-            { longitude: 105.0, latitude: 30.0 }
-          ]
-        }
-      ],
-      势力信息: [
-        {
-          名称: '观天阁',
-          类型: '修仙宗门',
-          等级: '超级',
-          位置: { longitude: 110.0, latitude: 35.0 },
-          势力范围: [
-            { longitude: 108.0, latitude: 33.0 },
-            { longitude: 112.0, latitude: 33.0 },
-            { longitude: 112.0, latitude: 37.0 },
-            { longitude: 108.0, latitude: 37.0 },
-            { longitude: 108.0, latitude: 33.0 }
-          ],
-          描述: '自上古传承至今的宗门，不问世事，只观天道。门人稀少，然个个皆是惊才绝艳之辈。',
-          特色: ['推演天机', '星辰剑道'],
-          与玩家关系: '中立',
-          声望值: 9500,
-          leadership: {
-            宗主: '云中子',
-            宗主修为: '化神后期',
-            副宗主: undefined,
-            太上长老: '太乙真人',
-            太上长老修为: '炼虚初期',
-            长老数量: 12,
-            最强修为: '炼虚初期',
-            综合战力: 95,
-            核心弟子数: 8,
-            内门弟子数: 32,
-            外门弟子数: 120
-          },
-          memberCount: {
-            total: 173,
-            byRealm: {
-              "练气": 80,
-              "筑基": 45,
-              "金丹": 30,
-              "元婴": 12,
-              "化神": 5,
-              "炼虚": 1,
-              "合体": 0,
-              "渡劫": 0
-            },
-            byPosition: {
-              "散修": 0,
-              "外门弟子": 120,
-              "内门弟子": 32,
-              "核心弟子": 8,
-              "传承弟子": 3,
-              "执事": 6,
-              "长老": 12,
-              "太上长老": 1,
-              "副掌门": 0,
-              "掌门": 1
-            }
-          }
-        }
-      ],
-      地点信息: [
-        {
-          名称: '青云镇',
-          类型: 'city_town',
-          位置: '东胜洲中部平原',
-          coordinates: { longitude: 110.5, latitude: 34.5 },
-          描述: '一座繁华的修仙坊市，各种修炼资源应有尽有',
-          特色: '丹药坊市, 法器交易',
-          安全等级: '较安全',
-          开放状态: '开放',
-          相关势力: ['观天阁'],
-          特殊功能: ['贸易中心', '信息交流']
-        }
-      ],
-      生成信息: {
-        生成时间: new Date().toISOString(),
-        世界背景: this.config.worldBackground || '一个充满修仙者的奇幻世界',
-        世界纪元: this.config.worldEra || '修仙纪元',
-        特殊设定: ['AI生成失败时的fallback数据'],
-        版本: '2.0-Enhanced-Fallback'
-      }
-    };
-  }
-
-  // Fallback数据已移除 - 用户要求生成失败就不要开局
 }

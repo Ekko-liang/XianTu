@@ -45,7 +45,7 @@ ${THOUSAND_DAO_INITIALIZATION_PROMPT}
    - 根据角色的出生背景、家境、年龄合理分配起始物品
    - 🚨 **数量限制**: 初始物品总数不得超过3-5件，保持简洁
    - **使用GM指令添加物品**：
-     使用tavern_commands格式：action为"set"，key为"背包.物品.物品ID"，value为完整的Item对象
+     使用tavern_commands格式：action为"add"，key为"背包.物品"，value为完整的Item对象。这将向物品数组中添加一个新物品。
      包含：物品ID、物品名称、物品类型、稀有度、物品描述、物品数量、使用效果、装备增幅、功法效果、功法技能等字段
 
 4. **根据角色背景适当解锁起始大道**

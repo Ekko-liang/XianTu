@@ -9,6 +9,7 @@ import { initializeCharacter } from '@/services/characterInitialization';
 import { initializeCharacterOffline } from '@/services/offlineInitialization';
 import { createCharacter as createCharacterAPI, updateCharacterSave } from '@/services/request';
 import { validateAndFixSaveData } from '@/utils/dataValidation';
+import { validateGameData } from '@/utils/gameDataValidator'; // <-- 导入新的验证器
 import type { World } from '@/types';
 import type { LocalStorageRoot, CharacterProfile, CharacterBaseInfo, SaveSlot, SaveData } from '@/types/game';
 
@@ -298,6 +299,22 @@ export const useCharacterStore = defineStore('characterV3', () => {
         debug.error('角色商店', '找不到指定的存档槽位', slotKey);
         toast.error('找不到指定的存档槽位！');
         return false;
+      }
+
+      // 在加载前执行数据骨架验证
+      if (targetSlot.存档数据) {
+        const validationResult = validateGameData(targetSlot.存档数据, profile);
+        if (!validationResult.isValid) {
+          debug.error('角色商店', '存档数据验证失败', validationResult.errors);
+          uiStore.showDataValidationErrorDialog(
+            validationResult.errors,
+            () => {
+              // 用户确认后执行的修复操作
+              reinitializeCharacter(charId, slotKey);
+            }
+          );
+          return false; // 中断加载流程
+        }
       }
   
       const loadId = 'load-game-process';
@@ -934,33 +951,86 @@ export const useCharacterStore = defineStore('characterV3', () => {
     }
   };
 
-  return {
-    // State
-    rootState,
-    // Getters
-    allCharacterProfiles,
-    activeCharacterProfile,
-    activeSaveSlot,
-    saveSlots,
-    // Actions
-    reloadFromStorage,
-    createNewCharacter,
-    deleteCharacter,
-    deleteSave,
-    deleteSaveById,
-    createNewSave,
-    renameSave,
-    loadGame,
-    loadGameById,
-    saveCurrentGame,
-    updateCharacterData,
-    loadSaves,
-    importSave,
-    clearAllSaves,
-    commitToStorage, // 导出给外部使用
-    setActiveCharacterInTavern,
-    syncFromTavern,
-    // 酒馆变量缓存管理
-    manageTavernMemoryCache,
-  };
+/**
+ * 重新初始化角色存档
+ * 当数据验证失败时，由用户触发此操作来修复存档
+ * @param charId 角色ID
+ * @param slotKey 存档槽位
+ */
+const reinitializeCharacter = async (charId: string, slotKey: string) => {
+  const uiStore = useUIStore();
+  const profile = rootState.value.角色列表[charId];
+  if (!profile) {
+    toast.error('修复失败：找不到角色');
+    return;
+  }
+
+  try {
+    uiStore.startLoading('正在修复角色数据，请稍候...');
+    
+    // 假设创角时使用的世界和年龄信息存储在profile的某个地方
+    // 这里我们使用一个mock的世界对象和年龄，实际应用中需要获取真实数据
+    const world: World = { name: profile.角色基础信息.世界 || '未知世界', description: '世界信息已在修复中重新生成' };
+    const age = profile.角色基础信息.年龄 || 16;
+
+    let newSaveData: SaveData | null = null;
+    if (profile.模式 === '单机') {
+      newSaveData = await initializeCharacterOffline(charId, profile.角色基础信息, world, age);
+    } else {
+      newSaveData = await initializeCharacter(charId, profile.角色基础信息, world, age);
+    }
+
+    // 更新损坏的存档槽位
+    if (profile.模式 === '单机' && profile.存档列表) {
+      profile.存档列表[slotKey].存档数据 = newSaveData;
+      profile.存档列表[slotKey].保存时间 = new Date().toISOString();
+    } else if (profile.模式 === '联机' && profile.存档) {
+      profile.存档.存档数据 = newSaveData;
+      profile.存档.保存时间 = new Date().toISOString();
+    }
+
+    await commitToStorage();
+    toast.success('角色数据已修复！正在重新加载...');
+    
+    // 重新加载游戏
+    await loadGame(charId, slotKey);
+
+  } catch (error) {
+    debug.error('角色商店', '重新初始化角色失败', error);
+    toast.error('角色数据修复失败，请检查控制台获取详情。');
+  } finally {
+    uiStore.stopLoading();
+  }
+};
+
+return {
+  // State
+  rootState,
+  // Getters
+  allCharacterProfiles,
+  activeCharacterProfile,
+  activeSaveSlot,
+  saveSlots,
+  // Actions
+  reloadFromStorage,
+  createNewCharacter,
+  deleteCharacter,
+  deleteSave,
+  deleteSaveById,
+  createNewSave,
+  renameSave,
+  loadGame,
+  loadGameById,
+  saveCurrentGame,
+  updateCharacterData,
+  loadSaves,
+  importSave,
+  clearAllSaves,
+  commitToStorage, // 导出给外部使用
+  setActiveCharacterInTavern,
+  syncFromTavern,
+  reinitializeCharacter, // 暴露修复方法
+  // 酒馆变量缓存管理
+  manageTavernMemoryCache,
+};
 });

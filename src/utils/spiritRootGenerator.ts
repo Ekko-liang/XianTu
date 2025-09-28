@@ -219,7 +219,6 @@ export function generateRandomSpiritRoot(talentTier: string): {
   base_multiplier: number;
   cultivation_speed: string;
   special_effects: string[];
-  tier: string;
   rarity: number;
 } {
   console.log(`[灵根生成] 开始为天资"${talentTier}"生成随机灵根`);
@@ -256,7 +255,6 @@ export function generateRandomSpiritRoot(talentTier: string): {
     base_multiplier: finalMultiplier,
     cultivation_speed: `${finalMultiplier.toFixed(1)}x`,
     special_effects: specialEffects,
-    tier: selectedTier.name,
     rarity: selectedTier.rarity
   };
   
@@ -274,14 +272,17 @@ export function isRandomSpiritRoot(spiritRoot: string | object): boolean {
 
 // 格式化灵根为标准对象格式
 export function formatSpiritRootObject(generatedRoot: ReturnType<typeof generateRandomSpiritRoot>) {
+  // [REFACTORED] 移除重复的品质和等级字段，统一使用"品级"
   return {
     名称: generatedRoot.名称,
     品级: generatedRoot.品级,
-    品质: generatedRoot.tier,
-    等级: generatedRoot.tier,
     描述: generatedRoot.描述,
-    base_multiplier: generatedRoot.base_multiplier,
-    cultivation_speed: generatedRoot.cultivation_speed,
-    special_effects: generatedRoot.special_effects
+    // 详细信息，用于计算等
+    灵根详情: {
+      品级: generatedRoot.品级, // 详情中也保留一份品级
+      base_multiplier: generatedRoot.base_multiplier,
+      cultivation_speed: generatedRoot.cultivation_speed,
+      special_effects: generatedRoot.special_effects
+    }
   };
 }

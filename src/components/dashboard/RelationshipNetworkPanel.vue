@@ -9,9 +9,9 @@
             <h3 class="panel-title">江湖人脉</h3>
             <div class="search-bar">
               <Search :size="16" />
-              <input 
-                v-model="searchQuery" 
-                placeholder="搜索人物..." 
+              <input
+                v-model="searchQuery"
+                placeholder="搜索人物..."
                 class="search-input"
               />
             </div>
@@ -50,8 +50,8 @@
                   </div>
                   <div class="intimacy-info">
                     <div class="intimacy-bar">
-                      <div 
-                        class="intimacy-fill" 
+                      <div
+                        class="intimacy-fill"
                         :class="getIntimacyClass(person.人物好感度)"
                         :style="{ width: Math.max(5, Math.abs(person.人物好感度 || 0)) + '%' }"
                       ></div>
@@ -67,7 +67,7 @@
 
         <!-- 右侧：人物详情 -->
         <div class="relationship-detail">
-          <div v-if="selectedPerson" class="detail-content">
+          <template v-if="selectedPerson">
             <!-- 详情头部 -->
             <div class="detail-header">
               <div class="detail-avatar">
@@ -106,8 +106,8 @@
                       <span class="info-value">{{ formatRealm(selectedPerson.角色存档信息?.境界) }}</span>
                     </div>
                     <div class="info-item">
-                      <span class="info-label">位置</span>
-                      <span class="info-value">{{ selectedPerson.角色存档信息?.位置?.描述 || '未知' }}</span>
+                      <span class="info-label">最后出现位置</span>
+                      <span class="info-value">{{ selectedPerson.角色存档信息?.最后出现位置?.描述 || '未知' }}</span>
                     </div>
                   </div>
                 </div>
@@ -260,12 +260,26 @@
                  <div class="detail-section">
                     <h5 class="section-title">日常路线</h5>
                     <div v-if="selectedPerson.NPC行为?.日常路线?.length">
-                        <!--  路线展示 -->
+                        <div class="routine-list">
+                          <div v-for="(route, index) in selectedPerson.NPC行为.日常路线" :key="index" class="routine-item">
+                            <div class="routine-time">{{ route.时间 }}</div>
+                            <div class="routine-details">
+                              <div class="routine-location">
+                                <span class="routine-label">位置:</span>
+                                <span class="routine-value">{{ route.位置 }}</span>
+                              </div>
+                              <div class="routine-action">
+                                <span class="routine-label">行为:</span>
+                                <span class="routine-value">{{ route.行为 }}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                     </div>
                     <div v-else class="empty-state-small">暂无特定路线</div>
                  </div>
               </div>
-              
+
               <!-- 原始数据 Tab -->
                <div v-if="activeTab === 'raw'" class="tab-content">
                  <div class="detail-section">
@@ -276,7 +290,7 @@
                  </div>
                </div>
            </div>
-         </div>
+          </template>
          <div v-else class="no-selection">
            <Users2 :size="64" class="placeholder-icon" />
             <p class="placeholder-text">选择一个人物查看详细信息</p>
@@ -318,11 +332,11 @@ const currentMemoryPage = ref(1); // 当前页码
 // 计算分页后的记忆
 const paginatedMemory = computed(() => {
   if (!selectedPerson.value?.人物记忆?.length) return [];
-  
+
   const memories = selectedPerson.value.人物记忆;
   const startIndex = (currentMemoryPage.value - 1) * memoryPageSize.value;
   const endIndex = startIndex + memoryPageSize.value;
-  
+
   return memories.slice(startIndex, endIndex);
 });
 
@@ -389,7 +403,7 @@ const filteredRelationships = computed(() => {
   // 搜索过滤
   if (searchQuery.value.trim()) {
     const query = searchQuery.value.toLowerCase();
-    filtered = filtered.filter(person => 
+    filtered = filtered.filter(person =>
       person.角色基础信息.名字.toLowerCase().includes(query) ||
       (person.人物关系 || '').toLowerCase().includes(query)
     );
@@ -435,7 +449,7 @@ const selectPerson = (person: NpcProfile) => {
   selectedPerson.value = selectedPerson.value?.角色基础信息.名字 === person.角色基础信息.名字
     ? null
     : person;
-  
+
   // 如果选择了新的人物，重置记忆分页和标签页
   if (isNewSelection && selectedPerson.value) {
     resetMemoryPagination();
@@ -455,7 +469,7 @@ onMounted(async () => {
   isLoading.value = true;
   try {
     await characterStore.syncFromTavern();
-    
+
     // 初始化酒馆变量状态
     const helper = getTavernHelper();
     if (helper) {
@@ -467,7 +481,7 @@ onMounted(async () => {
         console.warn('[人脉系统] 获取酒馆变量失败:', error);
       }
     }
-    
+
     // 默认选择第一个人物
     if (filteredRelationships.value.length > 0) {
       selectedPerson.value = filteredRelationships.value[0];
@@ -493,13 +507,13 @@ const editMemory = async (index: number) => {
   if (!key) return;
   const saveData = characterStore.activeSaveSlot?.存档数据;
   if (!saveData?.人物关系?.[key]?.人物记忆) return;
-  
+
   const current = saveData.人物关系[key].人物记忆[index];
-  
+
   // 支持旧格式（字符串）和新格式（对象）
   let currentTime = '';
   let currentEvent = '';
-  
+
   if (typeof current === 'string') {
     currentEvent = current;
     currentTime = '未知时间';
@@ -507,19 +521,19 @@ const editMemory = async (index: number) => {
     currentTime = current.时间 || '未知时间';
     currentEvent = current.事件 || '';
   }
-  
+
   const newTime = window.prompt('编辑记忆时间', currentTime);
   if (newTime === null) return;
-  
+
   const newEvent = window.prompt('编辑记忆事件', currentEvent);
   if (newEvent === null) return;
-  
+
   saveData.人物关系[key].人物记忆[index] = {
     时间: newTime.trim(),
     事件: newEvent.trim()
     // 注意：不再保存指令数据，只保留时间和事件
   };
-  
+
   selectedPerson.value = { ...saveData.人物关系[key] };
   await characterStore.commitToStorage();
 };
@@ -562,7 +576,7 @@ const getGradeText = (grade?: number): string => {
   if (grade === undefined || grade === null) return '';
   if (grade === 0) return '残缺';
   if (grade >= 1 && grade <= 3) return '下品';
-  if (grade >= 4 && grade <= 6) return '中品';  
+  if (grade >= 4 && grade <= 6) return '中品';
   if (grade >= 7 && grade <= 9) return '上品';
   if (grade === 10) return '极品';
   return '';
@@ -571,7 +585,7 @@ const getGradeText = (grade?: number): string => {
 const initiateTradeWithNpc = (npc: NpcProfile, item: Item) => {
   // NPC交互类操作只能加入队列等待AI响应，不能直接执行
   const actionDescription = `尝试与 ${npc.角色基础信息.名字} 交易 ${item.名称}`;
-  
+
   // 添加到动作队列，等待AI处理
   actionQueue.addAction({
     type: 'npc_trade',
@@ -583,7 +597,7 @@ const initiateTradeWithNpc = (npc: NpcProfile, item: Item) => {
     itemId: item.物品ID || item.名称,
     tradeType: 'trade' // 交易类型
   });
-  
+
   toast.success(`已将与 ${npc.角色基础信息.名字} 的交易请求加入动作队列`);
   console.log('已排队NPC交易:', { npc: npc.角色基础信息.名字, item: item.名称, type: 'trade' });
 };
@@ -591,7 +605,7 @@ const initiateTradeWithNpc = (npc: NpcProfile, item: Item) => {
 // 向NPC索要物品
 const requestItemFromNpc = (npc: NpcProfile, item: Item) => {
   const actionDescription = `向 ${npc.角色基础信息.名字} 索要 ${item.名称}`;
-  
+
   // 添加到动作队列，等待AI处理
   actionQueue.addAction({
     type: 'npc_request',
@@ -603,7 +617,7 @@ const requestItemFromNpc = (npc: NpcProfile, item: Item) => {
     itemId: item.物品ID || item.名称,
     tradeType: 'request' // 索要类型
   });
-  
+
   toast.success(`已将向 ${npc.角色基础信息.名字} 索要物品的请求加入动作队列`);
   console.log('已排队NPC索要:', { npc: npc.角色基础信息.名字, item: item.名称, type: 'request' });
 };
@@ -645,7 +659,7 @@ const toggleAttention = async (person: NpcProfile) => {
       toast.success(`已取消关注 ${npcName}`);
     }
     console.log(`[关注切换] ${npcName} 的实时关注状态已更新为: ${newState}`);
-    
+
     // 手动触发响应式更新
     selectedPerson.value = { ...saveData.人物关系[npcKey] };
 
@@ -663,7 +677,7 @@ const isAttentionEnabled = (person: NpcProfile): boolean => {
 // 尝试从NPC身上偷窃物品
 const attemptStealFromNpc = (npc: NpcProfile, item: Item) => {
   const actionDescription = `尝试从 ${npc.角色基础信息.名字} 身上偷取 ${item.名称}`;
-  
+
   // 添加到动作队列，等待AI处理
   actionQueue.addAction({
     type: 'npc_steal',
@@ -675,7 +689,7 @@ const attemptStealFromNpc = (npc: NpcProfile, item: Item) => {
     itemId: item.物品ID || item.名称,
     tradeType: 'steal' // 偷窃类型
   });
-  
+
   toast.success(`已将偷窃 ${npc.角色基础信息.名字} 物品的计划加入动作队列`);
   console.log('已排队NPC偷窃:', { npc: npc.角色基础信息.名字, item: item.名称, type: 'steal' });
 };
@@ -691,13 +705,17 @@ const attemptStealFromNpc = (npc: NpcProfile, item: Item) => {
   max-height: 600px;
   overflow-y: auto;
   font-size: 0.8rem;
+}
+
+.raw-data-container pre {
   white-space: pre-wrap;
   word-break: break-all;
+  margin: 0;
 }
 
 .spirit-stones-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 0.75rem;
   margin-top: 0.5rem;
 }
@@ -986,23 +1004,17 @@ const attemptStealFromNpc = (npc: NpcProfile, item: Item) => {
   display: flex;
   flex-direction: column;
   min-width: 0; /* 关键修复：允许flex项收缩，防止内容溢出 */
-}
-
-.detail-content {
-  height: 100%;
-  padding: 1rem;
-  overflow-y: auto;
-  width: 100%; /* 确保内容宽度不会超出父容器 */
-  box-sizing: border-box; /* 确保padding不会导致溢出 */
+  overflow: hidden; /* 隐藏所有溢出，滚动由子元素处理 */
 }
 
 .detail-header {
   display: flex;
   align-items: center;
   gap: 1rem;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+  padding: 1rem 1rem 1rem 1rem;
   border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
 }
 
 .detail-avatar {
@@ -1022,6 +1034,7 @@ const attemptStealFromNpc = (npc: NpcProfile, item: Item) => {
 
 .detail-info {
   flex: 1;
+  min-width: 0; /* 允许flex项收缩，防止长名称撑开容器 */
 }
 
 .detail-name {
@@ -1029,6 +1042,7 @@ const attemptStealFromNpc = (npc: NpcProfile, item: Item) => {
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--color-text);
+  word-break: break-all; /* 强制长名称换行 */
 }
 
 .detail-badges {
@@ -1054,6 +1068,9 @@ const attemptStealFromNpc = (npc: NpcProfile, item: Item) => {
   gap: 0.5rem;
   margin-bottom: 1rem;
   border-bottom: 1px solid var(--color-border);
+  flex-wrap: wrap; /* 允许标签页在空间不足时换行 */
+  padding: 0 1rem;
+  flex-shrink: 0;
 }
 
 .detail-tabs button {
@@ -1081,6 +1098,10 @@ const attemptStealFromNpc = (npc: NpcProfile, item: Item) => {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  flex: 1; /* 占据剩余空间 */
+  min-height: 0; /* 允许收缩 */
+  overflow-y: auto; /* 内容溢出时滚动 */
+  padding: 0 1rem 1rem 1rem;
 }
 
 .tab-content {
@@ -1117,7 +1138,7 @@ const attemptStealFromNpc = (npc: NpcProfile, item: Item) => {
 
 .info-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 1rem;
 }
 
@@ -1222,8 +1243,8 @@ const attemptStealFromNpc = (npc: NpcProfile, item: Item) => {
   color: var(--color-text-secondary);
 }
 
-.memory-content { 
-  flex: 1; 
+.memory-content {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
@@ -1305,7 +1326,7 @@ const attemptStealFromNpc = (npc: NpcProfile, item: Item) => {
 
 .attributes-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
   gap: 0.75rem;
 }
 
@@ -1619,6 +1640,80 @@ const attemptStealFromNpc = (npc: NpcProfile, item: Item) => {
   opacity: 0.8;
 }
 
+/* NPC行为路线样式 */
+.routine-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  position: relative;
+  padding-left: 1.25rem;
+  margin-top: 0.5rem;
+}
+
+.routine-list::before {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  width: 2px;
+  background-color: var(--color-border);
+}
+
+.routine-item {
+  display: flex;
+  gap: 1rem;
+  position: relative;
+  align-items: flex-start;
+}
+
+.routine-item::before {
+  content: '';
+  position: absolute;
+  left: -1.25rem;
+  top: 0.5rem;
+  transform: translateX(calc(-50% + 6px));
+  width: 12px;
+  height: 12px;
+  background-color: var(--color-primary);
+  border-radius: 50%;
+  border: 2px solid var(--color-surface);
+  z-index: 1;
+}
+
+.routine-time {
+  font-weight: 600;
+  color: var(--color-primary);
+  flex-basis: 70px;
+  flex-shrink: 0;
+  padding-top: 0.1rem;
+  font-size: 0.85rem;
+}
+
+.routine-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.routine-location,
+.routine-action {
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.routine-label {
+  font-weight: 600;
+  color: var(--color-text);
+  margin-right: 0.5rem;
+}
+
+.routine-value {
+  color: var(--color-text-secondary);
+}
+
 .animate-spin {
   animation: spin 1s linear infinite;
 }
@@ -1642,7 +1737,7 @@ const attemptStealFromNpc = (npc: NpcProfile, item: Item) => {
     border-radius: 0;
     border: none;
   }
-  
+
   .relationship-list {
     width: 100%;
     height: 30vh;

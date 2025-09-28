@@ -144,8 +144,8 @@ class AIBidirectionalSystemClass {
         // 获取执行后的状态
         const afterState = await this.captureCurrentState(tavernHelper!);
 
-        // 生成状态变更日志
-        stateChanges = this.generateStateChangeLog(beforeState, afterState);
+        // 生成状态变更日志 - 从指令生成，而不是比对
+        stateChanges = this.generateStateChangeLogFromCommands(gmResponse.tavern_commands, beforeState, afterState);
 
         console.log('[AI双向系统] 状态变更:', stateChanges);
 
@@ -226,80 +226,59 @@ class AIBidirectionalSystemClass {
   /**
    * 生成状态变更日志
    */
-  private generateStateChangeLog(beforeState: PlainObject, afterState: PlainObject): StateChangeLog {
-    const changes: Array<{
-      key: string;
-      action: string;
-      oldValue: unknown;
-      newValue: unknown;
-    }> = [];
+  private getNestedValue(obj: PlainObject, path: string): unknown {
+    return path.split('.').reduce((o: any, k) => (o && typeof o === 'object' && k in o ? o[k] : undefined), obj);
+  }
 
-    // 递归比较状态差异
-    this.compareObjects('', beforeState, afterState, changes);
+  /**
+   * 根据AI指令生成状态变更日志
+   */
+  private generateStateChangeLogFromCommands(
+    commands: Array<{ action: string; key: string; value?: unknown }>,
+    beforeState: PlainObject,
+    afterState: PlainObject
+  ): StateChangeLog {
+    const changes = commands.map(command => {
+      let oldValue: unknown;
+      let newValue: unknown;
+
+      // 根据指令类型智能确定新旧值
+      switch (command.action) {
+        case 'add':
+        case 'push':
+          // 对于新增操作，旧值为空，新值是指令提供的值
+          oldValue = null;
+          newValue = command.value;
+          break;
+        
+        case 'remove':
+        case 'pull':
+          // 对于删除操作，旧值是执行前的值，新值为空
+          oldValue = this.getNestedValue(beforeState, command.key);
+          newValue = null;
+          break;
+
+        default:
+          // 对于其他所有操作（set, inc, dec等），通过比对状态快照获取
+          oldValue = this.getNestedValue(beforeState, command.key);
+          newValue = this.getNestedValue(afterState, command.key);
+          break;
+      }
+      
+      return {
+        key: command.key,
+        action: command.action,
+        oldValue: oldValue,
+        newValue: newValue
+      };
+    });
 
     return {
       before: beforeState,
       after: afterState,
-      changes: changes,
+      changes: changes.filter(c => c.newValue !== c.oldValue), // 只记录实际发生变化的指令
       timestamp: new Date().toISOString()
     };
-  }
-
-  /**
-   * 递归比较对象差异
-   */
-  private compareObjects(
-    keyPrefix: string,
-    before: PlainObject,
-    after: PlainObject,
-    changes: Array<{key: string; action: string; oldValue: unknown; newValue: unknown}>
-  ): void {
-    // 检查新增和修改的键
-    if (after && typeof after === 'object') {
-      for (const key in after) {
-        const fullKey = keyPrefix ? `${keyPrefix}.${key}` : key;
-        const beforeValue = before?.[key];
-        const afterValue = after[key];
-
-        if (beforeValue === undefined) {
-          // 新增
-          changes.push({
-            key: fullKey,
-            action: 'add',
-            oldValue: undefined,
-            newValue: afterValue
-          });
-        } else if (JSON.stringify(beforeValue) !== JSON.stringify(afterValue)) {
-          // 修改
-          if (typeof beforeValue === 'object' && typeof afterValue === 'object' && beforeValue !== null && afterValue !== null) {
-            // 递归比较对象
-            this.compareObjects(fullKey, beforeValue as PlainObject, afterValue as PlainObject, changes);
-          } else {
-            changes.push({
-              key: fullKey,
-              action: 'set',
-              oldValue: beforeValue,
-              newValue: afterValue
-            });
-          }
-        }
-      }
-    }
-
-    // 检查删除的键
-    if (before && typeof before === 'object') {
-      for (const key in before) {
-        const fullKey = keyPrefix ? `${keyPrefix}.${key}` : key;
-        if (after === null || after === undefined || !(key in after)) {
-          changes.push({
-            key: fullKey,
-            action: 'delete',
-            oldValue: before[key],
-            newValue: undefined
-          });
-        }
-      }
-    }
   }
 
   /**
