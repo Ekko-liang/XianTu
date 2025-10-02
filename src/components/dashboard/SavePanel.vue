@@ -101,14 +101,6 @@
                   <span class="detail-value">{{ formatPlayTime(save.游戏时长 || 0) }}</span>
                 </div>
               </div>
-              
-              <div class="save-progress" v-if="save.修为进度 !== undefined">
-                <div class="progress-label">修为进度</div>
-                <div class="progress-bar">
-                  <div class="progress-fill" :style="{ width: (save.修为进度 || 0) + '%' }"></div>
-                </div>
-                <div class="progress-text">{{ save.修为进度 || 0 }}%</div>
-              </div>
             </div>
           </div>
         </div>
@@ -265,11 +257,12 @@ const selectSave = (save: SaveSlot) => {
 // 加载存档
 const loadSave = async (save: SaveSlot) => {
   if (!save) return;
-  
+
   loading.value = true;
   try {
-    await characterStore.loadGameById(save.id!);
-    toast.success(`已加载存档: ${save.角色名字 || '存档'}`);
+    // 使用存档名作为槽位key
+    await characterStore.loadGameById(save.存档名);
+    toast.success(`已加载存档: ${save.存档名}`);
   } catch (error) {
     debug.error('存档面板', '加载失败', error);
     toast.error('加载存档失败');
@@ -284,14 +277,17 @@ const uiStore = useUIStore();
 const deleteSave = async (save: SaveSlot) => {
   uiStore.showRetryDialog({
     title: '删除存档',
-    message: `确定要删除存档"${save.角色名字 || '存档'}"吗？此操作不可撤销。`,
+    message: `确定要删除存档"${save.存档名 || '存档'}"吗？此操作不可撤销。`,
     confirmText: '确认删除',
     cancelText: '取消',
     onConfirm: async () => {
       loading.value = true;
       try {
-        await characterStore.deleteSaveById(save.id!);
+        // save.id 实际上是存档槽位的 key，例如 "存档1"
+        await characterStore.deleteSaveById(save.存档名);
         toast.success('存档已删除');
+        // 刷新列表
+        await refreshSaves();
       } catch (error) {
         debug.error('存档面板', '删除失败', error);
         toast.error('删除存档失败');
@@ -602,10 +598,12 @@ onMounted(() => {
 
 .saves-count {
   font-size: 0.875rem;
-  color: #0284c7;
-  background: #e0f2fe;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.375rem;
+  color: #0c4a6e;
+  background: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  border: 1px solid #bae6fd;
 }
 
 /* 当前存档卡片 */
@@ -820,38 +818,6 @@ onMounted(() => {
 .detail-value {
   color: #0369a1;
   font-weight: 500;
-}
-
-.save-progress {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.progress-label {
-  font-size: 0.75rem;
-  color: #64748b;
-  font-weight: 500;
-}
-
-.progress-bar {
-  height: 0.5rem;
-  background: #e0f2fe;
-  border-radius: 0.25rem;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #0284c7, #0369a1);
-  transition: width 0.3s ease;
-}
-
-.progress-text {
-  font-size: 0.75rem;
-  color: #0284c7;
-  font-weight: 500;
-  text-align: right;
 }
 
 /* 操作列表 */

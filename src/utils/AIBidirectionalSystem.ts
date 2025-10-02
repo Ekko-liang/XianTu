@@ -9,7 +9,7 @@
  */
 
 import { generateInGameResponse } from './generators/gameMasterGenerators';
-import { processGmResponse } from './AIGameMaster';
+import { processGmResponse, getFromTavern } from './AIGameMaster';
 import { getTavernHelper } from './tavern';
 import type { TavernHelper } from './tavernCore';
 import { toast } from './toast';
@@ -116,11 +116,25 @@ class AIBidirectionalSystemClass {
       options?.onProgressUpdate?.('执行AI指令并更新游戏状态…');
 
       try {
-        // 获取当前的saveData
-        const currentSaveData = beforeState['character.saveData'] || {};
+        // 从新的分片存储获取当前SaveData
+        const currentSaveData = await getFromTavern('chat');
 
-        // 处理AI指令
-        await processGmResponse(gmResponse, currentSaveData);
+        // 确保有有效的SaveData再处理
+        if (currentSaveData) {
+          // 🔥 核心修复：接收processGmResponse返回的updatedSaveData
+          // 原问题：之前没有接收返回值，导致命令执行后的数据被丢弃
+          const processResult = await processGmResponse(gmResponse, currentSaveData);
+          const updatedSaveData = processResult.saveData;
+
+          // 🔥 重要：立即将更新后的SaveData分片并同步回酒馆
+          // 这样后续的syncFromTavern能正确获取到最新数据
+          const { shardSaveData, saveAllShards } = await import('./storageSharding');
+          const shards = shardSaveData(updatedSaveData);
+          await saveAllShards(shards, tavernHelper!);
+          console.log('[AI双向系统] ✅ 已将命令执行后的SaveData同步到酒馆分片');
+        } else {
+          console.warn('[AI双向系统] 无法获取SaveData，跳过指令执行');
+        }
 
         // 获取执行后的状态
         const afterState = await this.captureCurrentState(tavernHelper!);
@@ -128,7 +142,13 @@ class AIBidirectionalSystemClass {
         // 生成状态变更日志
         stateChanges = this.generateStateChangeLogFromCommands(gmResponse.tavern_commands, beforeState, afterState);
 
-        console.log('[AI双向系统] 状态变更:', stateChanges);
+        console.log('[AI双向系统] ===== 状态变更详情 =====');
+        console.log('[AI双向系统] 命令数量:', gmResponse.tavern_commands.length);
+        console.log('[AI双向系统] 检测到的变更数量:', stateChanges.changes.length);
+        console.log('[AI双向系统] 变更详情:', JSON.stringify(stateChanges.changes, null, 2));
+        console.log('[AI双向系统] beforeState 分片数:', Object.keys(beforeState).length);
+        console.log('[AI双向系统] afterState 分片数:', Object.keys(afterState).length);
+        console.log('[AI双向系统] ========================');
 
         // 通知状态变化
         if (options?.onStateChange && stateChanges.changes.length > 0) {
@@ -210,13 +230,23 @@ class AIBidirectionalSystemClass {
       newValue: unknown;
     }> = [];
 
+    console.log('[状态变更] ===== 开始生成变更日志 =====');
+    console.log('[状态变更] 总命令数:', commands.length);
+
     for (const cmd of commands) {
-      if (!cmd || !cmd.action || !cmd.key) continue;
+      if (!cmd || !cmd.action || !cmd.key) {
+        console.log('[状态变更] ⚠️ 跳过无效命令:', cmd);
+        continue;
+      }
 
       const key = cmd.key;
       const action = cmd.action;
       const oldValue = this.getNestedValue(beforeState, key);
       const newValue = this.getNestedValue(afterState, key);
+
+      console.log(`[状态变更] 检查命令: ${action} "${key}"`);
+      console.log(`[状态变更]   oldValue:`, oldValue);
+      console.log(`[状态变更]   newValue:`, newValue);
 
       // 只记录有变化的字段
       if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
@@ -226,8 +256,14 @@ class AIBidirectionalSystemClass {
           oldValue,
           newValue
         });
+        console.log(`[状态变更]   ✅ 检测到变更`);
+      } else {
+        console.log(`[状态变更]   ⏭️ 值未变化，跳过`);
       }
     }
+
+    console.log('[状态变更] ===== 变更日志生成完成 =====');
+    console.log('[状态变更] 最终变更数量:', changes.length);
 
     return {
       before: beforeState,
@@ -238,31 +274,35 @@ class AIBidirectionalSystemClass {
   }
 
   /**
-   * 获取嵌套对象的值
+   * 获取嵌套对象的值（支持新的分片格式）
    */
   private getNestedValue(obj: PlainObject, path: string): unknown {
     if (!obj || typeof obj !== 'object') return undefined;
 
-    // 支持从酒馆变量快照中读取以点号命名的顶层变量
+    // 新的分片格式: 直接从顶层变量读取
+    // 路径格式: "境界.名称", "属性.气血.当前", "背包_物品.天蚕羽衣.名称"
+    // obj 结构: { '境界': {...}, '属性': {...}, '背包_物品': {...} }
+
+    // 移除可能存在的旧格式前缀
+    let cleanPath = path;
     if (path.startsWith('character.saveData.')) {
-      const root = (obj as any)['character.saveData'] as PlainObject | undefined;
-      if (!root || typeof root !== 'object') return undefined;
-      const subPath = path.substring('character.saveData.'.length);
-      return subPath.split('.').reduce((o: PlainObject | unknown, k) => {
-        if (o && typeof o === 'object' && !Array.isArray(o) && k in (o as PlainObject)) {
-          return (o as PlainObject)[k];
-        }
-        return undefined;
-      }, root as PlainObject | unknown);
+      cleanPath = path.substring('character.saveData.'.length);
     }
 
-    // 常规对象路径解析
-    return path.split('.').reduce((o: PlainObject | unknown, k) => {
-      if (o && typeof o === 'object' && !Array.isArray(o) && k in (o as PlainObject)) {
-        return (o as PlainObject)[k];
+    // 分片路径解析: "属性.气血.当前" -> ['属性', '气血', '当前']
+    const parts = cleanPath.split('.');
+
+    // 递归遍历路径
+    let current: any = obj;
+    for (const part of parts) {
+      if (current && typeof current === 'object' && part in current) {
+        current = current[part];
+      } else {
+        return undefined;
       }
-      return undefined;
-    }, obj as PlainObject | unknown);
+    }
+
+    return current;
   }
 }
 

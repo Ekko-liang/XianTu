@@ -353,24 +353,41 @@ export async function generateItemWithTavernAI<T = unknown>(
     // 发送生成请求
     const rawResult = await helper.generate({
       user_input: '请严格按照上述系统指令执行角色初始化任务',
-      should_stream: useStreaming,
+      should_stream: useStreaming,  // 使用原始的streaming参数
       max_chat_history: 0  // 禁用聊天历史
     });
 
     console.log(`【神识印记-调试】TavernHelper.generate()返回结果类型:`, typeof rawResult);
-    console.log(`【神识印记-调试】TavernHelper.generate()返回结果长度:`, rawResult?.length || 0);
-    console.log(`【神识印记-调试】TavernHelper.generate()返回结果前200字符:`, rawResult?.substring(0, 200));
+    console.log(`【神识印记-调试】TavernHelper.generate()返回结果:`, rawResult);
 
-    // 处理流式回调
-    if (useStreaming && onStreamChunk) {
-      onStreamChunk(rawResult || '');
-    }
+    // generate()函数返回完整的响应文本,无论streaming是否启用
 
-    if (!rawResult || typeof rawResult !== 'string' || rawResult.trim() === '') {
+    // 🔥 修复：处理 SillyTavern 可能返回的对象格式
+    let text: string;
+    if (typeof rawResult === 'string') {
+      text = rawResult.trim();
+    } else if (rawResult && typeof rawResult === 'object') {
+      // 如果返回的是对象，尝试提取 content 字段
+      const resultObj = rawResult as Record<string, unknown>;
+      if (typeof resultObj.content === 'string') {
+        console.log(`【神识印记】检测到对象格式响应，提取content字段`);
+        text = resultObj.content.trim();
+      } else if (typeof resultObj.text === 'string') {
+        console.log(`【神识印记】检测到对象格式响应，提取text字段`);
+        text = resultObj.text.trim();
+      } else {
+        console.error(`【神识印记】无法从对象中提取文本内容:`, rawResult);
+        throw new Error(`TavernHelper.generate()返回了无效的对象格式`);
+      }
+    } else {
       throw new Error(`TavernHelper.generate()返回了空的响应内容，响应类型: ${typeof rawResult}`);
     }
 
-    const text = rawResult.trim();
+    if (!text) {
+      throw new Error(`提取的响应文本为空`);
+    }
+
+    console.log(`【神识印记】AI响应文本长度:`, text.length);
     console.log(`【神识印记】AI原始响应文本 (前200字符):`, text.substring(0, 200));
 
     // 尝试提取JSON

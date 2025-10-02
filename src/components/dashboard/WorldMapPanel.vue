@@ -437,30 +437,29 @@ import type { CultivationContinent, WorldMapConfig } from '@/types/worldMap';
 // 额外的辅助类型，移除 any 使用，保证属性访问安全
 type LngLat = { longitude: number; latitude: number };
 
-// 酒馆变量：包含可能用到的已知键，其他键保持宽松
-type CharacterSaveData = {
-  世界信息?: {
-    世界名称?: string;
+// 酒馆变量：使用新的分片存储格式
+type WorldInfoShard = {
+  世界名称?: string;
+  世界背景?: string;
+  大陆信息?: unknown[];
+  势力信息?: unknown[];
+  地点信息?: unknown[];
+  地图配置?: WorldMapConfig;
+  生成信息?: {
+    生成时间?: string;
     世界背景?: string;
-    大陆信息?: unknown[];
-    势力信息?: unknown[];
-    地点信息?: unknown[];
-    地图配置?: WorldMapConfig;
-    生成信息?: {
-      生成时间?: string;
-      世界背景?: string;
-      世界纪元?: string;
-      特殊设定?: string;
-      版本?: string;
-    };
+    世界纪元?: string;
+    特殊设定?: string;
+    版本?: string;
   };
-  玩家角色状态?: {
-    位置?: {
-      坐标?: {
-        X?: number; Y?: number; x?: number; y?: number;
-        longitude?: number; latitude?: number;
-      }
-    }
+};
+
+type LocationShard = {
+  描述?: string;
+  区域?: string;
+  坐标?: {
+    X?: number; Y?: number; x?: number; y?: number;
+    longitude?: number; latitude?: number;
   };
 };
 
@@ -469,7 +468,8 @@ type PlayerLocationMarker = {
 };
 
 type TavernVariables = Record<string, unknown> & {
-  ['character.saveData']?: CharacterSaveData;
+  ['世界信息']?: WorldInfoShard;
+  ['位置']?: LocationShard;
   ['player_location_marker']?: PlayerLocationMarker;
 };
 
@@ -553,25 +553,25 @@ const playerName = ref('');
 const cultivationLocations = ref<WorldLocation[]>([]);
 const cultivationContinents = ref<CultivationContinent[]>([]);
 
-// 世界信息计算属性
+// 世界信息计算属性 - 仅使用分片格式
 const worldName = computed(() => {
   const variables = tavernVariables.value;
-  const worldInfo = variables['character.saveData']?.世界信息;
+  const worldInfo = variables['世界信息'];
   return worldInfo?.世界名称 || '修仙界';
 });
 
 const worldBackground = computed(() => {
   const variables = tavernVariables.value;
-  const worldInfo = variables['character.saveData']?.世界信息;
+  const worldInfo = variables['世界信息'];
   return worldInfo?.生成信息?.世界背景 || '';
 });
 
 // 明确初始化类型，避免 {} 被推断为不完全的 Record 结构
 const tavernVariables = ref<TavernVariables>({} as TavernVariables);
 
-// 玩家位置 - 从酒馆变量获取
+// 玩家位置 - 仅使用新的分片格式
 const playerPosition = computed(() => {
-  // 方法1：尝试从player_location_marker获取位置（新的位置标点系统）
+  // 方法1: 尝试从player_location_marker获取位置(位置标点系统)
   const locationMarker = tavernVariables.value?.['player_location_marker'];
   if (locationMarker && locationMarker.coordinates) {
     console.log('[玩家定位] 从位置标点获取坐标:', locationMarker.coordinates);
@@ -589,40 +589,30 @@ const playerPosition = computed(() => {
     }
   }
 
-  // 方法2：从SaveData中的玩家位置获取（原有逻辑）
-  if (!tavernVariables.value?.['character.saveData']?.玩家角色状态?.位置?.坐标) {
-    return null;
+  // 方法2: 从位置分片获取
+  const locationShard = tavernVariables.value?.['位置'];
+  if (locationShard?.坐标) {
+    const coords = locationShard.坐标;
+    console.log('[玩家定位] 从位置分片获取坐标:', coords);
+
+    // 处理不同的坐标格式
+    // Vector2格式 (X,Y大写)
+    if (coords.X !== undefined && coords.Y !== undefined) {
+      return { x: coords.X, y: coords.Y };
+    }
+    // x,y格式 (小写)
+    else if (coords.x !== undefined && coords.y !== undefined) {
+      return { x: coords.x, y: coords.y };
+    }
+    // 地理坐标格式
+    else if (coords.longitude !== undefined && coords.latitude !== undefined) {
+      const virtualPos = geoToVirtual(coords.longitude, coords.latitude);
+      console.log('[玩家定位] 转换结果:', virtualPos);
+      return virtualPos;
+    }
   }
 
-  const coords = tavernVariables.value['character.saveData'].玩家角色状态.位置.坐标;
-  console.log('[玩家定位] 原始坐标数据:', coords);
-
-  // 处理不同的坐标格式
-  let longitude: number | undefined, latitude: number | undefined;
-
-  // Vector2格式 (X,Y大写) - 这是正确的数据结构格式
-  if (coords.X !== undefined && coords.Y !== undefined) {
-    // 如果是虚拟坐标，直接返回
-    return { x: coords.X, y: coords.Y };
-  }
-  // x,y格式 (小写) - 兼容处理
-  else if (coords.x !== undefined && coords.y !== undefined) {
-    return { x: coords.x, y: coords.y };
-  }
-  // 地理坐标格式
-  else if (coords.longitude && coords.latitude) {
-    longitude = coords.longitude;
-    latitude = coords.latitude;
-  }
-
-  // 转换地理坐标到虚拟坐标
-  if (longitude !== undefined && latitude !== undefined) {
-    const virtualPos = geoToVirtual(longitude, latitude);
-    console.log('[玩家定位] 转换结果:', virtualPos);
-    return virtualPos;
-  }
-
-  console.warn('[玩家定位] 无法解析坐标格式:', coords);
+  console.warn('[玩家定位] 无法解析坐标');
   return null;
 });
 
@@ -1320,18 +1310,18 @@ const addTestData = () => {
   console.log('[坤舆图志] ✅ 测试数据加载完成，共', cultivationLocations.value.length, '个地点');
 };
 
-// 加载地图配置
+// 加载地图配置 - 仅使用分片格式
 const loadMapConfig = async (variables: TavernVariables) => {
   try {
     console.log('[地图配置] 开始加载地图配置...');
-    
-    const worldInfo = variables['character.saveData']?.世界信息;
+
+    const worldInfo = variables['世界信息'];
     const config = worldInfo?.地图配置;
-    
+
     if (config) {
       console.log('[地图配置] 找到地图配置:', config);
       mapConfig.value = config;
-      
+
       // 更新地图尺寸
       if (config.width && config.height) {
         mapWidth.value = config.width;
@@ -1397,22 +1387,22 @@ const loadCultivationWorldFromTavern = async (variables: TavernVariables) => {
   }
 };
 
-// 加载大洲数据 - 从character.saveData.世界信息读取
+// 加载大洲数据 - 仅使用分片格式
 const loadContinentsData = async (variables: TavernVariables) => {
   try {
     console.log('🏔️ [大陆加载] 开始加载大陆数据，可用变量:', Object.keys(variables));
-    
-    const worldInfo = variables['character.saveData']?.世界信息;
+
+    const worldInfo = variables['世界信息'];
     const continentsData = worldInfo?.大陆信息 || [];
-    
+
     console.log('🏔️ [大陆加载] 从世界信息读取到大陆数量:', continentsData.length);
     console.log('🏔️ [大陆加载] 世界信息结构:', worldInfo);
-    
+
     if (continentsData.length === 0) {
       console.warn('🏔️ [大陆加载] 没有找到大陆数据');
       return;
     }
-    
+
     console.log('🏔️ [大陆加载] 最终大陆数据:', continentsData);
 
     if (Array.isArray(continentsData)) {
@@ -1433,12 +1423,12 @@ const loadContinentsData = async (variables: TavernVariables) => {
   }
 };
 
-// 加载势力数据 - 从character.saveData.世界信息读取
+// 加载势力数据 - 仅使用分片格式
 const loadFactionsData = async (variables: TavernVariables) => {
   try {
     console.log('⚔️ [势力加载] 开始加载势力数据');
-    
-    const worldInfo = variables['character.saveData']?.世界信息;
+
+    const worldInfo = variables['世界信息'];
     const factionsData = worldInfo?.势力信息 || [];
     
     console.log('⚔️ [势力加载] 从世界信息读取到势力数量:', factionsData.length);
@@ -1541,12 +1531,12 @@ const loadFactionsData = async (variables: TavernVariables) => {
   }
 };
 
-// 加载地点数据 - 从character.saveData.世界信息读取
+// 加载地点数据 - 仅使用分片格式
 const loadLocationsData = async (variables: TavernVariables) => {
   try {
     console.log('🏯 [地点加载] 开始加载地点数据');
-    
-    const worldInfo = variables['character.saveData']?.世界信息;
+
+    const worldInfo = variables['世界信息'];
     const locationsData = worldInfo?.地点信息 || [];
     
     console.log('🏯 [地点加载] 从世界信息读取到地点数量:', locationsData.length);
@@ -1711,23 +1701,23 @@ const debugMapData = async () => {
     console.log('[调试] Chat变量键值:', Object.keys(chatVars));
     console.log('[调试] Global变量键值:', Object.keys(globalVars));
 
-    // 检查势力和地点数据 - 优先检查新数据结构
-    const saveData = chatVars['character.saveData'] as CharacterSaveData | undefined;
-    if (saveData?.世界信息) {
-      console.log('[调试] ===== 找到新的世界数据结构 =====');
-      console.log('[调试] character.saveData.世界信息:', saveData.世界信息);
-      
-      if (saveData.世界信息.大陆信息) {
-        console.log('[调试] 大陆信息数量:', saveData.世界信息.大陆信息.length);
+    // 检查世界数据 - 仅检查新的分片格式
+    const worldInfo = chatVars['世界信息'] as WorldInfoShard | undefined;
+    if (worldInfo) {
+      console.log('[调试] ===== 找到世界数据结构 =====');
+      console.log('[调试] 世界信息:', worldInfo);
+
+      if (worldInfo.大陆信息) {
+        console.log('[调试] 大陆信息数量:', worldInfo.大陆信息.length);
       }
-      if (saveData.世界信息.势力信息) {
-        console.log('[调试] 势力信息数量:', saveData.世界信息.势力信息.length);
+      if (worldInfo.势力信息) {
+        console.log('[调试] 势力信息数量:', worldInfo.势力信息.length);
       }
-      if (saveData.世界信息.地点信息) {
-        console.log('[调试] 地点信息数量:', saveData.世界信息.地点信息.length);
+      if (worldInfo.地点信息) {
+        console.log('[调试] 地点信息数量:', worldInfo.地点信息.length);
       }
     } else {
-      console.log('[调试] ===== 未找到新的世界数据结构，检查旧格式 =====');
+      console.log('[调试] ===== 未找到世界数据结构 =====');
     }
 
     // 检查旧格式数据

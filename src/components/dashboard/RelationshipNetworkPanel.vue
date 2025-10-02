@@ -448,25 +448,40 @@ const getNpcRealmParsed = (npc: NpcProfile): { 境界: number | null; 阶段: st
 
 // 获取NPC境界信息
 const getNpcRealm = (npc: NpcProfile): string => {
-  // 可能的字段位置：玩家角色状态.境界 或 境界
-  const realmField = (npc as any).玩家角色状态?.境界 ?? (npc as any).境界;
-  const stageField = (npc as any).玩家角色状态?.阶段 ?? (npc as any).阶段;
+  // 尝试多个位置获取境界和阶段信息
+  const sources = [
+    (npc as any)?.玩家角色状态?.境界,
+    (npc as any)?.境界,
+    (npc as any)?.角色基础信息?.境界
+  ];
 
-  if (!realmField) return '未知';
+  for (const realmField of sources) {
+    if (!realmField) continue;
 
-  // 如果境界是 Realm 对象，提取名称
-  let realmName: string;
-  if (typeof realmField === 'object' && realmField !== null) {
-    realmName = realmField.名称 || '未知';
-  } else if (typeof realmField === 'number') {
-    const realmNames = ['凡人', '练气', '筑基', '金丹', '元婴', '化神', '炼虚', '合体', '渡劫'];
-    realmName = realmNames[realmField] || '未知';
-  } else {
-    realmName = String(realmField);
+    // 如果境界是对象格式 { 名称: "渡劫", 阶段: "圆满" }
+    if (typeof realmField === 'object' && realmField !== null) {
+      const name = realmField.名称 || realmField.name || '';
+      const stage = realmField.阶段 || realmField.stage || '';
+      if (name) {
+        return stage ? `${name}${stage}` : name;
+      }
+    }
+    // 如果境界是数字
+    else if (typeof realmField === 'number') {
+      const realmNames = ['凡人', '练气', '筑基', '金丹', '元婴', '化神', '炼虚', '合体', '渡劫'];
+      const name = realmNames[realmField] || '未知';
+      // 尝试从其他字段获取阶段
+      const stageField = (npc as any)?.玩家角色状态?.阶段 ?? (npc as any)?.阶段 ?? (npc as any)?.角色基础信息?.阶段;
+      return stageField ? `${name}${stageField}` : name;
+    }
+    // 如果境界是字符串
+    else if (typeof realmField === 'string') {
+      const stageField = (npc as any)?.玩家角色状态?.阶段 ?? (npc as any)?.阶段 ?? (npc as any)?.角色基础信息?.阶段;
+      return stageField ? `${realmField}${stageField}` : realmField;
+    }
   }
 
-  // 组合境界名称和阶段
-  return stageField ? `${realmName}${stageField}` : realmName;
+  return '未知';
 };
 
 // 获取NPC灵根信息

@@ -43,7 +43,7 @@
                 class="reset-state-btn"
                 title="如果长时间无响应，点击此处重置状态"
               >
-                🔄 重置状态
+                重置状态
               </button>
             </div>
             <div class="narrative-text">
@@ -419,7 +419,7 @@ const forceResetAIProcessingState = () => {
 // 在 window 上暴露方法以便调试
 if (typeof window !== 'undefined') {
   (window as any).forceResetAIState = forceResetAIProcessingState;
-  
+
   // 暴露调试短期记忆的方法（支持双存储）
   (window as any).debugMemory = async () => {
     const save = characterStore.activeSaveSlot;
@@ -456,7 +456,7 @@ if (typeof window !== 'undefined') {
       本地存储可用: !!localStorageData
     };
   };
-  
+
   // 暴露手动添加测试记忆的方法
   (window as any).testAddMemory = async (text: string) => {
     console.log('[测试] 手动添加记忆:', text);
@@ -465,7 +465,7 @@ if (typeof window !== 'undefined') {
     await characterStore.syncToTavernAndSave();
     console.log('[测试] 持久化完成');
   };
-  
+
 
   // 暴露调试AI响应存储的方法
   (window as any).debugAIResponse = async () => {
@@ -613,7 +613,7 @@ const getIconForCommand = (change: { key: string; action: string; oldValue: unkn
   if (action === 'dec' || action === 'remove' || (action === 'set' && Number(change.newValue) < Number(change.oldValue))) {
     return ArrowDownRight;
   }
-  
+
   return Activity; // 默认图标
 };
 
@@ -648,40 +648,54 @@ const getActionText = (action: string): string => {
 // 获取变量显示名称 - 将技术性的变量路径转换为用户友好的名称
 const getVariableDisplayName = (key: string): string => {
   const nameMap: Record<string, string> = {
-    // 角色基础属性
-    'character.saveData.角色属性.生命值': '生命值',
-    'character.saveData.角色属性.灵力值': '灵力值',
-    'character.saveData.角色属性.境界': '修炼境界',
-    'character.saveData.角色属性.修为': '修为',
-    'character.saveData.角色属性.经验值': '经验值',
+    // 角色基础属性 - 使用新的简化路径格式
+    '属性.气血.当前': '气血当前值',
+    '属性.气血.上限': '气血上限',
+    '属性.灵气.当前': '灵气当前值',
+    '属性.灵气.上限': '灵气上限',
+    '属性.神识.当前': '神识当前值',
+    '属性.神识.上限': '神识上限',
+    '境界.名称': '修炼境界',
+    '境界.阶段': '境界阶段',
+    '境界.当前进度': '修为',
+    '境界.下一级所需': '下一级所需修为',
 
     // 背包相关
-    'character.saveData.背包.灵石.下品': '下品灵石',
-    'character.saveData.背包.灵石.中品': '中品灵石',
-    'character.saveData.背包.灵石.上品': '上品灵石',
-    'character.saveData.背包.灵石.极品': '极品灵石',
-    'character.saveData.背包.物品': '背包物品',
+    '背包_灵石.下品': '下品灵石',
+    '背包_灵石.中品': '中品灵石',
+    '背包_灵石.上品': '上品灵石',
+    '背包_灵石.极品': '极品灵石',
+    '背包_物品': '背包物品',
 
     // 装备栏
-    'character.saveData.装备栏': '装备栏',
-    'character.saveData.装备栏.装备1': '装备栏1',
-    'character.saveData.装备栏.装备2': '装备栏2',
-    'character.saveData.装备栏.装备3': '装备栏3',
+    '装备栏': '装备栏',
+    '装备栏.装备1': '装备栏1',
+    '装备栏.装备2': '装备栏2',
+    '装备栏.装备3': '装备栏3',
+    '装备栏.装备4': '装备栏4',
+    '装备栏.装备5': '装备栏5',
+    '装备栏.装备6': '装备栏6',
 
     // 修炼功法
-    'character.saveData.修炼功法.功法': '修炼功法',
-    'character.saveData.修炼功法.熟练度': '功法熟练度',
-    'character.saveData.修炼功法.修炼时间': '修炼时间',
+    '修炼功法.功法': '修炼功法',
+    '修炼功法.正在修炼': '修炼状态',
+    '修炼功法.修炼进度': '功法修炼进度',
 
-    // 游戏进度
-    'character.saveData.游戏进度.当前章节': '当前章节',
-    'character.saveData.游戏进度.完成任务': '完成任务',
-    'character.saveData.游戏进度.解锁区域': '解锁区域',
+    // 游戏时间
+    '游戏时间.年': '当前年份',
+    '游戏时间.月': '当前月份',
+    '游戏时间.日': '当前日期',
+
+    // 位置
+    '位置.描述': '当前位置',
+    '位置.区域': '所在区域',
 
     // 人际关系
-    'character.saveData.人际关系': '人际关系',
-    'character.saveData.声望.宗门声望': '宗门声望',
-    'character.saveData.声望.江湖声望': '江湖声望',
+    '人物关系': '人际关系',
+
+    // 寿命
+    '属性.寿命.当前': '当前年龄',
+    '属性.寿命.预期寿命': '预期寿命',
   };
 
   // 如果有精确匹配，返回对应的中文名称
@@ -690,12 +704,12 @@ const getVariableDisplayName = (key: string): string => {
   }
 
   // 模式匹配 - 处理动态生成的键名
-  if (key.includes('character.saveData.背包.物品.')) {
+  if (key.includes('背包_物品.')) {
     const itemId = key.split('.').pop();
     return `物品: ${itemId?.substring(0, 10)}...`;
   }
 
-  if (key.includes('character.saveData.人际关系.')) {
+  if (key.includes('人物关系.')) {
     const npcName = key.split('.').pop();
     return `关系: ${npcName}`;
   }
@@ -706,8 +720,6 @@ const getVariableDisplayName = (key: string): string => {
 
   // 去除技术前缀，保留有意义的部分
   const simplifiedKey = key
-    .replace('character.saveData.', '')
-    .replace('character.', '')
     .split('.')
     .slice(-2) // 取最后两段
     .join('.');
@@ -855,10 +867,10 @@ const formatValue = (value: unknown): string => {
     if (typeof valAsRecord['当前'] === 'number' && typeof valAsRecord['最大'] === 'number') {
       return `${valAsRecord['当前']} / ${valAsRecord['最大']}`;
     }
-    
+
     const keys = Object.keys(value);
     if (keys.length === 0) return '空对象';
-    
+
     const jsonString = JSON.stringify(value);
     if (jsonString.length > 50) {
       return `${jsonString.substring(0, 47)}...`;
@@ -1230,11 +1242,13 @@ const retryAIResponse = async (
   "text": "正文内容，用于短期记忆和显示",
   "mid_term_memory": "【必须】精简的中期记忆内容，包含关键事件和变化，不能为空",
   "tavern_commands": [
-    {"action": "set", "key": "character.saveData.path.to.variable", "value": "新值"}
+    {"action": "set", "key": "境界.名称", "value": "新值"}
   ]
 }
 
-⚠️ 注意：mid_term_memory字段是必须的，必须返回有意义的中期记忆总结。
+⚠️ 注意：
+1. mid_term_memory字段是必须的，必须返回有意义的中期记忆总结
+2. 🔥 使用新的简化路径格式：境界.名称 而不是 character.saveData.玩家角色状态.境界.名称
 
 上次响应的问题：${previousErrors.join(', ')}
 请修正这些问题并确保结构正确。`;
@@ -1464,12 +1478,13 @@ const sendMessage = async () => {
       }
 
 
-      // 完成流式输出 - 彻底清除流式状态
+      // 完成流式输出 - 清除流式状态（但保持isAIProcessing为true直到所有处理完成）
       console.log('[流式输出] 完成，清除流式状态');
       streamingMessageIndex.value = null;
       streamingContent.value = ''; // 清空流式内容
-      isAIProcessing.value = false; // 立即标记为完成
-      persistAIProcessingState(); // 清除持久化状态
+      // 🔥 重要：不在这里设置 isAIProcessing = false，因为还有后续处理
+      // 避免触发 watch 监听器过早更新 currentNarrative
+      // isAIProcessing 会在 finally 块中统一设置为 false
 
       // --- 核心逻辑：整合最终文本并更新状态 ---
       let finalText = '';
@@ -1517,6 +1532,22 @@ const sendMessage = async () => {
         console.log('[AI响应处理] 最终文本已添加到短期记忆，文本长度:', finalText.length);
       } else {
         console.error('[AI响应处理] 没有找到有效的文本内容，跳过记忆保存');
+      }
+
+      // 🔥 核心修复：在syncFromTavern之前，先将记忆同步到Tavern
+      // 原因：addToShortTermMemory只更新内存，记忆分片还没同步
+      // 如果不先同步，syncFromTavern会用旧记忆覆盖新记忆
+      console.log('[记忆同步] 开始将最新记忆同步到Tavern分片...');
+      const currentSaveData = characterStore.activeSaveSlot?.存档数据;
+      if (currentSaveData?.记忆) {
+        const helper = getTavernHelper();
+        if (helper) {
+          // 同步三个记忆分片
+          await helper.setVariable('记忆_短期', currentSaveData.记忆.短期记忆, { type: 'chat' });
+          await helper.setVariable('记忆_中期', currentSaveData.记忆.中期记忆, { type: 'chat' });
+          await helper.setVariable('记忆_长期', currentSaveData.记忆.长期记忆, { type: 'chat' });
+          console.log('[记忆同步] ✅ 记忆已同步到Tavern分片');
+        }
       }
 
       // 🔥 核心修复：每次AI响应后都要同步数据（不管有没有tavern_commands）
@@ -1633,7 +1664,7 @@ const sendMessage = async () => {
 
     // 成功的提示
     if (aiResponse) {
-      toast.success('天道已回');
+      toast.success('天机重现');
 
       // 清空已发送的图片
       clearImages();
@@ -1739,30 +1770,30 @@ const midTermMemoryCache = {
       return null;
     }
   },
-  
+
   async processPendingMidTermMemories() {
     try {
       const helper = getTavernHelper();
       if (!helper) return [];
-      
+
       const cacheKey = '_pending_mid_term_cache';
       const cache = (await helper.getVariables({ type: 'chat' }))[cacheKey] as Record<string, any> || {};
       const pendingEntries = Object.entries(cache).filter(([_, data]: [string, any]) => !data.processed);
-      
+
       if (pendingEntries.length === 0) return [];
-      
+
       console.log('[中期记忆缓存] 开始处理', pendingEntries.length, '条待转换记忆');
-      
+
       // 准备转换的中期记忆列表
       const midTermMemories = pendingEntries.map(([shortContent, data]: [string, any]) => {
         // 标记为已处理
         cache[shortContent].processed = true;
         return data.summary;
       });
-      
+
       // 更新缓存状态
       await helper.insertOrAssignVariables({ [cacheKey]: cache }, { type: 'chat' });
-      
+
       console.log('[中期记忆缓存] 已处理完成，生成', midTermMemories.length, '条中期记忆');
       return midTermMemories;
     } catch (error) {
@@ -1770,20 +1801,20 @@ const midTermMemoryCache = {
       return [];
     }
   },
-  
+
   async clearProcessedCache() {
     try {
       const helper = getTavernHelper();
       if (!helper) return;
-      
+
       const cacheKey = '_pending_mid_term_cache';
       const cache = (await helper.getVariables({ type: 'chat' }))[cacheKey] as Record<string, any> || {};
-      
+
       // 只清除已处理的条目
       const unprocessedCache = Object.fromEntries(
         Object.entries(cache).filter(([_, data]: [string, any]) => !data.processed)
       );
-      
+
       await helper.insertOrAssignVariables({ [cacheKey]: unprocessedCache }, { type: 'chat' });
       console.log('[中期记忆缓存] 已清除已处理的缓存条目');
     } catch (error) {
@@ -1836,14 +1867,22 @@ const addToShortTermMemory = async (
       // 确保中期记忆结构存在
       if (!sd.记忆.中期记忆) sd.记忆.中期记忆 = [];
 
-      // 如果有AI提供的中期记忆总结，使用它
+      // 🔥 核心修复：优先使用AI生成的总结，如果没有则自动生成简短总结
       if (midTermSummary && midTermSummary.trim()) {
         const gameTime = sd.游戏时间;
         const timeString = gameTime ? `【${gameTime.年}年${gameTime.月}月${gameTime.日}日】` : '';
         sd.记忆.中期记忆.unshift(`${timeString} ${midTermSummary}`);
-        console.log('[记忆管理] 已使用AI生成的中期记忆总结');
+        console.log('[记忆管理] ✅ 使用AI生成的中期记忆总结');
       } else {
-        console.warn('[记忆管理] ⚠️ AI未返回mid_term_memory，溢出的短期记忆将被丢弃');
+        // 如果AI没返回mid_term_memory，自动生成简短总结，不丢弃记忆
+        console.warn('[记忆管理] ⚠️ AI未返回mid_term_memory，自动生成总结');
+        const gameTime = sd.游戏时间;
+        const timeString = gameTime ? `【${gameTime.年}年${gameTime.月}月${gameTime.日}日】` : '';
+        // 取溢出记忆的前100字作为总结
+        const summary = overflow.map(m => m.substring(0, 50)).join('；');
+        const shortSummary = summary.length > 100 ? summary.substring(0, 100) + '...' : summary;
+        sd.记忆.中期记忆.unshift(`${timeString} ${shortSummary}`);
+        console.log('[记忆管理] ✅ 已自动生成中期记忆总结');
       }
 
       console.log(`[记忆管理] 当前中期记忆数量: ${sd.记忆.中期记忆.length}`);
@@ -2564,8 +2603,8 @@ const syncGameState = async () => {
 .reset-state-btn {
   padding: 4px 12px;
   font-size: 13px;
-  background: #f59e0b;
-  color: white;
+  background: var(--color-primary-active);
+  color: var(--color-text);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -2577,7 +2616,6 @@ const syncGameState = async () => {
 }
 
 .reset-state-btn:hover {
-  background: #d97706;
   transform: translateY(-1px);
 }
 

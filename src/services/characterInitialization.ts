@@ -285,14 +285,31 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
   const helper = getTavernHelper();
   if (helper) {
     try {
-      // 清空所有旧的 character 相关变量
-      console.log('[初始化流程] 清空旧的character相关变量');
+      // 清空所有分片变量和旧的character变量
+      console.log('[初始化流程] 清空旧的分片和character变量');
       const allVars = await helper.getVariables({ type: 'chat' });
+
+      // 定义所有分片变量名
+      const shardNames = [
+        '基础信息', '境界', '属性', '位置', '修炼功法', '装备栏',
+        '背包_灵石', '背包_物品', '人物关系', '三千大道', '世界信息',
+        '记忆_短期', '记忆_中期', '记忆_长期', '游戏时间', '状态效果'
+      ];
+
+      // 删除所有分片变量
+      for (const shardName of shardNames) {
+        if (allVars[shardName] !== undefined) {
+          await helper.deleteVariable(shardName, { type: 'chat' });
+        }
+      }
+
+      // 删除旧的character.开头的变量（兼容旧版本）
       const characterKeys = Object.keys(allVars).filter(key => key.startsWith('character.'));
       for (const key of characterKeys) {
         await helper.deleteVariable(key, { type: 'chat' });
       }
-      console.log('[初始化流程] 旧数据已清空，AI生成后将同步新数据');
+
+      console.log('[初始化流程] 旧数据已清空（分片变量:', shardNames.length, '个 + character变量:', characterKeys.length, '个）');
     } catch (error) {
       console.warn('[初始化流程] 清空旧数据失败（非致命）:', error);
     }
@@ -508,9 +525,25 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
 
   // 6. 同步到Tavern
   try {
-    // ⚠️ 清空所有旧的 character 相关变量
-    console.log('[初始化流程] 清空旧的character相关变量');
+    // ⚠️ 清空所有分片变量和旧的character变量
+    console.log('[初始化流程] 清空旧的分片和character变量');
     const allVars = await helper.getVariables({ type: 'chat' });
+
+    // 定义所有分片变量名
+    const shardNames = [
+      '基础信息', '境界', '属性', '位置', '修炼功法', '装备栏',
+      '背包_灵石', '背包_物品', '人物关系', '三千大道', '世界信息',
+      '记忆_短期', '记忆_中期', '记忆_长期', '游戏时间', '状态效果'
+    ];
+
+    // 删除所有分片变量
+    for (const shardName of shardNames) {
+      if (allVars[shardName] !== undefined) {
+        await helper.deleteVariable(shardName, { type: 'chat' });
+      }
+    }
+
+    // 删除旧的character.开头的变量（兼容旧版本）
     const characterKeys = Object.keys(allVars).filter(key => key.startsWith('character.'));
     for (const key of characterKeys) {
       await helper.deleteVariable(key, { type: 'chat' });

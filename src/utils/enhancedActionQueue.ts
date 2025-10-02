@@ -114,10 +114,13 @@ export class EnhancedActionQueueManager {
         物品ID: item.物品ID,
         名称: item.名称
       };
-      
-      // 设置物品的已装备标记
+
+      // 设置物品的已装备标记 - 使用响应式替换
       if (inventoryItem) {
-        inventoryItem.已装备 = true;
+        inventoryItems[item.物品ID] = {
+          ...inventoryItem,
+          已装备: true
+        };
       }
 
       console.log('装备操作完成:', {
@@ -235,14 +238,17 @@ export class EnhancedActionQueueManager {
       // 执行卸下操作
       saveData.装备栏[sourceSlot as keyof typeof saveData.装备栏] = null;
 
-      // 清除物品的已装备标记
+      // 清除物品的已装备标记 - 使用响应式替换
       if (inventoryItem) {
-        inventoryItem.已装备 = false;
+        inventoryItems[item.物品ID] = {
+          ...inventoryItem,
+          已装备: false
+        };
         console.log('卸下装备完成:', {
           物品: item.名称,
           物品ID: item.物品ID,
           清空槽位: sourceSlot,
-          已装备状态: inventoryItem.已装备
+          已装备状态: false
         });
       } else {
         console.warn('背包中未找到物品:', item.物品ID);
@@ -399,12 +405,15 @@ export class EnhancedActionQueueManager {
           previousTechnique = currentTechnique;
         }
 
-        // 清除之前功法的已装备状态
+        // 清除之前功法的已装备状态 - 使用响应式替换
         const previousId = typeof currentTechnique === 'string' ? currentTechnique : currentTechnique.物品ID;
         const previousInventoryItem = inventoryItems[previousId];
         if (previousInventoryItem && previousInventoryItem.类型 === '功法') {
-          previousInventoryItem.已装备 = false;
-          previousInventoryItem.修炼中 = false;
+          inventoryItems[previousId] = {
+            ...previousInventoryItem,
+            已装备: false,
+            修炼中: false
+          };
         }
       }
 
@@ -414,23 +423,27 @@ export class EnhancedActionQueueManager {
         名称: item.名称,
       };
 
-      // 设置功法的已装备和修炼中标记
+      // 设置功法的已装备和修炼中标记 - 使用响应式替换
       const inventoryItem = inventoryItems[item.物品ID];
       if (inventoryItem && inventoryItem.类型 === '功法') {
-        inventoryItem.已装备 = true;
-        inventoryItem.修炼中 = true;
+        // 创建新对象以触发响应式更新
+        inventoryItems[item.物品ID] = {
+          ...inventoryItem,
+          已装备: true,
+          修炼中: true
+        };
       }
-      
+
       // 初始化修炼数据
       if (typeof skillSlots.熟练度 !== 'number') skillSlots.熟练度 = 0;
       if (typeof skillSlots.修炼时间 !== 'number') skillSlots.修炼时间 = 0;
       if (typeof skillSlots.突破次数 !== 'number') skillSlots.突破次数 = 0;
-      
+
       // 关键：设置修炼状态为true
       skillSlots.正在修炼 = true;
       skillSlots.修炼进度 = skillSlots.修炼进度 || 0;
       // 移除时间戳记录，简化逻辑
-      
+
       // 注意：修炼功法不从背包移除，功法和背包是独立的
 
       // 保存到本地存储（关键！）
@@ -510,10 +523,13 @@ export class EnhancedActionQueueManager {
       saveData.修炼功法.功法 = null;
       saveData.修炼功法.正在修炼 = false;
 
-      // 清除功法的已装备和修炼中标记
+      // 清除功法的已装备和修炼中标记 - 使用响应式替换
       if (inventoryItem && inventoryItem.类型 === '功法') {
-        inventoryItem.已装备 = false;
-        inventoryItem.修炼中 = false;
+        inventoryItems[techniqueId] = {
+          ...inventoryItem,
+          已装备: false,
+          修炼中: false
+        };
       }
 
       // 注意：停止修炼功法不放回背包，功法和背包是独立的

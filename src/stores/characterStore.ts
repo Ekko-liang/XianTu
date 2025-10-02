@@ -12,6 +12,19 @@ import { createCharacter as createCharacterAPI, updateCharacterSave } from '@/se
 import { validateGameData } from '@/utils/dataValidation';
 import { getAIDataRepairSystemPrompt } from '@/utils/prompts/dataRepairPrompts';
 import { updateLifespanFromGameTime, updateNpcLifespanFromGameTime } from '@/utils/lifespanCalculator'; // <-- 导入寿命计算工具
+import {
+  shardSaveData,
+  assembleSaveData,
+  saveAllShards,
+  loadAllShards,
+  updateShards,
+  clearAllShards,
+  getShardFromSaveData,
+  mapOldPathToShard,
+  hasLegacySaveData,
+  migrateLegacyToShards,
+  type StorageShards
+} from '@/utils/storageSharding'; // 导入分片存储工具
 import type { World } from '@/types';
 import type { LocalStorageRoot, CharacterProfile, CharacterBaseInfo, SaveSlot, SaveData, StateChangeLog, Realm } from '@/types/game';
 
@@ -188,8 +201,8 @@ export const useCharacterStore = defineStore('characterV3', () => {
   };
 
   /**
-   * [新增] 将当前存档数据同步到酒馆并保存到本地
-   * 这是UI操作后的标准保存方法，确保数据同时更新到酒馆和本地
+   * [核心改造] 将当前存档数据同步到酒馆并保存到本地
+   * 使用分片存储替代完整SaveData同步
    * @param fullSync 是否进行完整同步（默认 false，只在必要时使用）
    * @param changedPaths 变更的字段路径数组（增量同步时使用）
    */
@@ -227,35 +240,44 @@ export const useCharacterStore = defineStore('characterV3', () => {
         debug.warn('角色商店', '[同步] 自动更新年龄失败（非致命）:', error);
       }
 
-      // 2. 同步到酒馆（支持增量和完整同步）
+      // 2. 🔥 使用分片存储同步到酒馆
       const helper = getTavernHelper();
 
       if (helper) {
         try {
-          // 检查必需的方法是否存在
-          if (typeof helper.setVariable !== 'function') {
-            throw new Error('TavernHelper.setVariable 方法不可用，请检查 SillyTavern 版本');
-          }
-          if (typeof helper.getVariable !== 'function') {
-            throw new Error('TavernHelper.getVariable 方法不可用，请检查 SillyTavern 版本');
-          }
-
           const fullSync = options?.fullSync ?? false;
           const changedPaths = options?.changedPaths;
 
           if (fullSync || !changedPaths || changedPaths.length === 0) {
-            // 完整同步：保存整个 SaveData（谨慎使用！）
-            await helper.setVariable('character.saveData', slot.存档数据, { type: 'chat' });
-            debug.log('角色商店', '[同步] 已将完整存档数据同步到酒馆（完整同步）');
+            // 完整同步：保存所有分片
+            const shards = shardSaveData(slot.存档数据);
+            await saveAllShards(shards, helper);
+            debug.log('角色商店', '[同步] ✅ 已将完整存档以分片模式同步到酒馆');
           } else {
-            // 🔥 增量同步：获取整个saveData，应用变更，再整体更新
-            const currentSaveData = await helper.getVariable('character.saveData', { type: 'chat' }) || {};
+            // 🔥 真正的增量同步：只更新变化的分片
+            const updatedShards: Partial<StorageShards> = {};
+            const affectedShards = new Set<keyof StorageShards>();
+
+            // 分析变更路径，确定影响的分片
             for (const path of changedPaths) {
-              const value = getNestedValue(slot.存档数据! as unknown as Record<string, unknown>, path);
-              setLodash(currentSaveData as object, path, value);
+              const mapping = mapOldPathToShard(path);
+              if (mapping) {
+                affectedShards.add(mapping.shardKey);
+              } else {
+                debug.warn('角色商店', `无法映射路径到分片: ${path}`);
+              }
             }
-            await helper.setVariable('character.saveData', currentSaveData, { type: 'chat' });
-            debug.log('角色商店', `[同步] 已增量同步 ${changedPaths.length} 个字段到character.saveData`);
+
+            // 提取受影响的分片数据
+            for (const shardKey of affectedShards) {
+              updatedShards[shardKey] = getShardFromSaveData(slot.存档数据, shardKey) as any;
+            }
+
+            // 批量更新受影响的分片
+            if (Object.keys(updatedShards).length > 0) {
+              await updateShards(updatedShards, helper);
+              debug.log('角色商店', `[同步] ✅ 已增量同步 ${Object.keys(updatedShards).length} 个分片`);
+            }
           }
         } catch (helperError) {
           debug.error('角色商店', '[同步] 同步失败:', helperError);
@@ -591,8 +613,8 @@ export const useCharacterStore = defineStore('characterV3', () => {
   };
 
   /**
-   * [核心] 将激活存档的完整数据同步到酒馆的 `character.saveData` 聊天变量中
-   * 这是唯一向酒馆写入角色数据的地方
+   * [核心改造] 将激活存档使用分片方式同步到酒馆
+   * 替代旧的完整SaveData同步，使用扁平化分片存储
    * @param charId 要设置为激活的角色ID
    */
   const setActiveCharacterInTavern = async (charId: string) => {
@@ -600,7 +622,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
     if (!profile) {
       throw new Error(`[存档核心] 无法找到ID为 ${charId} 的角色档案`);
     }
-    
+
     // 必须获取当前激活的存档数据，因为这是唯一的数据源
     const currentSlot = activeSaveSlot.value;
     if (!currentSlot || !currentSlot.存档数据) {
@@ -608,26 +630,32 @@ export const useCharacterStore = defineStore('characterV3', () => {
       debug.warn('角色商店', `角色 ${charId} 没有可用的存档数据来同步到酒馆`);
       return;
     }
-    
+
     try {
       const helper = getTavernHelper();
       if (!helper) {
         throw new Error('[存档核心] 酒馆连接尚未建立！');
       }
 
-      // ⚠️ 关键修复：先清空旧的 character.saveData，避免数据累积和嵌套
-      debug.log('角色商店', '清空旧的character.saveData，避免数据累积');
-      await helper.deleteVariable('character.saveData', { type: 'chat' });
+      // 🔥 新架构：使用分片存储替代完整SaveData
+      debug.log('角色商店', '使用分片存储模式同步存档到酒馆');
 
-      // 唯一的写入操作：将整个SaveData对象写入到 'character.saveData'
-      const chatVars = {
-        'character.saveData': currentSlot.存档数据
-      };
+      // 1. 清除旧的完整SaveData（如果存在）
+      try {
+        await helper.deleteVariable('character.saveData', { type: 'chat' });
+        debug.log('角色商店', '已清除旧格式的character.saveData');
+      } catch {
+        // 旧数据可能不存在，忽略错误
+      }
 
-      await helper.insertOrAssignVariables(chatVars, { type: 'chat' });
+      // 2. 清除所有旧分片
+      await clearAllShards(helper);
 
-      debug.log('角色商店', `已将【${profile.角色基础信息.名字}】的激活存档同步至酒馆`);
-      // toast.info(`已将【${profile.角色基础信息.名字}】的档案同步至酒馆。`); // 由调用者处理通知
+      // 3. 将SaveData转换为分片并保存
+      const shards = shardSaveData(currentSlot.存档数据);
+      await saveAllShards(shards, helper);
+
+      debug.log('角色商店', `✅ 已将【${profile.角色基础信息.名字}】的存档以分片模式同步至酒馆`);
 
     } catch (error) {
       debug.error('角色商店', '同步角色档案至酒馆失败', error);
@@ -638,8 +666,8 @@ export const useCharacterStore = defineStore('characterV3', () => {
   };
 
   /**
-   * [核心] 从酒馆同步最新的存档数据到本地store
-   * 用于在游戏过程中获取AI更新的数据
+   * [核心改造] 从酒馆同步最新的存档数据到本地store
+   * 使用分片加载替代完整SaveData加载
    */
   const syncFromTavern = async () => {
     const active = rootState.value.当前激活存档;
@@ -657,151 +685,116 @@ export const useCharacterStore = defineStore('characterV3', () => {
         throw new Error('酒馆连接尚未建立！');
       }
 
-      // 从酒馆获取最新数据
-      const chatVars = await helper.getVariables({ type: 'chat' });
-      const tavernSaveData = chatVars['character.saveData'] as SaveData | undefined;
-      
-      if (tavernSaveData) {
-        // ⚠️ 数据完整性检查：拒绝嵌套或异常的数据结构
-        if ((tavernSaveData as any).character ||
-            (tavernSaveData as any).存档列表 ||
-            (tavernSaveData as any).角色列表) {
-          console.error('[角色商店] 检测到酒馆数据异常：包含不应存在的嵌套结构', tavernSaveData);
-          toast.error('检测到酒馆数据异常，已拒绝同步。请检查控制台。');
-          return;
-        }
-
-        // 直接使用酒馆数据，不做任何"修复"
-        const cleanedSaveData = tavernSaveData;
-
-        // 修复物品数据问题：确保背包物品数据正确
-        if (cleanedSaveData.背包 && typeof cleanedSaveData.背包.物品 === 'object') {
-          if (Object.keys(cleanedSaveData.背包.物品).length === 0) {
-            debug.log('角色商店', '检测到空的背包.物品数据');
-          } else {
-            debug.log('角色商店', `背包中有${Object.keys(cleanedSaveData.背包.物品).length}个物品`);
-          }
-        }
-        
-        // 修复三千大道数据：确保经验值不是undefined
-        if (cleanedSaveData.三千大道) {
-          const daoSystem = cleanedSaveData.三千大道;
-          
-          // 修复大道进度数据
-          if (daoSystem.大道进度) {
-            Object.keys(daoSystem.大道进度).forEach(daoName => {
-              const progress = daoSystem.大道进度[daoName];
-              if (progress) {
-                // 确保所有数值字段都是数字
-                if (progress.当前经验 === undefined || progress.当前经验 === null) {
-                  progress.当前经验 = 0;
-                  debug.log('角色商店', `修复${daoName}的当前经验为0`);
-                }
-                if (progress.总经验 === undefined || progress.总经验 === null) {
-                  progress.总经验 = 0;
-                  debug.log('角色商店', `修复${daoName}的总经验为0`);
-                }
-                if (progress.当前阶段 === undefined || progress.当前阶段 === null) {
-                  progress.当前阶段 = 0;
-                  debug.log('角色商店', `修复${daoName}的当前阶段为0`);
-                }
-                if (progress.是否解锁 === undefined) {
-                  progress.是否解锁 = true;
-                  debug.log('角色商店', `修复${daoName}的解锁状态为true`);
-                }
-                if (!progress.道名) {
-                  progress.道名 = daoName;
-                }
-              }
-            });
-          }
-          
-          // 确保已解锁大道数组存在
-          if (!daoSystem.已解锁大道 || !Array.isArray(daoSystem.已解锁大道)) {
-            daoSystem.已解锁大道 = Object.keys(daoSystem.大道进度 || {});
-            debug.log('角色商店', `重建已解锁大道列表: ${daoSystem.已解锁大道.join(', ')}`);
-          }
-          
-          // 确保大道路径定义存在
-          if (!daoSystem.大道路径定义) {
-            daoSystem.大道路径定义 = {};
-            debug.log('角色商店', '初始化空的大道路径定义');
-          }
-        } else {
-          // 如果完全没有三千大道数据，初始化一个空结构
-          cleanedSaveData.三千大道 = {
-            已解锁大道: [],
-            大道进度: {},
-            大道路径定义: {}
-          };
-          debug.log('角色商店', '初始化空的三千大道系统');
-        }
-
-        // 确保世界信息数据存在
-        if (!cleanedSaveData.世界信息) {
-          debug.warn('角色商店', '缺少世界信息数据，可能需要重新生成地图');
-        } else {
-          debug.log('角色商店', '世界信息数据正常');
-        }
-
-        // 根据游戏时间自动更新寿命（年龄）- 用于实时显示
-        try {
-          const 更新后年龄 = updateLifespanFromGameTime(cleanedSaveData);
-          debug.log('角色商店', `[同步] 自动更新玩家年龄: ${更新后年龄}岁`);
-
-          // 更新所有NPC的年龄
-          if (cleanedSaveData.人物关系 && cleanedSaveData.游戏时间) {
-            let npcCount = 0;
-            Object.values(cleanedSaveData.人物关系).forEach((npc: any) => {
-              if (npc && typeof npc === 'object') {
-                updateNpcLifespanFromGameTime(npc, cleanedSaveData.游戏时间);
-                npcCount++;
-              }
-            });
-            debug.log('角色商店', `[同步] 自动更新${npcCount}个NPC年龄`);
-          }
-        } catch (error) {
-          debug.warn('角色商店', '[同步] 自动更新年龄失败（非致命）:', error);
-        }
-
-        // 更新本地存档数据 - 使用响应式更新方式
-        const charId = active.角色ID;
-        const slotId = active.存档槽位;
-
-        // ⚠️ 保留本地的记忆数据，避免被酒馆的旧数据覆盖
-        // 因为在AI响应流程中，记忆会在本地先更新，然后才同步到酒馆
-        const localMemory = slot.存档数据?.记忆;
-        if (localMemory) {
-          cleanedSaveData.记忆 = localMemory;
-          debug.log('角色商店', '[同步] 保留本地记忆数据，避免被酒馆旧数据覆盖');
-        }
-
-        if (profile.模式 === '单机' && profile.存档列表) {
-          // 创建新的存档列表对象，触发响应式
-          rootState.value.角色列表[charId].存档列表 = {
-            ...profile.存档列表,
-            [slotId]: {
-              ...profile.存档列表[slotId],
-              存档数据: cleanedSaveData,
-              保存时间: new Date().toISOString()
-            }
-          };
-        } else if (profile.模式 === '联机' && profile.存档) {
-          // 联机模式直接更新存档
-          rootState.value.角色列表[charId].存档 = {
-            ...profile.存档,
-            存档数据: cleanedSaveData,
-            保存时间: new Date().toISOString()
-          };
-        }
-
-        commitToStorage();
-        debug.log('角色商店', '已从酒馆同步最新存档数据（响应式更新）');
-        debug.log('角色商店', `最终背包物品数量: ${Object.keys(cleanedSaveData.背包?.物品 || {}).length}`);
-        debug.log('角色商店', `是否有世界信息: ${!!cleanedSaveData.世界信息}`);
-      } else {
-        debug.warn('角色商店', '酒馆中没有找到character.saveData数据');
+      // 🔥 新架构：检查是否需要从旧格式迁移
+      const hasLegacy = await hasLegacySaveData(helper);
+      if (hasLegacy) {
+        debug.log('角色商店', '检测到旧格式存档，执行自动迁移...');
+        await migrateLegacyToShards(helper);
+        // 静默迁移，不显示提示
       }
+
+      // 从分片加载所有数据
+      const shards = await loadAllShards(helper);
+
+      // 重组为完整SaveData
+      const saveData = assembleSaveData(shards as StorageShards);
+
+      // 修复三千大道数据：确保经验值不是undefined
+      if (saveData.三千大道) {
+        const daoSystem = saveData.三千大道;
+
+        // 修复大道进度数据
+        if (daoSystem.大道进度) {
+          Object.keys(daoSystem.大道进度).forEach(daoName => {
+            const progress = daoSystem.大道进度[daoName];
+            if (progress) {
+              // 确保所有数值字段都是数字
+              if (progress.当前经验 === undefined || progress.当前经验 === null) {
+                progress.当前经验 = 0;
+              }
+              if (progress.总经验 === undefined || progress.总经验 === null) {
+                progress.总经验 = 0;
+              }
+              if (progress.当前阶段 === undefined || progress.当前阶段 === null) {
+                progress.当前阶段 = 0;
+              }
+              if (progress.是否解锁 === undefined) {
+                progress.是否解锁 = true;
+              }
+              if (!progress.道名) {
+                progress.道名 = daoName;
+              }
+            }
+          });
+        }
+
+        // 确保已解锁大道数组存在
+        if (!daoSystem.已解锁大道 || !Array.isArray(daoSystem.已解锁大道)) {
+          daoSystem.已解锁大道 = Object.keys(daoSystem.大道进度 || {});
+        }
+
+        // 确保大道路径定义存在
+        if (!daoSystem.大道路径定义) {
+          daoSystem.大道路径定义 = {};
+        }
+      }
+
+      // 根据游戏时间自动更新寿命（年龄）- 用于实时显示
+      try {
+        const 更新后年龄 = updateLifespanFromGameTime(saveData);
+        debug.log('角色商店', `[同步] 自动更新玩家年龄: ${更新后年龄}岁`);
+
+        // 更新所有NPC的年龄
+        if (saveData.人物关系 && saveData.游戏时间) {
+          let npcCount = 0;
+          Object.values(saveData.人物关系).forEach((npc: any) => {
+            if (npc && typeof npc === 'object') {
+              updateNpcLifespanFromGameTime(npc, saveData.游戏时间);
+              npcCount++;
+            }
+          });
+          debug.log('角色商店', `[同步] 自动更新${npcCount}个NPC年龄`);
+        }
+      } catch (error) {
+        debug.warn('角色商店', '[同步] 自动更新年龄失败（非致命）:', error);
+      }
+
+      // ⚠️ 保留本地的记忆数据，避免被酒馆的旧数据覆盖
+      // 因为在AI响应流程中，记忆会在本地先更新，然后才同步到酒馆
+      const localMemory = slot.存档数据?.记忆;
+      if (localMemory) {
+        saveData.记忆 = localMemory;
+        debug.log('角色商店', '[同步] 保留本地记忆数据，避免被酒馆旧数据覆盖');
+      }
+
+      // 更新本地存档数据 - 使用响应式更新方式
+      const charId = active.角色ID;
+      const slotId = active.存档槽位;
+
+      if (profile.模式 === '单机' && profile.存档列表) {
+        // 创建新的存档列表对象，触发响应式
+        rootState.value.角色列表[charId].存档列表 = {
+          ...profile.存档列表,
+          [slotId]: {
+            ...profile.存档列表[slotId],
+            存档数据: saveData,
+            保存时间: new Date().toISOString()
+          }
+        };
+      } else if (profile.模式 === '联机' && profile.存档) {
+        // 联机模式直接更新存档
+        rootState.value.角色列表[charId].存档 = {
+          ...profile.存档,
+          存档数据: saveData,
+          保存时间: new Date().toISOString()
+        };
+      }
+
+      commitToStorage();
+      debug.log('角色商店', '✅ 已从酒馆分片同步最新存档数据');
+      debug.log('角色商店', `最终背包物品数量: ${Object.keys(saveData.背包?.物品 || {}).length}`);
+      debug.log('角色商店', `是否有世界信息: ${!!saveData.世界信息}`);
+
     } catch (error) {
       debug.error('角色商店', '从酒馆同步数据失败', error);
     }
@@ -809,7 +802,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
 
   /**
    * [核心改造] 保存当前游戏进度到激活的存档槽
-   * 新逻辑: 从酒馆的 `character.saveData` 变量读取完整状态，然后写入 Pinia store
+   * 使用分片加载替代完整SaveData
    */
   const saveCurrentGame = async () => {
     const active = rootState.value.当前激活存档;
@@ -830,9 +823,9 @@ export const useCharacterStore = defineStore('characterV3', () => {
         throw new Error('酒馆连接尚未建立！');
       }
 
-      // 1. 从酒馆的聊天变量中获取最新的游戏状态
-      const chatVars = await helper.getVariables({ type: 'chat' });
-      const currentSaveData = chatVars['character.saveData'] as SaveData | undefined;
+      // 🔥 新架构：从分片加载最新数据
+      const shards = await loadAllShards(helper);
+      const currentSaveData = assembleSaveData(shards as StorageShards);
 
       if (!currentSaveData) {
         throw new Error('无法从酒馆获取当前存档数据(character.saveData)，可能尚未初始化。');
@@ -908,7 +901,8 @@ export const useCharacterStore = defineStore('characterV3', () => {
 
       // 如果不是联机模式，在这里就显示最终成功
       if (profile.模式 !== '联机') {
-        toast.success(`存档【${slot.存档名}】已成功保存！`, { id: saveId });
+        // 静默保存，不显示提示
+        debug.log('角色商店', `存档【${slot.存档名}】已成功保存`);
       }
 
     } catch (error) {

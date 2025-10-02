@@ -125,7 +125,10 @@ export const DATA_STRUCTURE_DEFINITIONS = `
   外貌描述: string,
   人物关系: string,
   人物好感度: number,  // -100~100
-  人物记忆: Array<{时间: string, 事件: string}>,
+  人物记忆: Array<{
+    时间: string,  // ⚠️ 必须使用具体日期如"XXXX年XX月XX日"，禁止"长期"/"今日"等模糊描述
+    事件: string
+  }>,
   所属势力?: string,
   当前位置?: string
 }

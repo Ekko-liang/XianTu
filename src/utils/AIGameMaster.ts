@@ -6,7 +6,8 @@
 import { getTavernHelper } from './tavern';
 import { set, get, unset, cloneDeep } from 'lodash';
 import type { GameCharacter, GM_Request, GM_Response } from '../types/AIGameMaster';
-import type { StateChangeLog } from '@/types/game';
+import type { CharacterBaseInfo, SaveData, StateChange, StateChangeLog } from '@/types/game';
+import { shardSaveData, assembleSaveData, type StorageShards } from './storageSharding';
 
 /**
  * 构建发送给AI Game Master的请求对象
@@ -16,9 +17,10 @@ import type { StateChangeLog } from '@/types/game';
  * @returns GM_Request对象
  */
 export function buildGmRequest(
-  baseInfo: any,
-  creationDetails: any,
-  mapData?: any
+  baseInfo: Partial<CharacterBaseInfo>,
+  creationDetails: { age?: number },
+  mapData?: unknown,
+  time: string = ''
 ): GM_Request {
   // 构建GameCharacter对象
   const character: GameCharacter = {
@@ -51,15 +53,15 @@ export function buildGmRequest(
     },
     qualities: {
       origin: {
-        name: baseInfo.出生 || '平民出身',
+        name: typeof baseInfo.出生 === 'string' ? baseInfo.出生 : (baseInfo.出生?.名称 || '平民出身'),
         effects: []
       },
       spiritRoot: {
-        name: baseInfo.灵根 || '五行灵根',
+        name: typeof baseInfo.灵根 === 'string' ? baseInfo.灵根 : (baseInfo.灵根?.名称 || '五行灵根'),
         quality: '普通',
         attributes: []
       },
-      talents: Array.isArray(baseInfo.天赋) ? baseInfo.天赋.map((t: any) => ({
+      talents: Array.isArray(baseInfo.天赋) ? baseInfo.天赋.map((t: string | { 名称: string }) => ({
         name: typeof t === 'string' ? t : t.名称 || '未知天赋',
         type: '特殊',
         effects: []
@@ -100,7 +102,7 @@ export function buildGmRequest(
   const world = {
     lorebook: baseInfo.世界 || '修仙世界',
     mapInfo: mapData || null,
-    time: '修仙历1000年'
+    time: time
   };
 
   // 构建记忆模块
@@ -124,34 +126,38 @@ export function buildGmRequest(
  * @returns 包含更新后存档和变更日志的对象
  */
 export async function executeCommands(
-  commands: any[],
-  saveData: any
-): Promise<{ saveData: any; stateChanges: StateChangeLog }> {
+  commands: { action: string; key: string; value?: unknown }[],
+  saveData: SaveData
+): Promise<{ saveData: SaveData; stateChanges: StateChangeLog }> {
   let updatedSaveData = cloneDeep(saveData);
   const changes: StateChangeLog['changes'] = [];
 
   for (const command of commands) {
     if (!command || !command.action || !command.key) continue;
 
-    const { action, key, value } = command;
-    
+    const { action, key } = command;
+
     // 规范化路径
     let path = key;
     if (path.startsWith('character.saveData.')) {
       path = path.substring('character.saveData.'.length);
     }
 
-    const oldValue = cloneDeep(get(updatedSaveData, path));
-    
+    // 🔥 核心修复：将分片路径映射为SaveData内部路径
+    // AI使用分片路径(如"境界.名称"),executeCommand内部会映射为SaveData路径(如"玩家角色状态.境界.名称")
+    // 所以这里必须用映射后的路径来获取oldValue/newValue,否则会获取不到值,导致变更为空
+    const mappedPath = mapShardPathToSaveDataPath(path);
+    const oldValue = cloneDeep(get(updatedSaveData, mappedPath));
+
     // 执行命令
     updatedSaveData = await executeCommand(command, updatedSaveData);
-    
-    const newValue = cloneDeep(get(updatedSaveData, path));
+
+    const newValue = cloneDeep(get(updatedSaveData, mappedPath));
 
     // 简单比较来决定是否记录变更
     if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
       changes.push({
-        key: path,
+        key: mappedPath,  // 🔥 记录时使用映射后的SaveData路径,这样syncChangesToTavern可以正确识别分片
         action,
         oldValue,
         newValue,
@@ -179,8 +185,8 @@ export async function executeCommands(
  */
 export async function processGmResponse(
   response: GM_Response,
-  currentSaveData: any
-): Promise<{ saveData: any; stateChanges: StateChangeLog }> {
+  currentSaveData: SaveData
+): Promise<{ saveData: SaveData; stateChanges: StateChangeLog }> {
   console.log('[processGmResponse] 开始处理GM响应');
   
   const emptyChanges: StateChangeLog = { changes: [] };
@@ -223,11 +229,122 @@ export async function processGmResponse(
     if (!Array.isArray(updatedSaveData.记忆.中期记忆)) {
       updatedSaveData.记忆.中期记忆 = [];
     }
-    updatedSaveData.记忆.中期记忆.push(response.mid_term_memory);
+    // 🔥 去重检查：只有当中期记忆中不存在相同内容时才添加
+    if (!updatedSaveData.记忆.中期记忆.includes(response.mid_term_memory)) {
+      updatedSaveData.记忆.中期记忆.push(response.mid_term_memory);
+      console.log('[processGmResponse] ✅ 已添加新的中期记忆（去重后）');
+    } else {
+      console.log('[processGmResponse] ⚠️ 中期记忆已存在，跳过添加（避免重复）');
+    }
   }
 
   console.log('[processGmResponse] GM响应处理完成');
   return { saveData: updatedSaveData, stateChanges };
+}
+
+/**
+ * 将分片路径转换为SaveData内部路径
+ * @param shardPath AI使用的分片路径 (如: "境界.名称")
+ * @returns SaveData内部路径 (如: "玩家角色状态.境界.名称")
+ */
+function mapShardPathToSaveDataPath(shardPath: string): string {
+  // 移除可能存在的旧格式前缀
+  let path = shardPath;
+  if (path.startsWith('character.saveData.')) {
+    path = path.substring('character.saveData.'.length);
+  }
+
+  // 分片路径映射到SaveData内部路径
+  // 基础信息分片
+  if (path.startsWith('基础信息.')) {
+    return '角色基础信息.' + path.substring('基础信息.'.length);
+  }
+  if (path === '基础信息') {
+    return '角色基础信息';
+  }
+
+  // 境界分片
+  if (path.startsWith('境界.') || path === '境界') {
+    return '玩家角色状态.境界' + (path.length > 2 ? '.' + path.substring(3) : '');
+  }
+
+  // 属性分片 (气血、灵气、神识、寿命)
+  if (path.startsWith('属性.')) {
+    return '玩家角色状态.' + path.substring('属性.'.length);
+  }
+  if (path === '属性') {
+    // 这种情况很少见，但为完整性添加
+    return '玩家角色状态';
+  }
+
+  // 位置分片
+  if (path.startsWith('位置.') || path === '位置') {
+    return '玩家角色状态.位置' + (path.length > 2 ? '.' + path.substring(3) : '');
+  }
+
+  // 修炼功法分片
+  if (path.startsWith('修炼功法.') || path === '修炼功法') {
+    return path; // SaveData中就叫"修炼功法"
+  }
+
+  // 装备栏分片
+  if (path.startsWith('装备栏.') || path === '装备栏') {
+    return path; // SaveData中就叫"装备栏"
+  }
+
+  // 背包分片
+  if (path.startsWith('背包_灵石.')) {
+    return '背包.灵石.' + path.substring('背包_灵石.'.length);
+  }
+  if (path === '背包_灵石') {
+    return '背包.灵石';
+  }
+  if (path.startsWith('背包_物品.')) {
+    return '背包.物品.' + path.substring('背包_物品.'.length);
+  }
+  if (path === '背包_物品') {
+    return '背包.物品';
+  }
+
+  // 人物关系分片
+  if (path.startsWith('人物关系.') || path === '人物关系') {
+    return path; // SaveData中就叫"人物关系"
+  }
+
+  // 三千大道分片
+  if (path.startsWith('三千大道.') || path === '三千大道') {
+    return path; // SaveData中就叫"三千大道"
+  }
+
+  // 世界信息分片
+  if (path.startsWith('世界信息.') || path === '世界信息') {
+    return path; // SaveData中就叫"世界信息"
+  }
+
+  // 记忆分片
+  if (path.startsWith('记忆_短期')) {
+    return '记忆.短期记忆';
+  }
+  if (path.startsWith('记忆_中期')) {
+    return '记忆.中期记忆';
+  }
+  if (path.startsWith('记忆_长期')) {
+    return '记忆.长期记忆';
+  }
+
+  // 游戏时间分片
+  if (path.startsWith('游戏时间.') || path === '游戏时间') {
+    return path; // SaveData中就叫"游戏时间"
+  }
+
+  // 状态效果分片
+  if (path.startsWith('状态效果.') || path === '状态效果') {
+    return '玩家角色状态.状态效果' + (path.length > 4 ? '.' + path.substring(5) : '');
+  }
+
+  // 如果不匹配任何分片，可能是旧格式或SaveData内部路径，直接返回
+  console.warn('[路径映射] 未识别的分片路径，保持原样:', path);
+  return path;
 }
 
 /**
@@ -236,7 +353,7 @@ export async function processGmResponse(
  * @param saveData 存档数据
  * @returns 更新后的存档数据
  */
-async function executeCommand(command: any, saveData: any): Promise<any> {
+async function executeCommand(command: { action: string; key: string; value?: unknown }, saveData: SaveData): Promise<SaveData> {
   if (!command || !command.action || !command.key) {
     console.warn('[executeCommand] 无效命令:', command);
     return saveData;
@@ -252,12 +369,12 @@ async function executeCommand(command: any, saveData: any): Promise<any> {
   };
 
   // 若是先天六司路径，按规则裁剪
-  const normalizeInnateSet = (p: string, val: any) => {
+  const normalizeInnateSet = (p: string, val: unknown) => {
     if (!String(p).includes('先天六司')) return val;
     try {
       // 整体对象写入
       if (typeof val === 'object' && val !== null && (String(p).endsWith('先天六司') || String(p).endsWith('先天六司.')) ) {
-        const obj = { ...val } as any;
+        const obj = { ...val } as Record<string, unknown>;
         if ('根骨' in obj) obj['根骨'] = clamp(obj['根骨']);
         if ('灵性' in obj) obj['灵性'] = clamp(obj['灵性']);
         if ('悟性' in obj) obj['悟性'] = clamp(obj['悟性']);
@@ -273,7 +390,7 @@ async function executeCommand(command: any, saveData: any): Promise<any> {
   };
 
   // 位置描述规范化：将任意叙事式地点描述，统一为「大陆名·区域·地点」结构
-  const normalizeLocationDescription = (raw: any, dataRoot: any): any => {
+  const normalizeLocationDescription = (raw: unknown, dataRoot: SaveData): { 描述: string } | unknown => {
     const worldName = (dataRoot?.['角色基础信息']?.['世界']) || '朝天大陆';
 
     const normalizeStr = (s: string): string => {
@@ -323,19 +440,23 @@ async function executeCommand(command: any, saveData: any): Promise<any> {
     if (typeof raw === 'string') {
       return normalizeStr(raw);
     }
-    if (raw && typeof raw === 'object' && typeof raw['描述'] === 'string') {
-      return { ...raw, 描述: normalizeStr(raw['描述']) };
+    if (raw && typeof raw === 'object' && '描述' in raw) {
+      const obj = raw as Record<string, unknown>;
+      if (typeof obj['描述'] === 'string') {
+        return { ...obj, 描述: normalizeStr(obj['描述']) };
+      }
     }
     return raw;
   };
 
   // 规范化：当AI写入物品(尤其功法)时，自动校正品质与品级
-  const normalizeItemIfNeeded = (val: any) => {
+  const normalizeItemIfNeeded = (val: unknown) => {
     try {
       if (!val || typeof val !== 'object') return val;
-      const type = (val.类型 || '').trim();
+      const item = val as Record<string, unknown>;
+      const type = (item.类型 as string || '').trim();
       if (!['装备', '功法', '其他'].includes(type)) return val;
-      
+
       // 品质规范化
       const qualityMap: Record<string, string> = {
         '凡品': '凡', '凡阶': '凡', '凡': '凡',
@@ -349,49 +470,51 @@ async function executeCommand(command: any, saveData: any): Promise<any> {
       const gradeTextToNumber: Record<string, number> = {
         '残缺': 0, '下品': 2, '中品': 5, '上品': 8, '极品': 10
       };
-      const q = val.品质 || {};
+      const q = (item.品质 as Record<string, unknown>) || {};
       const rawQ = String(q.quality ?? q.品质 ?? '').trim();
       const normQuality = qualityMap[rawQ] || '凡';
-      const rawG: any = (q.grade ?? q.品级 ?? q.等级);
+      const rawG = (q.grade ?? q.品级 ?? q.等级);
       let normGrade = 1;
       if (typeof rawG === 'number' && !Number.isNaN(rawG)) {
         normGrade = Math.min(10, Math.max(0, Math.round(rawG)));
       } else if (typeof rawG === 'string' && rawG.trim()) {
         normGrade = gradeTextToNumber[rawG.trim()] ?? 1;
       }
-      val.品质 = { quality: normQuality, grade: normGrade };
-      
+      item.品质 = { quality: normQuality, grade: normGrade };
+
       // 确保装备类物品有已装备字段
       if (type === '装备' || type === '功法') {
-        if (val.已装备 === undefined) {
-          val.已装备 = false;
+        if (item.已装备 === undefined) {
+          item.已装备 = false;
         }
-        
+
         // 清理重复的装备状态字段，只保留"已装备"字段
-        if (val.是否装备 !== undefined) {
+        if (item.是否装备 !== undefined) {
           console.warn('[物品规范化] 发现重复的装备状态字段"是否装备"，已清理');
-          delete val.是否装备;
+          delete item.是否装备;
         }
       }
-      
+
       // 确保有物品ID字段
-      if (!val.物品ID) {
-        val.物品ID = `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      if (!item.物品ID) {
+        item.物品ID = `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       }
-      
-      return val;
+
+      return item;
     } catch {
       return val;
     }
   };
-  
-  // 处理路径，移除 character.saveData. 前缀（如果存在）
-  let path = key;
-  if (path.startsWith('character.saveData.')) {
-    path = path.substring('character.saveData.'.length);
-  }
 
-  console.log(`[executeCommand] 执行命令: ${action} ${path}`, value);
+  // 🔥 核心修复：将分片路径映射到SaveData内部路径
+  const path = mapShardPathToSaveDataPath(key);
+
+  console.log(`[executeCommand] ========== 开始执行命令 ==========`);
+  console.log(`[executeCommand] 原始路径: ${key}`);
+  console.log(`[executeCommand] 映射路径: ${path}`);
+  console.log(`[executeCommand] 动作: ${action}`);
+  console.log(`[executeCommand] 值:`, value);
+  console.log(`[executeCommand] 值类型:`, typeof value);
 
   try {
     switch (action) {
@@ -399,16 +522,20 @@ async function executeCommand(command: any, saveData: any): Promise<any> {
         // 若写入物品或功法，先做一次品质规范化
         if (String(path).includes('背包.物品') || String(path).includes('修炼功法.功法')) {
           set(saveData, path, normalizeItemIfNeeded(value));
+          console.log(`[executeCommand] ✅ 已设置(规范化物品/功法):`, get(saveData, path));
         } else {
           // 当写入位置时，做格式化：「大陆名·区域·地点」
           if (String(path).endsWith('玩家角色状态.位置.描述') || String(path).endsWith('位置.描述')) {
             set(saveData, path, normalizeLocationDescription(value, saveData));
+            console.log(`[executeCommand] ✅ 已设置(规范化位置):`, get(saveData, path));
           } else if (String(path).endsWith('玩家角色状态.位置')) {
             set(saveData, path, normalizeLocationDescription(value, saveData));
+            console.log(`[executeCommand] ✅ 已设置(规范化位置对象):`, get(saveData, path));
           } else {
             // 先天六司写入时裁剪到<=10（NPC与玩家均适用）
             const finalVal = normalizeInnateSet(path, value);
             set(saveData, path, finalVal);
+            console.log(`[executeCommand] ✅ 已设置:`, get(saveData, path));
           }
         }
 
@@ -416,7 +543,7 @@ async function executeCommand(command: any, saveData: any): Promise<any> {
         if (path.startsWith('三千大道.大道进度.')) {
           try {
             const daoName = path.substring('三千大道.大道进度.'.length);
-            const unlockedDaos = get(saveData, '三千大道.已解锁大道', []);
+            const unlockedDaos = get(saveData, '三千大道.已解锁大道', []) as string[];
             if (Array.isArray(unlockedDaos) && !unlockedDaos.includes(daoName)) {
               unlockedDaos.push(daoName);
               set(saveData, '三千大道.已解锁大道', unlockedDaos);
@@ -427,41 +554,106 @@ async function executeCommand(command: any, saveData: any): Promise<any> {
           }
         }
         break;
-        
+
       case 'add':
         const currentValue = get(saveData, path, 0);
         let added = Number(currentValue) + Number(value || 0);
         // 若针对先天六司，裁剪到<=10
         if (String(path).includes('先天六司')) added = clamp(added);
-        set(saveData, path, added);
-        break;
-        
-      case 'push':
-        const array = get(saveData, path, []);
-        if (Array.isArray(array)) {
-          array.push(value);
+
+        // 🔥 特殊处理：游戏时间自动进位
+        if (path === '游戏时间.分钟' || path.endsWith('游戏时间.分钟')) {
+          console.log(`[executeCommand] 🕐 游戏时间增加 ${value} 分钟，开始自动进位计算`);
+
+          // 获取当前游戏时间
+          const gameTime = get(saveData, '游戏时间', { 年: 1, 月: 1, 日: 1, 小时: 0, 分钟: 0 }) as {
+            年: number;
+            月: number;
+            日: number;
+            小时: number;
+            分钟: number;
+          };
+
+          // 计算新的总分钟数
+          const totalMinutes = gameTime.分钟 + Number(value || 0);
+
+          // 进位计算
+          let 新小时 = gameTime.小时;
+          let 新日 = gameTime.日;
+          let 新月 = gameTime.月;
+          let 新年 = gameTime.年;
+          let 新分钟 = totalMinutes;
+
+          // 分钟 → 小时
+          if (新分钟 >= 60) {
+            新小时 += Math.floor(新分钟 / 60);
+            新分钟 = 新分钟 % 60;
+          }
+
+          // 小时 → 天
+          if (新小时 >= 24) {
+            新日 += Math.floor(新小时 / 24);
+            新小时 = 新小时 % 24;
+          }
+
+          // 天 → 月 (假设每月30天)
+          if (新日 > 30) {
+            新月 += Math.floor((新日 - 1) / 30);
+            新日 = ((新日 - 1) % 30) + 1;
+          }
+
+          // 月 → 年 (假设每年12个月)
+          if (新月 > 12) {
+            新年 += Math.floor((新月 - 1) / 12);
+            新月 = ((新月 - 1) % 12) + 1;
+          }
+
+          // 更新整个游戏时间对象
+          set(saveData, '游戏时间', {
+            年: 新年,
+            月: 新月,
+            日: 新日,
+            小时: 新小时,
+            分钟: 新分钟
+          });
+
+          console.log(`[executeCommand] ✅ 游戏时间已更新: ${新年}年${新月}月${新日}日 ${新小时}:${新分钟}`);
+          console.log(`[executeCommand]   原时间: ${gameTime.年}年${gameTime.月}月${gameTime.日}日 ${gameTime.小时}:${gameTime.分钟}`);
+          console.log(`[executeCommand]   增加: ${value}分钟`);
         } else {
-          set(saveData, path, [value]);
+          set(saveData, path, added);
+          console.log(`[executeCommand] ✅ 已增加: ${currentValue} + ${value} = ${added}`);
+        }
+        break;
+
+      case 'push':
+        const array = get(saveData, path, []) as unknown[];
+        if (Array.isArray(array)) {
+          array.push(value ?? null);
+          console.log(`[executeCommand] ✅ 已添加到数组，当前长度:`, array.length);
+        } else {
+          set(saveData, path, [value ?? null]);
+          console.log(`[executeCommand] ✅ 已创建新数组并添加元素`);
         }
         break;
         
       case 'pull':
         {
-          const pullArray = get(saveData, path, []);
+          const pullArray = get(saveData, path, []) as unknown[];
           if (Array.isArray(pullArray)) {
-            const deepEqual = (a: any, b: any): boolean => {
+            const deepEqual = (a: unknown, b: unknown): boolean => {
               try { return JSON.stringify(a) === JSON.stringify(b); } catch { return a === b; }
             };
             let removed = false;
             // 1) 直接匹配（适用于原始类型，或同引用的对象）
-            let idx = pullArray.indexOf(value as any);
+            let idx = pullArray.indexOf(value);
             if (idx > -1) {
               pullArray.splice(idx, 1);
               removed = true;
             }
             // 2) 深度相等匹配（用于对象值）
             if (!removed && typeof value === 'object' && value !== null) {
-              idx = pullArray.findIndex((it: any) => deepEqual(it, value));
+              idx = pullArray.findIndex((it) => deepEqual(it, value));
               if (idx > -1) {
                 pullArray.splice(idx, 1);
                 removed = true;
@@ -471,9 +663,9 @@ async function executeCommand(command: any, saveData: any): Promise<any> {
             if (!removed && (typeof value === 'string' || typeof value === 'number')) {
               const v = String(value);
               const keyCandidates = ['物品ID', '名称', '状态名称', 'id', 'name'];
-              idx = pullArray.findIndex((it: any) => {
+              idx = pullArray.findIndex((it) => {
                 if (it && typeof it === 'object') {
-                  return keyCandidates.some(k => String(it[k] ?? '') === v);
+                  return keyCandidates.some(k => String((it as Record<string, unknown>)[k] ?? '') === v);
                 }
                 return String(it) === v;
               });
@@ -493,7 +685,7 @@ async function executeCommand(command: any, saveData: any): Promise<any> {
           if (arrayIndexMatch) {
             const basePath = arrayIndexMatch[1];
             const index = parseInt(arrayIndexMatch[2], 10);
-            const arr = get(saveData, basePath, undefined);
+            const arr = get(saveData, basePath, undefined) as unknown[] | undefined;
             if (Array.isArray(arr) && index >= 0 && index < arr.length) {
               arr.splice(index, 1);
             } else {
@@ -516,11 +708,11 @@ async function executeCommand(command: any, saveData: any): Promise<any> {
 }
 
 /**
- * 同步数据到酒馆变量
+ * 同步数据到酒馆变量（使用分片存储）
  * @param saveData 存档数据
  * @param scope 变量作用域
  */
-export async function syncToTavern(saveData: any, scope: 'global' | 'chat' = 'chat'): Promise<void> {
+export async function syncToTavern(saveData: SaveData, scope: 'global' | 'chat' = 'chat'): Promise<void> {
   try {
     const helper = getTavernHelper();
     if (!helper) {
@@ -528,23 +720,110 @@ export async function syncToTavern(saveData: any, scope: 'global' | 'chat' = 'ch
       return;
     }
 
-    await helper.insertOrAssignVariables({
-      'character.saveData': saveData
-    }, { type: scope });
+    // 将saveData拆分为16个分片
+    const shards = shardSaveData(saveData);
 
-    console.log('[syncToTavern] 数据同步完成');
+    // 一次性写入所有分片 (通过unknown中转以避免类型转换错误)
+    await helper.insertOrAssignVariables(shards as unknown as Record<string, unknown>, { type: scope });
+
+    console.log('[syncToTavern] 数据同步完成 (16个分片)');
   } catch (error) {
     console.error('[syncToTavern] 数据同步失败:', error);
   }
 }
 
 /**
- * 增量同步变更到酒馆（只同步变更的字段）
+ * 根据路径确定所属分片名称
+ * @param path 数据路径,如 "玩家角色状态.境界.名称"
+ * @returns 分片名称,如 "境界"
+ */
+function getShardNameFromPath(path: string): keyof StorageShards | null {
+  // 移除可能的前缀
+  let normalizedPath = path;
+  if (normalizedPath.startsWith('character.saveData.')) {
+    normalizedPath = normalizedPath.substring('character.saveData.'.length);
+  }
+
+  // 路径映射到分片名称
+  if (normalizedPath.startsWith('角色基础信息')) return '基础信息';
+  if (normalizedPath.startsWith('玩家角色状态.境界')) return '境界';
+  if (normalizedPath.startsWith('玩家角色状态.气血') ||
+      normalizedPath.startsWith('玩家角色状态.灵气') ||
+      normalizedPath.startsWith('玩家角色状态.神识') ||
+      normalizedPath.startsWith('玩家角色状态.寿命')) return '属性';
+  if (normalizedPath.startsWith('玩家角色状态.位置')) return '位置';
+  if (normalizedPath.startsWith('修炼功法')) return '修炼功法';
+  if (normalizedPath.startsWith('装备栏')) return '装备栏';
+  if (normalizedPath.startsWith('背包.灵石')) return '背包_灵石';
+  if (normalizedPath.startsWith('背包.物品')) return '背包_物品';
+  if (normalizedPath.startsWith('人物关系')) return '人物关系';
+  if (normalizedPath.startsWith('三千大道')) return '三千大道';
+  if (normalizedPath.startsWith('世界信息')) return '世界信息';
+  if (normalizedPath.startsWith('记忆.短期记忆')) return '记忆_短期';
+  if (normalizedPath.startsWith('记忆.中期记忆')) return '记忆_中期';
+  if (normalizedPath.startsWith('记忆.长期记忆')) return '记忆_长期';
+  if (normalizedPath.startsWith('游戏时间')) return '游戏时间';
+  if (normalizedPath.startsWith('玩家角色状态.状态效果')) return '状态效果';
+
+  return null;
+}
+
+/**
+ * 将SaveData格式的路径转换为分片内部路径
+ * @param path 完整路径,如 "玩家角色状态.境界.名称"
+ * @param shardName 分片名称
+ * @returns 分片内部路径,如 "名称"
+ */
+function getPathInShard(path: string, shardName: string): string {
+  let normalizedPath = path;
+  if (normalizedPath.startsWith('character.saveData.')) {
+    normalizedPath = normalizedPath.substring('character.saveData.'.length);
+  }
+
+  // 移除分片对应的SaveData路径前缀
+  const prefixMap: Record<string, string> = {
+    '基础信息': '角色基础信息.',
+    '境界': '玩家角色状态.境界.',
+    '属性': '玩家角色状态.',
+    '位置': '玩家角色状态.位置.',
+    '修炼功法': '修炼功法.',
+    '装备栏': '装备栏.',
+    '背包_灵石': '背包.灵石.',
+    '背包_物品': '背包.物品.',
+    '人物关系': '人物关系.',
+    '三千大道': '三千大道.',
+    '世界信息': '世界信息.',
+    '记忆_短期': '记忆.短期记忆',
+    '记忆_中期': '记忆.中期记忆',
+    '记忆_长期': '记忆.长期记忆',
+    '游戏时间': '游戏时间.',
+    '状态效果': '玩家角色状态.状态效果',
+  };
+
+  const prefix = prefixMap[shardName];
+  if (prefix && normalizedPath.startsWith(prefix)) {
+    // 对于属性分片,需要特殊处理
+    if (shardName === '属性') {
+      // "玩家角色状态.气血.当前" -> "气血.当前"
+      const afterPrefix = normalizedPath.substring('玩家角色状态.'.length);
+      return afterPrefix;
+    }
+    return normalizedPath.substring(prefix.length);
+  }
+
+  return normalizedPath;
+}
+
+/**
+ * 增量同步变更到酒馆（使用分片存储）
  * @param changes 变更列表
  * @param scope 变量作用域
  */
-export async function syncChangesToTavern(changes: any[], scope: 'global' | 'chat' = 'chat'): Promise<void> {
+export async function syncChangesToTavern(changes: StateChange[], scope: 'global' | 'chat' = 'chat'): Promise<void> {
   try {
+    console.log('[syncChangesToTavern] ========== 开始同步到酒馆 ==========');
+    console.log('[syncChangesToTavern] 需要同步的变更数量:', changes.length);
+
     const helper = getTavernHelper();
     if (!helper) {
       console.warn('[syncChangesToTavern] 酒馆助手不可用');
@@ -556,34 +835,70 @@ export async function syncChangesToTavern(changes: any[], scope: 'global' | 'cha
       return;
     }
 
-    // 🔥 关键修复：获取当前saveData，如果不存在则使用空对象
-    let currentSaveData = await helper.getVariable('character.saveData', { type: scope });
+    // 按分片分组变更
+    const shardChanges: Record<string, StateChange[]> = {};
 
-    // 如果酒馆中还没有saveData（初始化场景），使用空对象
-    if (!currentSaveData || typeof currentSaveData !== 'object' || Object.keys(currentSaveData as object).length === 0) {
-      console.log('[syncChangesToTavern] 酒馆中无saveData，将创建新的');
-      currentSaveData = {};
-    }
-
-    // 应用所有变更到saveData
     for (const change of changes) {
-      set(currentSaveData as object, change.key, change.newValue);
+      const shardName = getShardNameFromPath(change.key);
+      console.log(`[syncChangesToTavern] 路径 "${change.key}" -> 分片 "${shardName}"`);
+
+      if (!shardName) {
+        console.warn('[syncChangesToTavern] ⚠️ 无法确定分片:', change.key);
+        continue;
+      }
+
+      if (!shardChanges[shardName]) {
+        shardChanges[shardName] = [];
+      }
+      shardChanges[shardName].push(change);
     }
 
-    // 只更新一个变量：character.saveData
-    await helper.setVariable('character.saveData', currentSaveData, { type: scope });
-    console.log('[syncChangesToTavern] 同步完成，更新了', changes.length, '个字段到character.saveData');
+    console.log(`[syncChangesToTavern] 分片分组完成，共 ${Object.keys(shardChanges).length} 个分片受影响:`, Object.keys(shardChanges));
+
+    // 对每个受影响的分片进行更新
+    for (const [shardName, changes] of Object.entries(shardChanges)) {
+      console.log(`[syncChangesToTavern] 处理分片 "${shardName}"，包含 ${changes.length} 个变更`);
+      let currentShard = await helper.getVariable(shardName, { type: scope });
+
+      // 如果分片不存在,创建空对象/数组
+      if (!currentShard) {
+        // 记忆分片是数组,其他是对象
+        currentShard = shardName.startsWith('记忆_') ? [] : {};
+        console.log(`[syncChangesToTavern] 分片不存在，创建新的:`, shardName.startsWith('记忆_') ? '数组' : '对象');
+      }
+
+      // 应用变更到分片
+      for (const change of changes) {
+        const pathInShard = getPathInShard(change.key, shardName);
+        console.log(`[syncChangesToTavern]   应用变更: 路径="${pathInShard}", 值=`, change.newValue);
+
+        // 如果是记忆分片且路径为空,直接赋值整个数组
+        if (shardName.startsWith('记忆_') && !pathInShard) {
+          currentShard = change.newValue;
+          console.log(`[syncChangesToTavern]   ✅ 替换整个记忆数组`);
+        } else {
+          set(currentShard as object, pathInShard, change.newValue);
+          console.log(`[syncChangesToTavern]   ✅ 已设置 ${pathInShard}`);
+        }
+      }
+
+      // 更新分片
+      await helper.setVariable(shardName, currentShard, { type: scope });
+      console.log(`[syncChangesToTavern] ✅ 分片 "${shardName}" 已更新到酒馆`);
+    }
+
+    console.log(`[syncChangesToTavern] 同步完成，更新了 ${changes.length} 个字段到 ${Object.keys(shardChanges).length} 个分片`);
   } catch (error) {
     console.error('[syncChangesToTavern] 同步失败:', error);
   }
 }
 
 /**
- * 从酒馆变量获取数据
+ * 从酒馆变量获取数据（仅使用分片存储）
  * @param scope 变量作用域
- * @returns 变量数据
+ * @returns 重组的完整SaveData
  */
-export async function getFromTavern(scope: 'global' | 'chat' = 'chat'): Promise<any> {
+export async function getFromTavern(scope: 'global' | 'chat' = 'chat'): Promise<SaveData | null> {
   try {
     const helper = getTavernHelper();
     if (!helper) {
@@ -592,7 +907,30 @@ export async function getFromTavern(scope: 'global' | 'chat' = 'chat'): Promise<
     }
 
     const variables = await helper.getVariables({ type: scope });
-    return variables['character.saveData'] || null;
+
+    // 从分片重组SaveData
+    const shards: Partial<StorageShards> = {
+      '基础信息': variables['基础信息'] as StorageShards['基础信息'],
+      '境界': variables['境界'] as StorageShards['境界'],
+      '属性': variables['属性'] as StorageShards['属性'],
+      '位置': variables['位置'] as StorageShards['位置'],
+      '修炼功法': variables['修炼功法'] as StorageShards['修炼功法'],
+      '装备栏': variables['装备栏'] as StorageShards['装备栏'],
+      '背包_灵石': variables['背包_灵石'] as StorageShards['背包_灵石'],
+      '背包_物品': variables['背包_物品'] as StorageShards['背包_物品'],
+      '人物关系': variables['人物关系'] as StorageShards['人物关系'],
+      '三千大道': variables['三千大道'] as StorageShards['三千大道'],
+      '世界信息': variables['世界信息'] as StorageShards['世界信息'],
+      '记忆_短期': variables['记忆_短期'] as StorageShards['记忆_短期'],
+      '记忆_中期': variables['记忆_中期'] as StorageShards['记忆_中期'],
+      '记忆_长期': variables['记忆_长期'] as StorageShards['记忆_长期'],
+      '游戏时间': variables['游戏时间'] as StorageShards['游戏时间'],
+      '状态效果': variables['状态效果'] as StorageShards['状态效果'],
+    };
+
+    // 从分片重组SaveData
+    console.log('[getFromTavern] 从16个分片重组SaveData');
+    return assembleSaveData(shards);
   } catch (error) {
     console.error('[getFromTavern] 获取数据失败:', error);
     return null;
