@@ -30,6 +30,19 @@ import { computed, ref, onMounted } from 'vue'
 import { Maximize, Minimize } from 'lucide-vue-next'
 import { useCharacterStore } from '@/stores/characterStore'
 import { formatRealmWithStage } from '@/utils/realmUtils'
+import type { GameTime } from '@/types/game'
+
+/**
+ * 从GameTime获取分钟数（兼容新旧格式）
+ */
+function getMinutes(gameTime: GameTime): number {
+  // 优先使用总分钟数计算
+  if (gameTime.总分钟数 !== undefined) {
+    return gameTime.总分钟数 % 60;
+  }
+  // 否则使用分钟字段
+  return gameTime.分钟 ?? 0;
+}
 
 const characterStore = useCharacterStore()
 const isFullscreen = ref(false)
@@ -68,7 +81,8 @@ const gameTime = computed(() => {
     const save = characterStore.activeSaveSlot
     if (save?.存档数据?.游戏时间) {
       const time = save.存档数据.游戏时间
-      const formattedMinutes = time.分钟.toString().padStart(2, '0')
+      const minutes = getMinutes(time)
+      const formattedMinutes = minutes.toString().padStart(2, '0')
       const formattedHours = time.小时.toString().padStart(2, '0')
       return `仙道${time.年}年${time.月}月${time.日}日 ${formattedHours}:${formattedMinutes}`
     }

@@ -330,8 +330,30 @@ import { getTavernHelper } from '@/utils/tavern';
 import { AIBidirectionalSystem } from '@/utils/AIBidirectionalSystem';
 import { toast } from '@/utils/toast';
 import FormattedText from '@/components/common/FormattedText.vue';
-import type { GameMessage, SaveData, CharacterProfile } from '@/types/game';
+import type { GameMessage, SaveData, CharacterProfile, GameTime } from '@/types/game';
 import type { GM_Response } from '@/types/AIGameMaster';
+
+/**
+ * 从GameTime获取分钟数（兼容新旧格式）
+ */
+function getMinutes(gameTime: GameTime): number {
+  // 优先使用总分钟数计算
+  if (gameTime.总分钟数 !== undefined) {
+    return gameTime.总分钟数 % 60;
+  }
+  // 否则使用分钟字段
+  return gameTime.分钟 ?? 0;
+}
+
+/**
+ * 格式化游戏时间为字符串
+ */
+function formatGameTimeString(gameTime: GameTime | undefined): string {
+  if (!gameTime) return '【未知时间】';
+
+  const minutes = getMinutes(gameTime);
+  return `【仙道${gameTime.年}年${gameTime.月}月${gameTime.日}日 ${String(gameTime.小时).padStart(2, '0')}:${String(minutes).padStart(2, '0')}】`;
+}
 
 // 定义状态变更日志类型
 interface StateChangeLog {
@@ -897,6 +919,7 @@ const showStateChanges = (log: any) => {
 
 // 当前显示的叙述内容（只显示最新的AI回复）
 const currentNarrative = ref<GameMessage | null>(null);
+const latestMessageText = ref<string | null>(null); // 用于存储单独的text部分
 
 // 短期记忆设置 - 可配置
 const maxShortTermMemories = ref(5); // 默认5条，避免token过多
@@ -1523,6 +1546,7 @@ const sendMessage = async () => {
       // 注意：必须在 syncFromTavern 之前执行，这样syncFromTavern可以保留本地记忆
       if (finalText) {
         console.log('[AI响应处理] 开始处理最终文本...');
+        latestMessageText.value = gmResp?.text || null;
 
         // 更新UI显示
         if (currentNarrative.value) {
@@ -1538,6 +1562,7 @@ const sendMessage = async () => {
         await addToShortTermMemory(finalText, 'assistant', midTermSummary);
         console.log('[AI响应处理] 最终文本已添加到短期记忆，文本长度:', finalText.length);
       } else {
+        latestMessageText.value = null;
         console.error('[AI响应处理] 没有找到有效的文本内容，跳过记忆保存');
       }
 
@@ -1710,12 +1735,12 @@ const sendMessage = async () => {
 const addToShortTermMemory = async (
   content: string,
   role: 'user' | 'assistant' = 'assistant',
-  midTermSummary?: string  // 新增参数：AI生成的中期记忆总结
+  midTermSummary?: string  // AI生成的中期记忆总结
 ) => {
   try {
     console.log(`[记忆管理] 开始添加 ${role} 消息到短期记忆`);
     console.log(`[记忆管理] 内容长度: ${content.length}`);
-    console.log(`[记忆管理] 中期记忆总结:`, midTermSummary ? '已提供' : '未提供');
+    console.log(`[记忆管理] 中期记忆总结:`, midTermSummary || '无');
 
     const save = characterStore.activeSaveSlot;
     const sd = save?.存档数据;
@@ -1725,69 +1750,112 @@ const addToShortTermMemory = async (
       return;
     }
 
-    // 确保记忆结构存在
+    // 确保记忆结构存在（包含隐式中期记忆）
     if (!sd.记忆) {
       console.log('[记忆管理] 初始化记忆结构');
-      sd.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [] };
+      sd.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [], 隐式中期记忆: [] };
     }
     if (!Array.isArray(sd.记忆.短期记忆)) {
       console.log('[记忆管理] 初始化短期记忆数组');
       sd.记忆.短期记忆 = [];
     }
+    if (!Array.isArray(sd.记忆.隐式中期记忆)) {
+      console.log('[记忆管理] 初始化隐式中期记忆数组');
+      sd.记忆.隐式中期记忆 = [];
+    }
 
     console.log(`[记忆管理] 添加前短期记忆数量: ${sd.记忆.短期记忆.length}`);
+    console.log(`[记忆管理] 添加前隐式中期记忆数量: ${sd.记忆.隐式中期记忆.length}`);
 
-    // 添加新记忆到短期记忆
-    sd.记忆.短期记忆.unshift(content);
+    // 🔥 关键：检查content是否已包含时间前缀，如果没有才添加
+    const hasTimePrefix = content.startsWith('【仙道') || content.startsWith('【未知时间】') || content.startsWith('【仙历');
+    let finalContent = content;
+
+    if (!hasTimePrefix) {
+      const gameTime = sd.游戏时间;
+      const timePrefix = formatGameTimeString(gameTime);
+      finalContent = `${timePrefix}${content}`;
+      console.log(`[记忆管理] 为content添加时间前缀`);
+    } else {
+      console.log(`[记忆管理] content已包含时间前缀，跳过添加`);
+    }
+
+    // 添加到短期记忆
+    sd.记忆.短期记忆.unshift(finalContent);
+
+    // 如果有AI提供的中期记忆总结，添加到隐式中期记忆
+    if (midTermSummary && midTermSummary.trim()) {
+      const gameTime = sd.游戏时间;
+      const timePrefix = formatGameTimeString(gameTime);
+      const formattedMidTerm = `${timePrefix}${midTermSummary}`;
+      sd.记忆.隐式中期记忆.unshift(formattedMidTerm);
+      console.log(`[记忆管理] ✅ 已同时添加隐式中期记忆: ${formattedMidTerm.substring(0, 50)}...`);
+    } else {
+      // 如果AI没有返回mid_term_memory，使用短期记忆的简短版本
+      const gameTime = sd.游戏时间;
+      const timePrefix = formatGameTimeString(gameTime);
+      // 提取前100字作为隐式中期记忆（从finalContent提取，这样不会重复时间前缀）
+      const contentWithoutTime = hasTimePrefix ? content.substring(content.indexOf('】') + 1) : content;
+      const shortContent = contentWithoutTime.length > 100 ? contentWithoutTime.substring(0, 100) + '...' : contentWithoutTime;
+      const autoMidTerm = `${timePrefix}${shortContent}`;
+      sd.记忆.隐式中期记忆.unshift(autoMidTerm);
+      console.log(`[记忆管理] ⚠️ AI未返回mid_term_memory，自动生成隐式中期记忆`);
+    }
+
     console.log(`[记忆管理] 短期记忆已添加，当前数量: ${sd.记忆.短期记忆.length}`);
+    console.log(`[记忆管理] 隐式中期记忆已添加，当前数量: ${sd.记忆.隐式中期记忆.length}`);
 
-    // 检查短期记忆是否超出限制，触发转换
+    // 🔥 新逻辑：检查短期记忆是否超出限制
     if (sd.记忆.短期记忆.length > maxShortTermMemories.value) {
-      console.log(`[记忆管理] 短期记忆超出限制（${maxShortTermMemories.value}），开始转换到中期记忆`);
-
-      // 获取溢出的短期记忆（最旧的那些）
-      const overflow = sd.记忆.短期记忆.splice(maxShortTermMemories.value);
-      console.log(`[记忆管理] ${overflow.length}条短期记忆需要转换`);
+      console.log(`[记忆管理] 短期记忆超出限制（${maxShortTermMemories.value}），开始触发溢出处理`);
 
       // 确保中期记忆结构存在
       if (!sd.记忆.中期记忆) sd.记忆.中期记忆 = [];
 
-      // 🔥 修复：AI生成的中期记忆总结现在直接在processGmResponse中处理
-      // 这里只处理短期记忆溢出时的自动转换
-      if (midTermSummary && midTermSummary.trim()) {
-        // 如果有AI提供的总结，直接使用
-        const gameTime = sd.游戏时间;
-        const timeString = gameTime ? `【${gameTime.年}年${gameTime.月}月${gameTime.日}日】` : '';
-        sd.记忆.中期记忆.unshift(`${timeString} ${midTermSummary}`);
-        console.log('[记忆管理] ✅ 使用AI生成的中期记忆总结');
-      } else {
-        // 如果没有AI总结，自动生成简短总结，不丢弃记忆
-        console.warn('[记忆管理] ⚠️ AI未返回mid_term_memory，自动生成总结');
-        const gameTime = sd.游戏时间;
-        const timeString = gameTime ? `【${gameTime.年}年${gameTime.月}月${gameTime.日}日】` : '';
-        // 取溢出记忆的前100字作为总结
-        const summary = overflow.map(m => m.substring(0, 50)).join('；');
-        const shortSummary = summary.length > 100 ? summary.substring(0, 100) + '...' : summary;
-        sd.记忆.中期记忆.unshift(`${timeString} ${shortSummary}`);
-        console.log('[记忆管理] ✅ 已自动生成中期记忆总结');
+      // 计算需要移除的短期记忆数量
+      const 需要移除的数量 = sd.记忆.短期记忆.length - maxShortTermMemories.value;
+      console.log(`[记忆管理] 需要移除 ${需要移除的数量} 条短期记忆`);
+
+      // 🔥 核心改变：每移除一条短期记忆，就移动一条隐式中期记忆到中期记忆（1:1同步）
+      for (let i = 0; i < 需要移除的数量; i++) {
+        // 1. 移除最旧的短期记忆（从尾部移除）
+        const removedShortTerm = sd.记忆.短期记忆.pop();
+        if (removedShortTerm) {
+          console.log(`[记忆管理] 移除短期记忆 #${i + 1}: ${removedShortTerm.substring(0, 50)}...`);
+        }
+
+        // 2. 同步移动一条隐式中期记忆到中期记忆（从尾部取，因为是最旧的）
+        if (sd.记忆.隐式中期记忆.length > 0) {
+          const implicitMemory = sd.记忆.隐式中期记忆.pop();
+          if (implicitMemory) {
+            // 检查是否已存在（防止重复）
+            if (!sd.记忆.中期记忆.some(m => m === implicitMemory)) {
+              sd.记忆.中期记忆.unshift(implicitMemory);
+              console.log(`[记忆管理] 转移隐式中期记忆到中期记忆 #${i + 1}: ${implicitMemory.substring(0, 50)}...`);
+            } else {
+              console.log('[记忆管理] ⚠️ 跳过重复的中期记忆');
+            }
+          }
+        } else {
+          console.log(`[记忆管理] ⚠️ 隐式中期记忆不足，无法同步转移第 ${i + 1} 条`);
+        }
       }
 
-      console.log(`[记忆管理] 当前中期记忆数量: ${sd.记忆.中期记忆.length}`);
+      console.log(`[记忆管理] ✅ 完成记忆转移`);
+      console.log(`[记忆管理] 📝 短期记忆剩余: ${sd.记忆.短期记忆.length}`);
+      console.log(`[记忆管理] 🔄 隐式中期记忆剩余: ${sd.记忆.隐式中期记忆.length}`);
+      console.log(`[记忆管理] 💭 中期记忆当前: ${sd.记忆.中期记忆.length}`);
 
-      // 检查中期记忆是否需要转换到长期记忆
+      // 3. 检查中期记忆是否需要转换到长期记忆
       if (sd.记忆.中期记忆.length > maxMidTermMemories.value) {
         await transferToLongTermMemory();
       }
     }
 
-    console.log('[记忆管理] 短期记忆保存完成');
-
-    // 立即验证保存结果
-    const verifyMemories = sd.记忆.短期记忆;
-    console.log(`[记忆管理] 验证: 当前短期记忆总数: ${verifyMemories.length}`);
-    if (verifyMemories.length > 0) {
-      console.log(`[记忆管理] 验证: 最新记忆: ${verifyMemories[0].substring(0, 50)}...`);
-    }
+    console.log('[记忆管理] ✅ 记忆保存完成');
+    console.log(`[记忆管理] 📝 当前短期记忆总数: ${sd.记忆.短期记忆.length}`);
+    console.log(`[记忆管理] 🔄 当前隐式中期记忆总数: ${sd.记忆.隐式中期记忆.length}`);
+    console.log(`[记忆管理] 💭 当前中期记忆总数: ${sd.记忆.中期记忆?.length || 0}`);
 
     // 注意：不在这里持久化，由调用者统一在主流程中保存
     console.log('[记忆管理] 数据已更新到内存，等待主流程统一保存');
@@ -2016,6 +2084,7 @@ const resetPanelState = () => {
   actionQueue.clearActions();
   currentNarrative.value = null;
   inputText.value = '';
+  latestMessageText.value = null;
 
   // --- 重置命令日志相关状态 ---
 
@@ -3928,5 +3997,36 @@ const syncGameState = async () => {
 
 [data-theme="dark"] .image-preview-item:hover {
   border-color: #3b82f6;
+}
+
+/* 最新消息text样式 */
+.latest-message-text {
+  margin-top: 20px;
+  padding: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #818cf8;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #475569;
+  line-height: 1.7;
+}
+
+.latest-text-header {
+  font-weight: 600;
+  color: #6366f1;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+}
+
+[data-theme="dark"] .latest-message-text {
+  background: #334155;
+  border-color: #4b5563;
+  border-left-color: #818cf8;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .latest-text-header {
+  color: #a5b4fc;
 }
 </style>

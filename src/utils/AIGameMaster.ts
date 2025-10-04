@@ -6,10 +6,31 @@
 import { getTavernHelper } from './tavern';
 import { set, get, unset, cloneDeep } from 'lodash';
 import type { GameCharacter, GM_Request, GM_Response } from '../types/AIGameMaster';
-import type { CharacterBaseInfo, SaveData, StateChange, StateChangeLog } from '@/types/game';
+import type { CharacterBaseInfo, SaveData, StateChange, StateChangeLog, GameTime } from '@/types/game';
 import { shardSaveData, assembleSaveData, type StorageShards } from './storageSharding';
-import { SETTINGS_RANGES } from './settings/memorySettings';
 import { applyEquipmentBonus, removeEquipmentBonus } from './equipmentBonusApplier';
+
+/**
+ * 从GameTime获取分钟数（兼容新旧格式）
+ */
+function getMinutes(gameTime: GameTime): number {
+  // 优先使用总分钟数计算
+  if (gameTime.总分钟数 !== undefined) {
+    return gameTime.总分钟数 % 60;
+  }
+  // 否则使用分钟字段
+  return gameTime.分钟 ?? 0;
+}
+
+/**
+ * 格式化游戏时间为字符串
+ */
+function formatGameTime(gameTime: GameTime | undefined): string {
+  if (!gameTime) return '【仙历元年】';
+
+  const minutes = getMinutes(gameTime);
+  return `【仙道${gameTime.年}年${gameTime.月}月${gameTime.日}日 ${String(gameTime.小时).padStart(2, '0')}:${String(minutes).padStart(2, '0')}】`;
+}
 
 /**
  * 生成长期记忆总结
@@ -286,16 +307,17 @@ export async function processGmResponse(
   // 游戏中：由MainGamePanel的addToShortTermMemory处理
   if (isInitialization && response.text) {
     if (!updatedSaveData.记忆) {
-      updatedSaveData.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [] };
+      updatedSaveData.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [], 隐式中期记忆: [] };
     }
     if (!Array.isArray(updatedSaveData.记忆.短期记忆)) {
       updatedSaveData.记忆.短期记忆 = [];
     }
+    if (!Array.isArray(updatedSaveData.记忆.隐式中期记忆)) {
+      updatedSaveData.记忆.隐式中期记忆 = [];
+    }
 
     const gameTime = updatedSaveData.游戏时间;
-    const timePrefix = gameTime
-      ? `【仙道${gameTime.年}年${gameTime.月}月${gameTime.日}日 ${String(gameTime.小时).padStart(2, '0')}:${String(gameTime.分钟).padStart(2, '0')}】`
-      : '【仙历元年】';
+    const timePrefix = formatGameTime(gameTime);
 
     const textToStore = `${timePrefix}${response.text}`;
     updatedSaveData.记忆.短期记忆.push(textToStore);
@@ -306,36 +328,9 @@ export async function processGmResponse(
     console.log('[processGmResponse] ⚠️ 非初始化阶段，跳过短期记忆添加（由MainGamePanel处理）');
   }
 
-  // 🔥 修复：如果有mid_term_memory，直接存入中期记忆数组，不使用缓存
-  if (response.mid_term_memory && typeof response.mid_term_memory === 'string') {
-    if (!updatedSaveData.记忆) {
-      updatedSaveData.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [] };
-    }
-    if (!Array.isArray(updatedSaveData.记忆.中期记忆)) {
-      updatedSaveData.记忆.中期记忆 = [];
-    }
-
-    // 格式化游戏时间
-    const gameTime = updatedSaveData.游戏时间;
-    const timePrefix = gameTime
-      ? `【仙道${gameTime.年}年${gameTime.月}月${gameTime.日}日 ${String(gameTime.小时).padStart(2, '0')}:${String(gameTime.分钟).padStart(2, '0')}】`
-      : '【未知时间】';
-
-    const formattedMemory = `${timePrefix}${response.mid_term_memory}`;
-
-    // 直接存入中期记忆数组
-    updatedSaveData.记忆.中期记忆.unshift(formattedMemory);
-    console.log('[processGmResponse] ✅ 已将mid_term_memory直接存入中期记忆');
-    console.log('[processGmResponse] 中期记忆内容:', formattedMemory.substring(0, 100));
-    console.log('[processGmResponse] 当前中期记忆数量:', updatedSaveData.记忆.中期记忆.length);
-
-    // 🔥 检查中期记忆是否需要转换到长期记忆
-    const maxMidTermMemories = 25; // 默认中期记忆上限
-    if (updatedSaveData.记忆.中期记忆.length > maxMidTermMemories) {
-      console.log('[processGmResponse] 中期记忆超出限制，准备转换到长期记忆');
-      await transferToLongTermMemoryInAI(updatedSaveData, maxMidTermMemories);
-    }
-  }
+  // 🔥 注意：mid_term_memory 不在这里处理
+  // 在游戏中，由 MainGamePanel 的 addToShortTermMemory 统一处理
+  // 在初始化时，也应该由初始化逻辑处理，保持一致性
 
   console.log('[processGmResponse] GM响应处理完成');
   return { saveData: updatedSaveData, stateChanges };
@@ -444,6 +439,12 @@ function mapShardPathToSaveDataPath(shardPath: string): string {
   }
   if (path === '记忆_长期') {
     return '记忆.长期记忆';
+  }
+  if (path.startsWith('记忆_隐式中期.')) {
+    return '记忆.隐式中期记忆.' + path.substring('记忆_隐式中期.'.length);
+  }
+  if (path === '记忆_隐式中期') {
+    return '记忆.隐式中期记忆';
   }
 
   // 游戏时间分片
@@ -711,51 +712,42 @@ async function executeCommand(command: { action: string; key: string; value?: un
         if (String(path).includes('先天六司')) added = clamp(added);
 
         // 🔥 特殊处理：游戏时间自动进位
-        if (path === '游戏时间.分钟' || path.endsWith('游戏时间.分钟')) {
+        if (path === '游戏时间.分钟' || path.endsWith('游戏时间.分钟') ||
+            path === '游戏时间.总分钟数' || path.endsWith('游戏时间.总分钟数')) {
           console.log(`[executeCommand] 🕐 游戏时间增加 ${value} 分钟，开始自动进位计算`);
 
           // 获取当前游戏时间
-          const gameTime = get(saveData, '游戏时间', { 年: 1, 月: 1, 日: 1, 小时: 0, 分钟: 0 }) as {
-            年: number;
-            月: number;
-            日: number;
-            小时: number;
-            分钟: number;
-          };
+          const gameTime = get(saveData, '游戏时间', { 年: 1, 月: 1, 日: 1, 小时: 0, 分钟: 0, 总分钟数: 0 }) as GameTime;
 
-          // 计算新的总分钟数
-          const totalMinutes = gameTime.分钟 + Number(value || 0);
+          // 计算新的总分钟数（从游戏开始累计）
+          const currentTotalMinutes = gameTime.总分钟数 || 0;
+          const newTotalMinutes = currentTotalMinutes + Number(value || 0);
 
-          // 进位计算
-          let 新小时 = gameTime.小时;
-          let 新日 = gameTime.日;
-          let 新月 = gameTime.月;
-          let 新年 = gameTime.年;
-          let 新分钟 = totalMinutes;
+          // 从总分钟数计算年月日时分
+          // 1年 = 12月, 1月 = 30天, 1天 = 24小时, 1小时 = 60分钟
+          const 分钟每小时 = 60;
+          const 小时每天 = 24;
+          const 天每月 = 30;
+          const 月每年 = 12;
 
-          // 分钟 → 小时
-          if (新分钟 >= 60) {
-            新小时 += Math.floor(新分钟 / 60);
-            新分钟 = 新分钟 % 60;
-          }
+          const 分钟每天 = 分钟每小时 * 小时每天; // 1440
+          const 分钟每月 = 分钟每天 * 天每月; // 43200
+          const 分钟每年 = 分钟每月 * 月每年; // 518400
 
-          // 小时 → 天
-          if (新小时 >= 24) {
-            新日 += Math.floor(新小时 / 24);
-            新小时 = 新小时 % 24;
-          }
+          // 从总分钟数计算
+          let 剩余分钟 = newTotalMinutes;
 
-          // 天 → 月 (假设每月30天)
-          if (新日 > 30) {
-            新月 += Math.floor((新日 - 1) / 30);
-            新日 = ((新日 - 1) % 30) + 1;
-          }
+          const 新年 = Math.floor(剩余分钟 / 分钟每年) + 1; // +1 因为游戏从第1年开始
+          剩余分钟 = 剩余分钟 % 分钟每年;
 
-          // 月 → 年 (假设每年12个月)
-          if (新月 > 12) {
-            新年 += Math.floor((新月 - 1) / 12);
-            新月 = ((新月 - 1) % 12) + 1;
-          }
+          const 新月 = Math.floor(剩余分钟 / 分钟每月) + 1; // +1 因为月份从1开始
+          剩余分钟 = 剩余分钟 % 分钟每月;
+
+          const 新日 = Math.floor(剩余分钟 / 分钟每天) + 1; // +1 因为日期从1开始
+          剩余分钟 = 剩余分钟 % 分钟每天;
+
+          const 新小时 = Math.floor(剩余分钟 / 分钟每小时);
+          const 新分钟 = 剩余分钟 % 分钟每小时;
 
           // 更新整个游戏时间对象
           set(saveData, '游戏时间', {
@@ -763,11 +755,13 @@ async function executeCommand(command: { action: string; key: string; value?: un
             月: 新月,
             日: 新日,
             小时: 新小时,
+            总分钟数: newTotalMinutes,
             分钟: 新分钟
           });
 
           console.log(`[executeCommand] ✅ 游戏时间已更新: ${新年}年${新月}月${新日}日 ${新小时}:${新分钟}`);
-          console.log(`[executeCommand]   原时间: ${gameTime.年}年${gameTime.月}月${gameTime.日}日 ${gameTime.小时}:${gameTime.分钟}`);
+          console.log(`[executeCommand]   原时间: ${gameTime.年}年${gameTime.月}月${gameTime.日}日 ${gameTime.小时}:${getMinutes(gameTime)} (总分钟数: ${currentTotalMinutes})`);
+          console.log(`[executeCommand]   新时间总分钟数: ${newTotalMinutes}`);
           console.log(`[executeCommand]   增加: ${value}分钟`);
         } else {
           set(saveData, path, added);
@@ -785,7 +779,7 @@ async function executeCommand(command: { action: string; key: string; value?: un
           console.log(`[executeCommand] ✅ 已创建新数组并添加元素`);
         }
         break;
-        
+
       case 'pull':
         {
           const pullArray = get(saveData, path, []) as unknown[];
@@ -845,7 +839,7 @@ async function executeCommand(command: { action: string; key: string; value?: un
           }
         }
         break;
-        
+
       default:
         console.warn('[executeCommand] 未知命令类型:', action);
     }
@@ -869,13 +863,13 @@ export async function syncToTavern(saveData: SaveData, scope: 'global' | 'chat' 
       return;
     }
 
-    // 将saveData拆分为16个分片
+    // 将saveData拆分为17个分片（包含隐式中期记忆）
     const shards = shardSaveData(saveData);
 
     // 一次性写入所有分片 (通过unknown中转以避免类型转换错误)
     await helper.insertOrAssignVariables(shards as unknown as Record<string, unknown>, { type: scope });
 
-    console.log('[syncToTavern] 数据同步完成 (16个分片)');
+    console.log('[syncToTavern] 数据同步完成 (17个分片)');
   } catch (error) {
     console.error('[syncToTavern] 数据同步失败:', error);
   }
@@ -911,6 +905,7 @@ function getShardNameFromPath(path: string): keyof StorageShards | null {
   if (normalizedPath.startsWith('记忆.短期记忆')) return '记忆_短期';
   if (normalizedPath.startsWith('记忆.中期记忆')) return '记忆_中期';
   if (normalizedPath.startsWith('记忆.长期记忆')) return '记忆_长期';
+  if (normalizedPath.startsWith('记忆.隐式中期记忆')) return '记忆_隐式中期';
   if (normalizedPath.startsWith('游戏时间')) return '游戏时间';
   if (normalizedPath.startsWith('玩家角色状态.状态效果')) return '状态效果';
 
@@ -945,6 +940,7 @@ function getPathInShard(path: string, shardName: string): string {
     '记忆_短期': '记忆.短期记忆',
     '记忆_中期': '记忆.中期记忆',
     '记忆_长期': '记忆.长期记忆',
+    '记忆_隐式中期': '记忆.隐式中期记忆',
     '游戏时间': '游戏时间.',
     '状态效果': '玩家角色状态.状态效果',
   };
@@ -1073,12 +1069,13 @@ export async function getFromTavern(scope: 'global' | 'chat' = 'chat'): Promise<
       '记忆_短期': variables['记忆_短期'] as StorageShards['记忆_短期'],
       '记忆_中期': variables['记忆_中期'] as StorageShards['记忆_中期'],
       '记忆_长期': variables['记忆_长期'] as StorageShards['记忆_长期'],
+      '记忆_隐式中期': variables['记忆_隐式中期'] as StorageShards['记忆_隐式中期'],
       '游戏时间': variables['游戏时间'] as StorageShards['游戏时间'],
       '状态效果': variables['状态效果'] as StorageShards['状态效果'],
     };
 
     // 从分片重组SaveData
-    console.log('[getFromTavern] 从16个分片重组SaveData');
+    console.log('[getFromTavern] 从17个分片重组SaveData');
     return assembleSaveData(shards);
   } catch (error) {
     console.error('[getFromTavern] 获取数据失败:', error);

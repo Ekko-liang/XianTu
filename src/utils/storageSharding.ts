@@ -33,6 +33,7 @@ export interface StorageShards {
   };
   '位置': SaveData['玩家角色状态']['位置'];
   '修炼功法': SaveData['修炼功法'];
+  '掌握技能': SaveData['掌握技能']; // 新增：掌握的技能列表
   '装备栏': SaveData['装备栏'];
   '背包_灵石': SaveData['背包']['灵石'];
   '背包_物品': SaveData['背包']['物品'];
@@ -42,8 +43,23 @@ export interface StorageShards {
   '记忆_短期': string[];
   '记忆_中期': string[];
   '记忆_长期': string[];
+  '记忆_隐式中期': string[]; // 新增：隐式中期记忆分片
   '游戏时间': SaveData['游戏时间'];
-  '状态效果': SaveData['玩家角色状态']['状态效果'];
+  '状态效果': Array<{
+    状态名称: string;
+    类型: "buff" | "debuff";
+    生成时间: {
+      年: number;
+      月: number;
+      日: number;
+      小时: number;
+      分钟: number;
+    };
+    持续时间分钟: number;
+    状态描述: string;
+    强度?: number;
+    来源?: string;
+  }>;
 }
 
 /**
@@ -92,6 +108,7 @@ export function shardSaveData(saveData: SaveData): StorageShards {
     },
     '位置': saveData.玩家角色状态.位置,
     '修炼功法': saveData.修炼功法,
+    '掌握技能': saveData.掌握技能 || [], // 新增：掌握的技能列表
     '装备栏': saveData.装备栏,
     '背包_灵石': saveData.背包.灵石,
     '背包_物品': saveData.背包.物品,
@@ -101,6 +118,7 @@ export function shardSaveData(saveData: SaveData): StorageShards {
     '记忆_短期': saveData.记忆.短期记忆,
     '记忆_中期': saveData.记忆.中期记忆,
     '记忆_长期': saveData.记忆.长期记忆,
+    '记忆_隐式中期': saveData.记忆.隐式中期记忆 || [], // 新增：隐式中期记忆分片
     '游戏时间': saveData.游戏时间,
     '状态效果': saveData.玩家角色状态.状态效果 || [],
   };
@@ -145,6 +163,7 @@ export function assembleSaveData(shards: Partial<StorageShards>): SaveData {
       状态效果: shards['状态效果'] || [],
     },
     修炼功法: shards['修炼功法'] || { 功法: null, 正在修炼: false, 修炼进度: 0, 熟练度: 0, 已解锁技能: [], 修炼时间: 0, 突破次数: 0 },
+    掌握技能: shards['掌握技能'] || [], // 新增：掌握的技能列表
     装备栏: shards['装备栏'] || { 装备1: null, 装备2: null, 装备3: null, 装备4: null, 装备5: null, 装备6: null },
     背包: {
       灵石: shards['背包_灵石'] || { 下品: 0, 中品: 0, 上品: 0, 极品: 0 },
@@ -169,6 +188,7 @@ export function assembleSaveData(shards: Partial<StorageShards>): SaveData {
       短期记忆: shards['记忆_短期'] || [],
       中期记忆: shards['记忆_中期'] || [],
       长期记忆: shards['记忆_长期'] || [],
+      隐式中期记忆: shards['记忆_隐式中期'] || [], // 新增：隐式中期记忆
     },
     游戏时间: shards['游戏时间'] || { 年: 1, 月: 1, 日: 1, 小时: 0, 分钟: 0 },
   };
@@ -199,6 +219,8 @@ export function getShardFromSaveData(saveData: SaveData, shardKey: keyof Storage
       return saveData.玩家角色状态.位置;
     case '修炼功法':
       return saveData.修炼功法;
+    case '掌握技能': // 🔥 修复：添加掌握技能分片的获取逻辑
+      return saveData.掌握技能;
     case '装备栏':
       return saveData.装备栏;
     case '背包_灵石':
@@ -217,6 +239,8 @@ export function getShardFromSaveData(saveData: SaveData, shardKey: keyof Storage
       return saveData.记忆.中期记忆;
     case '记忆_长期':
       return saveData.记忆.长期记忆;
+    case '记忆_隐式中期':
+      return saveData.记忆.隐式中期记忆 || []; // 新增：隐式中期记忆分片获取
     case '游戏时间':
       return saveData.游戏时间;
     case '状态效果':
@@ -293,6 +317,7 @@ export async function loadAllShards(helper: TavernHelper): Promise<Partial<Stora
     '属性',
     '位置',
     '修炼功法',
+    '掌握技能', // 🔥 修复：添加缺失的掌握技能分片
     '装备栏',
     '背包_灵石',
     '背包_物品',
@@ -302,6 +327,7 @@ export async function loadAllShards(helper: TavernHelper): Promise<Partial<Stora
     '记忆_短期',
     '记忆_中期',
     '记忆_长期',
+    '记忆_隐式中期', // 新增：隐式中期记忆分片
     '游戏时间',
     '状态效果',
   ];
@@ -354,6 +380,7 @@ export async function clearAllShards(helper: TavernHelper): Promise<void> {
     '属性',
     '位置',
     '修炼功法',
+    '掌握技能', // 🔥 修复：添加缺失的掌握技能分片
     '装备栏',
     '背包_灵石',
     '背包_物品',
@@ -363,6 +390,7 @@ export async function clearAllShards(helper: TavernHelper): Promise<void> {
     '记忆_短期',
     '记忆_中期',
     '记忆_长期',
+    '记忆_隐式中期', // 新增：隐式中期记忆分片
     '游戏时间',
     '状态效果',
   ];
@@ -437,6 +465,9 @@ export function mapOldPathToShard(oldPath: string): {
   }
   if (cleanPath.startsWith('记忆.长期记忆')) {
     return { shardKey: '记忆_长期', subPath: '' };
+  }
+  if (cleanPath.startsWith('记忆.隐式中期记忆')) {
+    return { shardKey: '记忆_隐式中期', subPath: '' }; // 新增：隐式中期记忆路径映射
   }
   if (cleanPath.startsWith('游戏时间')) {
     return { shardKey: '游戏时间', subPath: cleanPath.substring('游戏时间'.length).replace(/^\./, '') };

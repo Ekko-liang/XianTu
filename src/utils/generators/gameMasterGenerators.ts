@@ -706,78 +706,34 @@ export async function generateInGameResponse(
     const saveData = (currentGameData.saveData as SaveData) || {};
     const derived = computeDerived(saveData);
 
-    // 提取上一条对话的AI/GM文本（用于连续性）
-    // 从 currentGameData.saveData 中提取
-    let lastTextMemory = '';
+    // 提取所有短期记忆作为"上一幕剧情"
+    let shortTermMemories: string[] = [];
     try {
-      const history = (saveData?.['对话历史'] || saveData?.对话历史);
-      if (Array.isArray(history) && history.length > 0) {
-        for (let i = history.length - 1; i >= 0; i--) {
-          const m = history[i];
-          const t = String(m?.type || '').toLowerCase();
-          if ((t === 'ai' || t === 'gm') && typeof m?.content === 'string' && m.content.trim()) {
-            lastTextMemory = String(m.content);
-            break;
-          }
+        const mem = saveData?.['记忆'] || saveData?.记忆;
+        const short = mem?.['短期记忆'] || mem?.短期记忆;
+        if (Array.isArray(short)) {
+            shortTermMemories = short.filter(m => typeof m === 'string');
         }
-      }
     } catch (e) {
-      console.warn('【提示词连续性】提取上一次对话文本失败（忽略）:', e);
+        console.warn('【提示词连续性】提取短期记忆失败（忽略）:', e);
     }
-
-    // 优先使用短期记忆作为上一条文本
-    try {
-      const mem = saveData?.['记忆'] || saveData?.记忆;
-      const short = mem?.['短期记忆'] || mem?.短期记忆;
-      if (Array.isArray(short) && short.length > 0 && typeof short[short.length - 1] === 'string') {
-        lastTextMemory = String(short[short.length - 1]);
-      }
-    } catch {}
 
     const gmRequest = {
       playerAction: playerAction || '继续当前活动',
       requestType: 'in_game_progression',
       timestamp: new Date().toISOString()
-      // 移除 ...currentGameData 避免重复传输完整saveData
-      // saveData已经通过酒馆的<status_current_variables>注入，不需要在这里重复
     };
 
-    // 获取通用提示词（关闭冗长调试日志以减少控制台噪音）
-    const prompt = getRandomizedInGamePrompt();
-    console.log('【剧情推进】使用通用提示词');
-    console.log('【剧情推进】原始提示词长度:', prompt.length);
-    console.log('【剧情推进-调试】原始提示词前500字符:', prompt.substring(0, 500));
-    console.log('【剧情推进-调试】原始提示词后500字符:', prompt.substring(prompt.length - 500));
-
-    // 🔥 修复：明确地将用户输入包含在提示词中
-    const userActionText = playerAction && playerAction.trim() ? playerAction.trim() : '继续当前活动';
+    // 获取通用提示词，并传入上下文
+    const finalPrompt = getRandomizedInGamePrompt(shortTermMemories, playerAction);
     
-    // 替换提示词中的占位符
-    // ⚠️ 注意：不再在代码中传输 character.saveData，Tavern已通过 <status_current_variables> 自动注入
-    // 只传输 gmRequest 元数据和派生指标
-    const promptInput = {
-      gmRequest,
-      derived
-    };
-    const finalPrompt = prompt.replace('INPUT_PLACEHOLDER', JSON.stringify(promptInput));
-    
-    // 🔥 核心修复：明确地在提示词中展示用户输入
-    const userInputSection = `\n\n# 🎯 玩家当前行动\n\n**玩家输入**: ${userActionText}\n\n**要求**: 请根据上述玩家输入推进剧情，确保AI响应与玩家行动直接相关。`;
-    
-    // 为避免提示词膨胀，不再内联"上一条对话全文"。改为指导语基于现有记忆/状态保持连续性。
-    const continuityGuide = '\n\n【连续性要求】请基于当前存档与记忆保持自然衔接，不重复上一条内容，不做总结，仅推进后续发展。';
-    const finalPromptWithContinuity = finalPrompt + userInputSection + continuityGuide;
-    console.log('【连续性】上一条对话字数:', typeof lastTextMemory === 'string' ? lastTextMemory.length : 0);
-
-    console.log('【剧情推进】最终提示词长度:', finalPromptWithContinuity.length);
-    console.log('【剧情推进-调试】最终提示词前500字符:', finalPromptWithContinuity.substring(0, 500));
-    console.log('【剧情推进-调试】最终提示词是否包含核心规则:', finalPromptWithContinuity.includes('【核心规则'));
-    console.log('【剧情推进-调试】最终提示词是否包含格式化标记:', finalPromptWithContinuity.includes('【格式化标记规范】'));
+    console.log('【剧情推进】最终提示词长度:', finalPrompt.length);
+    console.log('【剧情推进-调试】最终提示词前500字符:', finalPrompt.substring(0, 500));
     console.log('【剧情推进】GM请求数据:', gmRequest);
 
     // 调用AI生成响应
     const result = await generateItemWithTavernAI<GM_Response>(
-      finalPromptWithContinuity,
+      finalPrompt,
       '剧情推进',
       false,
       3,

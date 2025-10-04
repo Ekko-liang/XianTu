@@ -280,12 +280,8 @@
                     >
                       <div class="skill-header">
                         <span class="skill-name">{{ skillName }}</span>
-                        <span class="skill-type" :class="`type-${skill.技能类型}`">{{
-                          skill.技能类型
-                        }}</span>
                       </div>
                       <div class="skill-description">{{ skill.技能描述 }}</div>
-                      <div class="skill-unlock">解锁条件：{{ skill.解锁条件 }}</div>
                     </div>
                   </div>
                 </div>
@@ -691,7 +687,7 @@ const itemList = computed<Item[]>(() => {
       // 过滤掉无效值
       return val && typeof val === 'object'
     })
-    .map(([_, val]) => {
+    .map(([, val]) => {
       const item = val as Partial<Item>
       return {
         ...item,

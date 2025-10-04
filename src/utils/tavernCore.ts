@@ -331,30 +331,20 @@ export async function generateItemWithTavernAI<T = unknown>(
     console.log(`【神识印记-调试】提示词是否包含千夜:`, preparedPrompt.includes('千夜'));
     console.log(`【神识印记-调试】提示词是否包含瑶池圣地:`, preparedPrompt.includes('瑶池圣地'));
 
-    // 使用 /inject slash command 注入提示词
-    // position=before 在主提示词之前，depth=0 最高优先级，role=system 系统角色，ephemeral=true 临时注入
-    const injectId = `init_prompt_${Date.now()}`;
+    // 🔥 新方案：不使用 /inject 命令，直接将完整提示词作为 user_input 发送
+    // 这样可以避免污染世界书，因为 user_input 不会被保存到角色卡或世界书
+    // 同时使用 max_chat_history: 0 禁用聊天历史，确保提示词不会被记录
 
-    // 转义提示词中的特殊字符（特别是引号）
-    const escapedPrompt = preparedPrompt.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
-    const injectCommand = `/inject id="${injectId}" position=before depth=0 role=system ephemeral=true "${escapedPrompt}"`;
+    console.log(`【神识印记】直接发送提示词作为 user_input，不使用注入`);
+    console.log(`【神识印记-调试】提示词长度:`, preparedPrompt.length);
 
-    console.log(`【神识印记-调试】注入命令ID:`, injectId);
-    console.log(`【神识印记-调试】注入命令长度:`, injectCommand.length);
-
-    try {
-      const injectResult = await helper.triggerSlash(injectCommand);
-      console.log(`【神识印记】提示词注入成功，返回:`, injectResult);
-    } catch (injectError) {
-      console.warn(`【神识印记】提示词注入失败:`, injectError);
-      // 继续执行，即使注入失败
-    }
-
-    // 发送生成请求
+    // 发送生成请求，将提示词直接作为user_input
     const rawResult = await helper.generate({
-      user_input: '请严格按照上述系统指令执行角色初始化任务',
-      should_stream: useStreaming,  // 使用原始的streaming参数
-      max_chat_history: 0  // 禁用聊天历史
+      user_input: preparedPrompt,  // 直接发送完整提示词
+      should_stream: useStreaming,
+      max_chat_history: 0,  // 禁用聊天历史，防止提示词被记录
+      quiet_prompt: true,   // 静默提示，不添加到对话历史
+      quiet_image: true     // 静默图片，不添加到对话历史
     });
 
     console.log(`【神识印记-调试】TavernHelper.generate()返回结果类型:`, typeof rawResult);

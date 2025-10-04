@@ -319,7 +319,7 @@ const learnedSkills = computed((): LearnedSkillDisplay[] => {
             name: skillName,
             proficiency: getPersistentProficiency(skillName, 'technique'), // 获取持久化熟练度
             source: '功法传承',
-            type: skillInfo.技能类型 || '主动技能',
+            type: '功法技能', // 简化：统一类型
             description: skillInfo.技能描述 || '通过功法修炼掌握的技能',
             unlocked: true
           });
@@ -339,33 +339,12 @@ const getPersistentProficiency = (skillName: string, source: string): number => 
   return 30 + (seed % 66);
 };
 
-// 检查技能是否已解锁
+// 检查技能是否已解锁（简化版：默认全部解锁）
 const checkSkillUnlocked = (skillName: string, technique: TechniqueItem, cultivationInfo: CultivationTechniqueData | undefined): boolean => {
-  if (!technique.功法技能?.[skillName] || !cultivationInfo) return false;
+  if (!technique.功法技能?.[skillName]) return false;
 
-  const skillInfo = technique.功法技能[skillName];
-  const unlockCondition = skillInfo.解锁条件 || '';
-
-  // 解析解锁条件
-  if (unlockCondition.includes('修炼进度达到')) {
-    const match = unlockCondition.match(/修炼进度达到(\d+)%/);
-    const requiredProgress = parseInt(match?.[1] || '0');
-    return (technique.修炼进度 || 0) >= requiredProgress;
-  }
-
-  if (unlockCondition.includes('熟练度达到')) {
-    const match = unlockCondition.match(/熟练度达到(\d+)%/);
-    const requiredProficiency = parseInt(match?.[1] || '0');
-    return (cultivationInfo.熟练度 || 0) >= requiredProficiency;
-  }
-
-  if (unlockCondition.includes('突破次数')) {
-    const match = unlockCondition.match(/突破次数达到(\d+)/);
-    const requiredBreakthroughs = parseInt(match?.[1] || '0');
-    return (cultivationInfo.突破次数 || 0) >= requiredBreakthroughs;
-  }
-
-  // 如果没有明确条件，默认已解锁
+  // 简化逻辑：只要功法中有这个技能，就认为已解锁
+  // 可以根据修炼进度判断，但目前简化处理
   return true;
 };
 

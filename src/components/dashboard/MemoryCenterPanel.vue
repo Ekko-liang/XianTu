@@ -4,8 +4,8 @@
     <!-- 记忆类型筛选 -->
     <div class="filter-section">
       <div class="filter-tabs">
-        <button 
-          v-for="type in memoryTypes" 
+        <button
+          v-for="type in memoryTypes"
           :key="type.key"
           class="filter-tab"
           :class="{ active: activeFilter === type.key }"
@@ -15,7 +15,7 @@
           <span class="tab-name">{{ type.name }}</span>
           <span class="tab-count">{{ getTypeCount(type.key) }}</span>
         </button>
-        <button 
+        <button
           class="settings-toggle-btn"
           @click="showSettings = !showSettings"
           :class="{ active: showSettings }"
@@ -30,23 +30,23 @@
     <div class="settings-section" v-if="showSettings">
       <div class="settings-header">
         <span class="settings-title">⚙️ 记忆系统配置</span>
-        <button 
+        <button
           class="settings-close-btn"
           @click="showSettings = false"
         >✕</button>
       </div>
-      
+
       <div class="settings-content">
         <div class="setting-item">
           <label class="setting-label">短期记忆限制 (条):</label>
           <input
             type="number"
             v-model.number="memoryConfig.shortTermLimit"
-            min="3"
+            min="5"
             max="10"
             class="setting-input"
           />
-          <span class="setting-hint">默认: 3</span>
+          <span class="setting-hint">默认: 5</span>
         </div>
 
         <div class="setting-item">
@@ -58,25 +58,25 @@
             max="50"
             class="setting-input"
           />
-          <span class="setting-hint">中期记忆积累达到此数量时转化为长期记忆，默认: 23</span>
+          <span class="setting-hint">中期记忆积累达到此数量时转化为长期记忆，默认: 25</span>
         </div>
-        
+
         <div class="setting-item">
           <label class="setting-label">中期记忆保留数量 (条):</label>
-          <input 
-            type="number" 
+          <input
+            type="number"
             v-model.number="memoryConfig.midTermKeep"
-            min="3" 
+            min="5"
             max="15"
             class="setting-input"
           />
           <span class="setting-hint">转化为长期记忆时保留最新的中期记忆数量，默认: 8</span>
         </div>
-        
+
         <div class="setting-item">
           <label class="setting-label">
-            <input 
-              type="checkbox" 
+            <input
+              type="checkbox"
               v-model="memoryConfig.autoSummaryEnabled"
               class="setting-checkbox"
             />
@@ -84,10 +84,10 @@
           </label>
           <span class="setting-hint">开启后自动将中期记忆转化为长期记忆，关闭则不进行转化</span>
         </div>
-        
+
         <div class="setting-item">
           <label class="setting-label">中期记忆自定义格式:</label>
-          <textarea 
+          <textarea
             v-model="memoryConfig.midTermFormat"
             class="setting-textarea"
             placeholder="留空使用默认格式。可自定义AI提示词来控制中期记忆的生成格式..."
@@ -95,10 +95,10 @@
           ></textarea>
           <span class="setting-hint">自定义中期记忆的AI提示词格式，留空使用系统默认</span>
         </div>
-        
+
         <div class="setting-item">
           <label class="setting-label">长期记忆自定义格式:</label>
-          <textarea 
+          <textarea
             v-model="memoryConfig.longTermFormat"
             class="setting-textarea"
             placeholder="留空使用默认格式。可自定义AI提示词来控制长期记忆的生成格式..."
@@ -106,15 +106,15 @@
           ></textarea>
           <span class="setting-hint">自定义长期记忆的AI提示词格式，留空使用系统默认</span>
         </div>
-        
+
         <div class="settings-actions">
-          <button 
+          <button
             class="action-btn success"
             @click="saveMemoryConfig"
           >
             💾 保存配置
           </button>
-          <button 
+          <button
             class="action-btn info"
             @click="resetMemoryConfig"
           >
@@ -130,15 +130,15 @@
         <div class="loading-spinner">⏳</div>
         <div class="loading-text">正在读取记忆...</div>
       </div>
-      
+
       <div v-else-if="filteredMemories.length === 0" class="empty-state">
         <div class="empty-icon">🧠</div>
         <div class="empty-text">{{ getEmptyText() }}</div>
       </div>
 
       <div v-else class="memory-list">
-        <div 
-          v-for="(memory, index) in filteredMemories" 
+        <div
+          v-for="(memory, index) in filteredMemories"
           :key="index"
           class="memory-card"
           :class="`memory-${memory.type}`"
@@ -149,15 +149,15 @@
             </div>
             <div class="memory-time">{{ memory.time }}</div>
           </div>
-          
+
           <div class="memory-content">
             <div v-if="memory.parsedContent && memory.parsedContent.format" class="structured-memory">
               <div class="memory-title" v-if="memory.parsedContent.title">
                 【{{ memory.parsedContent.title }}】
               </div>
-              
+
               <template v-for="section in memory.parsedContent.format.sections" :key="section.key">
-                <div 
+                <div
                   v-if="memory.parsedContent.sections && memory.parsedContent.sections[section.key]"
                   class="memory-section-group"
                 >
@@ -165,8 +165,8 @@
                   <span class="memory-icon">{{ section.icon }}</span>
                   <span class="memory-section-title">{{ section.title }}</span>
                 </div>
-                <div 
-                  v-for="item in memory.parsedContent.sections[section.key]" 
+                <div
+                  v-for="item in memory.parsedContent.sections[section.key]"
                   :key="item"
                   class="memory-item"
                 >
@@ -174,9 +174,9 @@
                 </div>
               </div>
               </template>
-              
+
               <!-- 未识别的通用内容 -->
-              <div 
+              <div
                 v-if="memory.parsedContent.sections['general']"
                 class="memory-section-group"
               >
@@ -184,8 +184,8 @@
                   <span class="memory-icon">📝</span>
                   <span class="memory-section-title">其他记录</span>
                 </div>
-                <div 
-                  v-for="item in memory.parsedContent.sections['general']" 
+                <div
+                  v-for="item in memory.parsedContent.sections['general']"
                   :key="item"
                   class="memory-item"
                 >
@@ -193,7 +193,7 @@
                 </div>
               </div>
             </div>
-            
+
             <div v-else class="simple-memory">
               {{ memory.content }}
             </div>
@@ -236,8 +236,8 @@ const showSettings = ref(false);
 
 // 记忆系统配置
 const memoryConfig = ref({
-  shortTermLimit: 3, // 与后端配置同步
-  midTermTrigger: 23, // 与后端配置同步
+  shortTermLimit: 5, // 与后端配置同步
+  midTermTrigger: 25, // 与后端配置同步
   midTermKeep: 8,
   autoSummaryEnabled: true,
   midTermFormat: '',
@@ -246,7 +246,7 @@ const memoryConfig = ref({
 
 // 记忆转化配置
 const MEMORY_CONFIG = {
-  SHORT_TERM_LIMIT: 3, // 短期记忆上限（与后端同步）
+  SHORT_TERM_LIMIT: 5, // 短期记忆上限（与后端同步）
   MEDIUM_TERM_LIMIT: 25, // 中期记忆上限（与后端同步）
   LONG_TERM_LIMIT: 50, // 长期记忆上限
   CONVERT_THRESHOLD: 0.8 // 转化阈值（达到上限的80%就开始转化）
@@ -280,7 +280,7 @@ const filteredMemories = computed(() => {
   if (activeFilter.value === 'all') {
     return memories.value;
   }
-  
+
   switch (activeFilter.value) {
     case 'short': return shortTermMemories.value;
     case 'medium': return mediumTermMemories.value;
@@ -290,7 +290,7 @@ const filteredMemories = computed(() => {
 });
 
 // 总记忆数量
-const totalMemoryCount = computed(() => 
+const totalMemoryCount = computed(() =>
   shortTermMemories.value.length + mediumTermMemories.value.length + longTermMemories.value.length
 );
 
@@ -341,11 +341,11 @@ const formatTime = (timestamp: number): string => {
 // 记忆转化功能
 const convertMemories = () => {
   let hasConversion = false;
-  
+
   // 检查短期记忆是否达到转化阈值
   if (shortTermMemories.value.length >= MEMORY_CONFIG.SHORT_TERM_LIMIT) {
     debug.log('记忆中心', '短期记忆达到上限，开始转化为中期记忆');
-    
+
     // 取最早的短期记忆转化为中期记忆
     const oldestShort = shortTermMemories.value.shift();
     if (oldestShort) {
@@ -359,11 +359,11 @@ const convertMemories = () => {
       hasConversion = true;
     }
   }
-  
+
   // 检查中期记忆是否达到转化阈值
   if (mediumTermMemories.value.length >= MEMORY_CONFIG.MEDIUM_TERM_LIMIT) {
     debug.log('记忆中心', '中期记忆达到上限，开始转化为长期记忆');
-    
+
     // 取最早的中期记忆转化为长期记忆
     const oldestMedium = mediumTermMemories.value.shift();
     if (oldestMedium) {
@@ -378,7 +378,7 @@ const convertMemories = () => {
       hasConversion = true;
     }
   }
-  
+
   // 检查长期记忆是否超限
   if (longTermMemories.value.length > MEMORY_CONFIG.LONG_TERM_LIMIT) {
     // 按重要性排序，保留重要的
@@ -386,7 +386,7 @@ const convertMemories = () => {
     const removed = longTermMemories.value.splice(MEMORY_CONFIG.LONG_TERM_LIMIT);
     debug.log('记忆中心', `长期记忆超限，移除${removed.length}条低重要性记忆`);
   }
-  
+
   if (hasConversion) {
     toast.success('记忆已重新整理，旧记忆已转化');
   }
@@ -401,7 +401,7 @@ const addMemory = (type: 'short' | 'medium' | 'long', content: string, importanc
     importance,
     parsedContent
   };
-  
+
   switch (type) {
     case 'short':
       shortTermMemories.value.push(memory);
@@ -413,7 +413,7 @@ const addMemory = (type: 'short' | 'medium' | 'long', content: string, importanc
       longTermMemories.value.push(memory);
       break;
   }
-  
+
   // 检查是否需要转化
   convertMemories();
 };
@@ -438,7 +438,7 @@ const clearMemory = async () => {
         shortTermMemories.value = [];
         mediumTermMemories.value = [];
         longTermMemories.value = [];
-        
+
         // 同步清理酒馆存档数据
         const characterStore = useCharacterStore();
         const save = characterStore.activeSaveSlot;
@@ -449,7 +449,7 @@ const clearMemory = async () => {
             save.存档数据.记忆.中期记忆 = [];
             save.存档数据.记忆.长期记忆 = [];
           }
-          
+
           // 同步到酒馆
           const helper = getTavernHelper();
           if (helper) {
@@ -459,7 +459,7 @@ const clearMemory = async () => {
             console.log('[记忆中心] 已同步清理酒馆记忆数据');
           }
         }
-        
+
         toast.success('记忆已清理并同步到酒馆');
       } catch (error) {
         console.error('[记忆中心] 清理记忆失败:', error);
@@ -490,7 +490,7 @@ const clearMemory = async () => {
 const loadMemoryData = async () => {
   try {
     debug.log('记忆中心', '开始加载记忆数据');
-    
+
     const loadedShortMemories: Memory[] = [];
     const loadedMediumMemories: Memory[] = [];
     const loadedLongMemories: Memory[] = [];
@@ -498,10 +498,10 @@ const loadMemoryData = async () => {
     // 直接从存档数据获取记忆（字符串数组）
     const save = characterStore.activeSaveSlot;
     const memoryData = save?.存档数据?.记忆;
-    
+
     if (memoryData) {
       debug.log('记忆中心', '从存档数据加载记忆:', Object.keys(memoryData));
-      
+
       // 短期记忆 - 字符串数组
       if (Array.isArray(memoryData.短期记忆)) {
         memoryData.短期记忆.forEach((content: string, index: number) => {
@@ -516,13 +516,13 @@ const loadMemoryData = async () => {
           }
         });
       }
-      
+
       // 中期记忆 - 字符串数组
       if (Array.isArray(memoryData.中期记忆)) {
         memoryData.中期记忆.forEach((content: string, index: number) => {
           if (content && typeof content === 'string') {
             const memory: Memory = {
-              type: 'medium', 
+              type: 'medium',
               content,
               time: formatTime(Date.now() - index * 3600000), // 1小时间隔
               importance: 7
@@ -531,7 +531,7 @@ const loadMemoryData = async () => {
           }
         });
       }
-      
+
       // 长期记忆 - 字符串数组
       if (Array.isArray(memoryData.长期记忆)) {
         memoryData.长期记忆.forEach((content: string, index: number) => {
@@ -546,21 +546,21 @@ const loadMemoryData = async () => {
           }
         });
       }
-      
+
       debug.log('记忆中心', `记忆加载完成: 短期${loadedShortMemories.length}, 中期${loadedMediumMemories.length}, 长期${loadedLongMemories.length}`);
     } else {
       debug.warn('记忆中心', '未找到存档记忆数据');
     }
-    
+
     // 更新显示状态
     shortTermMemories.value = loadedShortMemories;
     mediumTermMemories.value = loadedMediumMemories;
     longTermMemories.value = loadedLongMemories;
-    
+
     // 统计各类型记忆数量
     const totalMemories = loadedShortMemories.length + loadedMediumMemories.length + loadedLongMemories.length;
     debug.log('记忆中心', `记忆加载完成：总计 ${totalMemories} 条记忆`);
-    
+
   } catch (error) {
     debug.error('记忆中心', '加载记忆数据失败', error);
     toast.error('加载记忆数据失败');
@@ -1207,56 +1207,56 @@ onMounted(() => {
     max-width: 100%;
     overflow: hidden;
   }
-  
+
   .header-actions .btn-text {
     display: none;
   }
-  
+
   .filter-tabs {
     gap: 0.3rem;
   }
-  
+
   .filter-tab {
     max-width: 120px;
     font-size: 0.8rem;
   }
-  
+
   .memory-status {
     gap: 0.5rem;
     padding: 0.6rem;
     flex-direction: column;
   }
-  
+
   .status-item {
     min-width: 80px;
     flex: 1 1 100px;
     width: 100%;
     max-width: 100%;
   }
-  
+
   .status-text {
     font-size: 0.7rem;
     min-width: 2.5rem;
   }
-  
+
   .memory-card {
     padding: 0.8rem;
   }
-  
+
   .memory-content {
     font-size: 0.8rem;
   }
-  
+
   .memory-header {
     flex-direction: column;
     gap: 0.5rem;
     align-items: flex-start;
   }
-  
+
   .memory-type-badge {
     align-self: flex-start;
   }
-  
+
   .memory-time {
     align-self: flex-end;
     font-size: 0.7rem;
@@ -1267,51 +1267,51 @@ onMounted(() => {
   .memory-center-panel {
     gap: 0.5rem;
   }
-  
+
   .filter-tabs {
     gap: 0.2rem;
   }
-  
+
   .filter-tab {
     max-width: 100px;
     font-size: 0.75rem;
     padding: 0.4rem 0.6rem;
   }
-  
+
   .memory-status {
     padding: 0.5rem;
   }
-  
+
   .status-item {
     gap: 0.3rem;
   }
-  
+
   .status-label {
     font-size: 0.7rem;
     min-width: 1.5rem;
   }
-  
+
   .status-bar {
     height: 4px;
   }
-  
+
   .status-text {
     font-size: 0.65rem;
     min-width: 2rem;
   }
-  
+
   .memory-card {
     padding: 0.6rem;
   }
-  
+
   .memory-content {
     font-size: 0.75rem;
   }
-  
+
   .memory-section-title {
     font-size: 0.8rem;
   }
-  
+
   .memory-item {
     font-size: 0.75rem;
     padding-left: 0.8rem;

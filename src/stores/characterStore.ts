@@ -320,6 +320,28 @@ export const useCharacterStore = defineStore('characterV3', () => {
 
       // 4. 将修改写回 rootState（触发响应式）
       if (profile.模式 === '单机' && profile.存档列表) {
+        // 🔥 自动存档逻辑：如果当前存档是"自动存档"，先备份到"上次对话"
+        if (active.存档槽位 === '自动存档') {
+          const currentAutoSave = profile.存档列表['自动存档'];
+          if (currentAutoSave?.存档数据) {
+            // 深拷贝当前自动存档到"上次对话"
+            profile.存档列表['上次对话'] = {
+              存档名: '上次对话',
+              保存时间: currentAutoSave.保存时间,
+              最后保存时间: currentAutoSave.最后保存时间,
+              游戏内时间: currentAutoSave.游戏内时间,
+              游戏时长: currentAutoSave.游戏时长,
+              角色名字: currentAutoSave.角色名字,
+              境界: currentAutoSave.境界,
+              位置: currentAutoSave.位置,
+              修为进度: currentAutoSave.修为进度,
+              世界地图: currentAutoSave.世界地图,
+              存档数据: JSON.parse(JSON.stringify(currentAutoSave.存档数据))
+            };
+            debug.log('角色商店', '[自动存档] 已备份当前状态到"上次对话"');
+          }
+        }
+
         rootState.value.角色列表[active.角色ID].存档列表 = {
           ...profile.存档列表,
           [active.存档槽位]: slot
@@ -433,18 +455,24 @@ export const useCharacterStore = defineStore('characterV3', () => {
 
       let newProfile: CharacterProfile;
       if (mode === '单机') {
+        const now = new Date().toISOString();
         newProfile = {
           模式: '单机',
           角色基础信息: baseInfo,
           存档列表: {
-            '上次对话': { 存档名: '上次对话', 保存时间: null, 存档数据: null },
-            '自动存档': { 存档名: '自动存档', 保存时间: null, 存档数据: null },
-            '存档1': {
-              存档名: '初始修行',
-              保存时间: new Date().toISOString(),
+            '自动存档': {
+              存档名: '自动存档',
+              保存时间: now,
+              最后保存时间: now,
               游戏内时间: '修仙元年 春',
+              游戏时长: 0,
+              角色名字: baseInfo.姓名,
+              境界: '凡人',
+              位置: '未知',
+              修为进度: 0,
               存档数据: initialSaveData
-            }
+            },
+            '上次对话': { 存档名: '上次对话', 保存时间: null, 存档数据: null }
           },
         };
       } else { // 联机模式
@@ -466,9 +494,9 @@ export const useCharacterStore = defineStore('characterV3', () => {
       }
       
       rootState.value.角色列表[charId] = newProfile;
-      
+
       // 2. 设置为当前激活存档
-      const slotKey = mode === '单机' ? '存档1' : '存档';
+      const slotKey = mode === '单机' ? '自动存档' : '存档';
       rootState.value.当前激活存档 = { 角色ID: charId, 存档槽位: slotKey };
       
       commitToStorage();
@@ -853,17 +881,66 @@ export const useCharacterStore = defineStore('characterV3', () => {
 
       // 2. 更新 Pinia Store 中的存档槽位
       slot.保存时间 = new Date().toISOString();
+      slot.最后保存时间 = slot.保存时间;
       slot.存档数据 = currentSaveData;
-      // TODO: 更新游戏内时间等元数据
-      // slot.游戏内时间 = currentSaveData.游戏内时间.当前时间;
+
+      // 提取元数据用于存档列表显示
+      const playerState = currentSaveData.玩家角色状态;
+      if (playerState) {
+        slot.角色名字 = playerState.名字 || profile.角色基础信息?.名字;
+        // 境界可能是 Realm 对象，提取名称
+        if (typeof playerState.境界 === 'object' && playerState.境界 !== null) {
+          slot.境界 = (playerState.境界 as Realm).名称 || '凡人';
+        } else {
+          slot.境界 = String(playerState.境界 || '凡人');
+        }
+        slot.位置 = playerState.位置?.描述 || '未知';
+
+        // 计算修为进度百分比
+        if (typeof playerState.境界 === 'object' && playerState.境界 !== null) {
+          const realm = playerState.境界 as Realm;
+          if (realm.下一级所需 > 0) {
+            slot.修为进度 = Math.floor((realm.当前进度 / realm.下一级所需) * 100);
+          }
+        }
+      }
+
+      // 游戏时间
+      if (currentSaveData.游戏时间) {
+        const time = currentSaveData.游戏时间;
+        slot.游戏内时间 = `${time.年}年${time.月}月${time.日}日`;
+        slot.游戏时长 = currentSaveData.游戏时间.总分钟数 || 0;
+      }
 
       // 3. 将修改写回 rootState
       if (profile.模式 === '单机' && profile.存档列表) {
+        // 🔥 自动存档逻辑：如果当前存档是"自动存档"，先备份到"上次对话"
+        if (active.存档槽位 === '自动存档') {
+          const currentAutoSave = profile.存档列表['自动存档'];
+          if (currentAutoSave?.存档数据) {
+            // 深拷贝当前自动存档到"上次对话"
+            profile.存档列表['上次对话'] = {
+              存档名: '上次对话',
+              保存时间: currentAutoSave.保存时间,
+              最后保存时间: currentAutoSave.最后保存时间,
+              游戏内时间: currentAutoSave.游戏内时间,
+              游戏时长: currentAutoSave.游戏时长,
+              角色名字: currentAutoSave.角色名字,
+              境界: currentAutoSave.境界,
+              位置: currentAutoSave.位置,
+              修为进度: currentAutoSave.修为进度,
+              世界地图: currentAutoSave.世界地图,
+              存档数据: JSON.parse(JSON.stringify(currentAutoSave.存档数据))
+            };
+            debug.log('角色商店', '[保存游戏] 已备份当前状态到"上次对话"');
+          }
+        }
+
         profile.存档列表[active.存档槽位] = slot;
       } else if (profile.模式 === '联机') {
         profile.存档 = slot;
       }
-      
+
       // 4. 持久化到本地存储
       commitToStorage();
       

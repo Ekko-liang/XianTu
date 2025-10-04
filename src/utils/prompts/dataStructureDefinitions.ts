@@ -57,7 +57,15 @@ export const DATA_STRUCTURE_DEFINITIONS = `
   修为: {当前: number, 最大: number},
   神识: {当前: number, 最大: number},
   寿命: {当前: number, 最大: number},
-  状态效果: string[],
+  状态效果: Array<{
+    状态名称: string,
+    类型: "buff"|"debuff",
+    生成时间: {年: number, 月: number, 日: number, 小时: number, 分钟: number},
+    持续时间分钟: number,  // 持续时间，单位：分钟
+    状态描述: string,
+    强度?: number,
+    来源?: string
+  }>,
   已死亡: boolean
 }
 \`\`\`
@@ -94,11 +102,23 @@ export const DATA_STRUCTURE_DEFINITIONS = `
   修炼进度?: number,
   修炼中?: boolean,
   功法效果?: {修炼速度加成?: number},
-  技能?: Record<技能名, {技能类型: string, 技能描述: string}>,
+  功法技能?: Record<技能名, {
+    技能名称: string,
+    技能描述: string
+  }>,
 
   // 其他物品
   使用效果?: string
 }
+\`\`\`
+
+### 掌握技能
+\`\`\`
+Array<{
+  技能名称: string,
+  技能描述: string,
+  来源?: string  // 来源功法名称（可选）
+}>
 \`\`\`
 
 ### 装备栏

@@ -173,9 +173,8 @@ export interface AttributeBonus {
 
 /** 功法技能 */
 export interface TechniqueSkill {
-  技能类型: '攻击' | '防御' | '辅助' | '移动' | '其他';
+  技能名称: string;
   技能描述: string;
-  解锁条件: string;
 }
 
 /** 功法效果 */
@@ -226,11 +225,18 @@ export type Item = EquipmentItem | TechniqueItem | ConsumableItem;
 export interface CultivationTechniqueData extends AIMetadata {
   功法: string | { 物品ID: string; 名称: string; } | null; // 功法物品的 物品ID 或引用对象
   熟练度: number;
-  已解锁技能: string[];
+  已解锁技能: string[]; // 已解锁的技能名称列表
   修炼时间: number;
   突破次数: number;
   正在修炼: boolean;
   修炼进度: number;
+}
+
+/** 掌握的技能 */
+export interface MasteredSkill {
+  技能名称: string;
+  技能描述: string;
+  来源?: string; // 来源功法名称（可选）
 }
 
 export interface Inventory extends AIMetadata {
@@ -247,7 +253,7 @@ export interface Inventory extends AIMetadata {
 export interface SkillInfo {
   name: string;
   description: string;
-  type: '攻击' | '防御' | '辅助' | '移动' | '其他';
+  type: string; // 简化：统一为字符串类型
   unlockCondition: string;
   unlocked: boolean;
 }
@@ -400,11 +406,19 @@ export type StatusEffectType = 'buff' | 'debuff'; // 统一小写
 export interface StatusEffect {
   状态名称: string;
   类型: 'buff' | 'debuff';
-  时间: string;
+  生成时间: {
+    年: number;
+    月: number;
+    日: number;
+    小时: number;
+    分钟: number;
+  };
+  持续时间分钟: number;
   状态描述: string;
   强度?: number;
   来源?: string;
-  剩余时间?: string;
+  时间?: string; // 可选：时间描述（如"3天"、"1个月"）
+  剩余时间?: string; // 可选：剩余时间描述
 }
 
 // --- 角色实时状态 ---
@@ -687,6 +701,7 @@ export interface Memory extends AIMetadata {
   短期记忆: string[]; // 最近的对话、事件的完整记录
   中期记忆: string[]; // 对短期记忆的总结，关键信息点
   长期记忆: string[]; // 核心人设、世界观、重大事件的固化记忆
+  隐式中期记忆?: string[]; // 隐式中期记忆数组，与短期记忆同步增长，溢出时转入真正的中期记忆
 }
 
 
@@ -697,7 +712,8 @@ export interface GameTime extends AIMetadata {
   月: number;
   日: number;
   小时: number;
-  分钟: number;
+  总分钟数?: number; // 可选：总分钟数（从游戏开始累计）
+  分钟?: number; // 可选：保持向后兼容
 }
 
 // --- 存档数据核心 ---
@@ -726,6 +742,7 @@ export interface GameMessage {
     角色基础信息?: CharacterBaseInfo;
     世界信息?: WorldInfo;
     修炼功法: CultivationTechniqueData;
+    掌握技能: MasteredSkill[]; // 角色掌握的所有技能
     三千大道系统?: {
       大道路径定义: Record<string, DaoStage[]>;
       大道进度: Record<string, DaoProgress>;

@@ -463,10 +463,10 @@ const showTalentDetail = (talent: string) => {
 
 // 显示状态效果详情
 const showStatusDetail = (effect: StatusEffect) => {
-  // 完全使用AI生成的数据，不使用预设数据
-  const descriptionText = (effect as unknown as { 状态描述: string }).状态描述 && String((effect as unknown as { 状态描述: string }).状态描述).trim()
-    ? String((effect as unknown as { 状态描述: string }).状态描述).trim()
-    : `${effect.状态名称}状态生效中`;
+  // 完全使用AI生成的数据,不使用预设数据
+  const descriptionText = effect.状态描述 && String(effect.状态描述).trim()
+    ? String(effect.状态描述).trim()
+    : `${effect.状态名称 || '未知'}状态生效中`;
 
   // 从实际数据中获取更多信息
   const additionalInfo: { label: string; value: string | number }[] = [];

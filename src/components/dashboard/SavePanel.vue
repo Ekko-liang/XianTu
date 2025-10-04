@@ -63,23 +63,29 @@
               <div class="save-preview small">
                 <div class="preview-avatar small">{{ save.角色名字?.[0] || '道' }}</div>
                 <div class="preview-info">
-                  <div class="character-name">{{ save.角色名字 || `存档${index + 1}` }}</div>
+                  <div class="save-name">
+                    <span v-if="save.存档名 === '自动存档'" class="auto-save-badge">🔄</span>
+                    <span v-else-if="save.存档名 === '上次对话'" class="last-save-badge">⏮️</span>
+                    {{ save.存档名 || `存档${index + 1}` }}
+                  </div>
+                  <div class="character-name-small">{{ save.角色名字 || '无名道友' }}</div>
                   <div class="save-time">{{ formatTime(save.最后保存时间 || save.保存时间 || '') }}</div>
                 </div>
               </div>
               <div class="card-actions">
-                <button 
-                  class="card-btn" 
+                <button
+                  class="card-btn"
                   @click.stop="loadSave(save)"
                   :disabled="loading"
                   v-if="save.id !== currentSave?.id"
                 >
                   <Play :size="14" />
                 </button>
-                <button 
-                  class="card-btn danger" 
+                <button
+                  class="card-btn danger"
                   @click.stop="deleteSave(save)"
-                  :disabled="loading"
+                  :disabled="loading || save.存档名 === '自动存档'"
+                  :title="save.存档名 === '自动存档' ? '自动存档不可删除' : '删除存档'"
                 >
                   <Trash2 :size="14" />
                 </button>
@@ -654,6 +660,20 @@ onMounted(() => {
   margin-bottom: 0.25rem;
 }
 
+.save-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e40af;
+  margin-bottom: 0.15rem;
+}
+
+.character-name-small {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #64748b;
+  margin-bottom: 0.15rem;
+}
+
 .character-details {
   display: flex;
   align-items: center;
@@ -928,6 +948,27 @@ onMounted(() => {
   border-color: #475569;
 }
 
+/* 存档名徽章样式 */
+.auto-save-badge,
+.last-save-badge {
+  display: inline-block;
+  margin-right: 0.25rem;
+  font-size: 1rem;
+}
+
+.auto-save-badge {
+  animation: rotate 2s linear infinite;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 [data-theme="dark"] .section-header {
   background: #334155;
   border-bottom-color: #475569;
@@ -935,8 +976,13 @@ onMounted(() => {
 
 [data-theme="dark"] .panel-title,
 [data-theme="dark"] .section-title,
-[data-theme="dark"] .character-name {
+[data-theme="dark"] .character-name,
+[data-theme="dark"] .save-name {
   color: #0ea5e9;
+}
+
+[data-theme="dark"] .character-name-small {
+  color: #94a3b8;
 }
 
 [data-theme="dark"] .save-subtitle,

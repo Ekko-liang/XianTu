@@ -19,6 +19,7 @@ import { validateGameData } from '@/utils/dataValidation';
 // 移除未使用的旧生成器导入，改用增强版生成器
 // import { WorldGenerationConfig } from '@/utils/worldGeneration/gameWorldConfig';
 import { EnhancedWorldGenerator } from '@/utils/worldGeneration/enhancedWorldGenerator';
+import { LOCAL_SPIRIT_ROOTS, LOCAL_ORIGINS } from '@/data/creationData';
 
 /**
  * 判断是否为随机灵根（辅助函数）
@@ -173,9 +174,70 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
     processedBaseInfo.年龄 = age;
   }
 
-  // 灵根随机留给AI处理（不要在此处预先具体化）
+  // 处理随机灵根 - 在此处具体化，不再留给AI处理
   if (isRandomSpiritRoot(processedBaseInfo.灵根)) {
-    console.log('[灵根生成] 保留“随机灵根”交由AI随机生成');
+    console.log('[灵根生成] 检测到随机灵根，正在生成具体灵根...');
+    
+    // 根据天资等级影响随机结果
+    const talentTierName = typeof processedBaseInfo.天资 === 'string' ? processedBaseInfo.天资 :
+                          (processedBaseInfo.天资 as any)?.name || '凡人';
+    
+    let availableRoots = LOCAL_SPIRIT_ROOTS;
+    
+    // 根据天资筛选可用灵根
+    if (talentTierName === '废柴') {
+      availableRoots = LOCAL_SPIRIT_ROOTS.filter(root => (root.rarity || 1) <= 2);
+    } else if (talentTierName === '凡人') {
+      availableRoots = LOCAL_SPIRIT_ROOTS.filter(root => (root.rarity || 1) <= 3);
+    } else if (talentTierName === '俊杰') {
+      availableRoots = LOCAL_SPIRIT_ROOTS.filter(root => (root.rarity || 1) <= 4);
+    } else if (talentTierName === '天骄') {
+      availableRoots = LOCAL_SPIRIT_ROOTS.filter(root => (root.rarity || 1) <= 5);
+    } else if (talentTierName === '妖孽') {
+      // 妖孽可以获得任何灵根
+      availableRoots = LOCAL_SPIRIT_ROOTS;
+    }
+    
+    // 随机选择一个灵根
+    const randomRoot = availableRoots[Math.floor(Math.random() * availableRoots.length)];
+    
+    // 转换为中文格式
+    processedBaseInfo.灵根 = {
+      名称: randomRoot.name,
+      品级: randomRoot.tier || '凡品',
+      描述: randomRoot.description || '基础灵根'
+    };
+    
+    console.log(`[灵根生成] 已生成具体灵根: ${randomRoot.name}(${randomRoot.tier})`);
+  }
+
+  // 处理随机出生 - 在此处具体化
+  if (typeof processedBaseInfo.出生 === 'string' &&
+      (processedBaseInfo.出生 === '随机出生' || processedBaseInfo.出生.includes('随机'))) {
+    console.log('[出生生成] 检测到随机出生，正在生成具体出身...');
+    
+    // 根据天资等级影响随机结果
+    const talentTierName = typeof processedBaseInfo.天资 === 'string' ? processedBaseInfo.天资 :
+                          (processedBaseInfo.天资 as any)?.name || '凡人';
+    
+    let availableOrigins = LOCAL_ORIGINS;
+    
+    // 根据天资筛选可用出身
+    if (talentTierName === '废柴' || talentTierName === '凡人') {
+      availableOrigins = LOCAL_ORIGINS.filter(origin => (origin.rarity || 1) <= 3);
+    } else if (talentTierName === '俊杰') {
+      availableOrigins = LOCAL_ORIGINS.filter(origin => (origin.rarity || 1) <= 4);
+    } else if (talentTierName === '天骄' || talentTierName === '妖孽') {
+      // 高天资可以获得任何出身
+      availableOrigins = LOCAL_ORIGINS;
+    }
+    
+    // 随机选择一个出身
+    const randomOrigin = availableOrigins[Math.floor(Math.random() * availableOrigins.length)];
+    
+    processedBaseInfo.出生 = randomOrigin.name;
+    
+    console.log(`[出生生成] 已生成具体出身: ${randomOrigin.name}`);
   }
 
   // 计算初始属性
@@ -193,6 +255,7 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
     记忆: { 短期记忆: [], 中期记忆: [], 长期记忆: [] },
     游戏时间: { 年: 1000, 月: 1, 日: 1, 小时: Math.floor(Math.random() * 12) + 6, 分钟: Math.floor(Math.random() * 60) },
     修炼功法: { 功法: null, 熟练度: 0, 已解锁技能: [], 修炼时间: 0, 突破次数: 0, 正在修炼: false, 修炼进度: 0 },
+    掌握技能: [], // 初始化为空数组
     系统: {
       规则: {
         属性上限: { 先天六司: { 每项上限: 10 } },

@@ -13,6 +13,7 @@ interface RetryDialogConfig {
 export const useUIStore = defineStore('ui', () => {
   const isLoading = ref(false);
   const loadingText = ref('');
+  const isAIProcessing = ref(false); // AI处理状态（持久化，切换面板时不丢失）
   const showRetryDialogState = ref(false);
   const retryDialogConfig = ref<RetryDialogConfig | null>(null);
   const wasLoadingBeforeDialog = ref(false); // 记录显示弹窗前的loading状态
@@ -51,6 +52,10 @@ export const useUIStore = defineStore('ui', () => {
   function stopLoading() {
     isLoading.value = false;
     loadingText.value = '';
+  }
+
+  function setAIProcessing(value: boolean) {
+    isAIProcessing.value = value;
   }
 
   function updateLoadingText(text: string) {
@@ -140,10 +145,12 @@ export const useUIStore = defineStore('ui', () => {
   return {
     isLoading,
     loadingText,
+    isAIProcessing, // 暴露AI处理状态
     showRetryDialogState,
     retryDialogConfig,
     startLoading,
     stopLoading,
+    setAIProcessing, // 暴露设置AI处理状态的方法
     updateLoadingText,
     showRetryDialog,
     hideRetryDialog,

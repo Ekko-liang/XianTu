@@ -52,17 +52,63 @@
     <div v-if="showAuthorModal" class="author-modal-overlay" @click.self="showAuthorModal = false">
       <div class="author-modal">
         <div class="author-modal-header">
-          <h3>作者信息</h3>
+          <h3>🎮 大道朝天 - 游戏信息</h3>
           <button class="close-btn" @click="showAuthorModal = false">&times;</button>
         </div>
         <div class="author-modal-body">
-          <p><strong>作者:</strong> 千夜</p>
-          <p>
-            <strong>GitHub:</strong>
-            <a href="https://github.com/qianye60" target="_blank" rel="noopener noreferrer">
-              https://github.com/qianye60
-            </a>
-          </p>
+          <div class="version-badge">V1.0 Beta</div>
+
+          <div class="info-section">
+            <h4>📝 关于游戏</h4>
+            <p>《大道朝天》是一款基于AI驱动的沉浸式修仙文字冒险游戏，结合SillyTavern与Gemini AI，为玩家打造无限可能的修仙世界。</p>
+            <p> <span style="color: yellow;">游玩尽量使用推荐预设，在了解原理后可自行更换调整，<span style="color: red;">禁止打开COT</span></span></p>
+          </div>
+
+          <div class="info-section">
+            <h4>✨ 核心功能</h4>
+            <ul class="feature-list">
+              <li>🎲 <strong>智能判定系统</strong> - 根据境界、属性、装备、大道等全方位计算判定</li>
+              <li>🌟 <strong>三千大道系统</strong> - 探索修炼独特的修仙之道，提升实力</li>
+              <li>📖 <strong>动态剧情生成</strong> - AI实时生成个性化的修仙故事</li>
+              <li>💾 <strong>多存档管理</strong> - 支持多角色、多周目游玩</li>
+              <li>⚔️ <strong>深度RPG系统</strong> - 境界突破、功法学习、装备炼制、NPC互动</li>
+              <li>🗺️ <strong>世界探索</strong> - 自由探索朝天大陆，触发奇遇事件</li>
+              <li>🎨 <strong>精美UI</strong> - 修仙风格界面，支持亮暗双主题</li>
+              <li>💬 <strong>格式化文本</strong> - 环境描写、心理活动、对话、判定结果分别渲染</li>
+            </ul>
+          </div>
+
+          <div class="info-section">
+            <h4>👨‍💻 作者信息</h4>
+            <p><strong>作者:</strong> 千夜</p>
+            <p>
+              <strong>GitHub:</strong>
+              <a href="https://github.com/qianye60" target="_blank" rel="noopener noreferrer">
+                https://github.com/qianye60
+              </a>
+            </p>
+            <p class="tech-stack"><strong>技术栈:</strong> Vue 3 + TypeScript + SillyTavern</p>
+          </div>
+
+          <div class="info-section">
+            <h4>📢 版本说明</h4>
+            <p class="version-note">当前为<strong>V1.0 Beta</strong>测试版本，部分功能仍在开发完善中。欢迎反馈建议！</p>
+          </div>
+
+          <div class="info-section">
+            <h4>⚖️ 版权声明</h4>
+            <div class="copyright-notice">
+              <p>© 2025 千夜 版权所有</p>
+              <p>本作品采用 <strong>CC BY-NC-ND 4.0</strong> 协议授权</p>
+              <ul class="copyright-list">
+                <li>✅ <strong>允许</strong> - 个人免费使用、学习交流</li>
+                <li>✅ <strong>允许</strong> - 分享转发时须注明原作者</li>
+                <li>❌ <strong>禁止</strong> - 商业用途（包括但不限于售卖、收费推广等）</li>
+                <li>❌ <strong>禁止</strong> - 修改后重新发布</li>
+                <li>❌ <strong>禁止</strong> - 移除或修改版权信息</li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -250,7 +296,7 @@ const handleCreationComplete = async (rawPayload: CharacterCreationPayload) => {
         throw new Error('严重错误：角色创建后无法在角色列表中找到！');
       }
 
-      const slotKey = profile.模式 === '单机' ? '存档1' : '存档';
+      const slotKey = profile.模式 === '单机' ? '自动存档' : '存档';
       characterStore.rootState.当前激活存档 = { 角色ID: charId, 存档槽位: slotKey };
       characterStore.commitToStorage();
 
@@ -464,3 +510,346 @@ watch(route, (newRoute, oldRoute) => {
   }
 }, { immediate: false });
 </script>
+
+<style scoped>
+/* 作者信息模态框样式 */
+.author-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 1rem;
+}
+
+.author-modal {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border-radius: 16px;
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.author-modal-header {
+  padding: 1.5rem 2rem;
+  border-bottom: 2px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 16px 16px 0 0;
+}
+
+.author-modal-header h3 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.close-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: rotate(90deg);
+}
+
+.author-modal-body {
+  padding: 2rem;
+}
+
+.version-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 0.5rem 1.25rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 6px -1px rgba(102, 126, 234, 0.3);
+}
+
+.info-section {
+  margin-bottom: 2rem;
+}
+
+.info-section:last-child {
+  margin-bottom: 0;
+}
+
+.info-section h4 {
+  color: #1e293b;
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.info-section p {
+  color: #475569;
+  line-height: 1.7;
+  margin: 0.5rem 0;
+}
+
+.info-section a {
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s;
+}
+
+.info-section a:hover {
+  color: #764ba2;
+  text-decoration: underline;
+}
+
+.feature-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.feature-list li {
+  padding: 0.75rem 0;
+  color: #475569;
+  line-height: 1.6;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.feature-list li:last-child {
+  border-bottom: none;
+}
+
+.feature-list strong {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.tech-stack {
+  color: #64748b;
+  font-size: 0.95rem;
+  padding: 1rem;
+  background: #f1f5f9;
+  border-radius: 8px;
+  border-left: 4px solid #667eea;
+}
+
+.version-note {
+  color: #475569;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  padding: 1rem;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border-radius: 8px;
+  border-left: 4px solid #f59e0b;
+}
+
+.version-note strong {
+  color: #92400e;
+}
+
+.copyright-notice {
+  padding: 1.25rem;
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  border-radius: 8px;
+  border: 2px solid #dc2626;
+}
+
+.copyright-notice p {
+  margin: 0.5rem 0;
+  color: #1e293b;
+}
+
+.copyright-notice p:first-child {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #dc2626;
+  margin-bottom: 0.75rem;
+}
+
+.copyright-notice strong {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.copyright-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0;
+}
+
+.copyright-list li {
+  padding: 0.5rem 0;
+  color: #475569;
+  line-height: 1.5;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid #fee2e2;
+}
+
+.copyright-list li:last-child {
+  border-bottom: none;
+}
+
+.copyright-list strong {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.copyright-warning {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: #dc2626;
+  color: white;
+  border-radius: 6px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* 深色主题 */
+[data-theme="dark"] .author-modal {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+}
+
+[data-theme="dark"] .author-modal-header {
+  border-bottom-color: #334155;
+}
+
+[data-theme="dark"] .info-section h4 {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .info-section p {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .feature-list li {
+  color: #cbd5e1;
+  border-bottom-color: #334155;
+}
+
+[data-theme="dark"] .feature-list strong {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .tech-stack {
+  background: #0f172a;
+  color: #94a3b8;
+  border-left-color: #667eea;
+}
+
+[data-theme="dark"] .version-note {
+  background: linear-gradient(135deg, #422006 0%, #713f12 100%);
+  color: #fde68a;
+  border-left-color: #f59e0b;
+}
+
+[data-theme="dark"] .version-note strong {
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .copyright-notice {
+  background: linear-gradient(135deg, #450a0a 0%, #7f1d1d 100%);
+  border-color: #dc2626;
+}
+
+[data-theme="dark"] .copyright-notice p {
+  color: #fecaca;
+}
+
+[data-theme="dark"] .copyright-notice p:first-child {
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .copyright-notice strong {
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .copyright-list li {
+  color: #fecaca;
+  border-bottom-color: #7f1d1d;
+}
+
+[data-theme="dark"] .copyright-list strong {
+  color: #fef2f2;
+}
+
+[data-theme="dark"] .copyright-warning {
+  background: #dc2626;
+  color: white;
+}
+
+/* 滚动条美化 */
+.author-modal::-webkit-scrollbar {
+  width: 8px;
+}
+
+.author-modal::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.author-modal::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.author-modal::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+[data-theme="dark"] .author-modal::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
+[data-theme="dark"] .author-modal::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+
+[data-theme="dark"] .author-modal::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+</style>

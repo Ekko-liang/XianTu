@@ -7,7 +7,7 @@
       <div class="header-container">
         <div class="title-version-row">
           <h1 class="main-title">大 道 朝 天</h1>
-          <span class="version-tag">0.1 Alpha</span><!--{{ appVersion }}-->
+          <span class="version-tag">V1.0 Beta</span><!--{{ appVersion }}-->
         </div>
         <p class="sub-title">大道朝天，各走一边</p>
       </div>
@@ -94,7 +94,7 @@ const emit = defineEmits<{
 
 const uiStore = useUIStore();
 const selectPath = (mode: 'single' | 'cloud') => {
-  
+
   // 全局封锁联机模式
   if (mode === 'cloud') {
     uiStore.showRetryDialog({

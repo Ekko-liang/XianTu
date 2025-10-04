@@ -44,12 +44,16 @@
             </div>
           </div>
           <div class="panel-content compact">
-            <router-view />
+            <keep-alive>
+              <router-view />
+            </keep-alive>
           </div>
         </div>
 
         <!-- 正常路由视图 -->
-        <router-view v-else-if="!uiStore.showCharacterManagement" />
+        <keep-alive v-else-if="!uiStore.showCharacterManagement">
+          <router-view />
+        </keep-alive>
 
         <!-- 角色管理面板 -->
         <div v-if="uiStore.showCharacterManagement" class="panel-overlay">

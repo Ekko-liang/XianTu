@@ -31,7 +31,7 @@ export interface FormattedStateChangeLog {
 
 function getItemName(item: Item | Record<string, any>): string {
   if (!isObject(item)) return '未知物品';
-  return (item as any).名称 || '无名物品';
+  return (item as any).名称 || (item as any).name || '无名物品';
 }
 
 function getQuantity(item: Item | Record<string, any>): number {
@@ -185,6 +185,47 @@ function parsePlayerStatusChange(change: StateChange): FormattedChange | null {
       color: 'blue',
       title: '位置变更',
       description: `${oldValue || '未知'} → ${newValue}`,
+    };
+  }
+
+  // 🔥 修复：识别"上限"和"当前"的单独变更
+  // 路径格式: 属性.气血.上限, 属性.气血.当前, 气血.上限, 气血.当前
+  const pathParts = key.split('.');
+  const fieldType = pathParts[pathParts.length - 1]; // "上限"/"当前"/"最大"
+  const attributeBaseName = pathParts[pathParts.length - 2] || attributeName; // "气血"/"灵气"/"神识"
+
+  if ((fieldType === '上限' || fieldType === '最大') && typeof newValue === 'number') {
+    const diff = typeof oldValue === 'number' ? newValue - oldValue : newValue;
+    let description = '';
+    if (typeof oldValue === 'number') {
+      description = `${oldValue} -> ${newValue}`;
+      if (diff > 0) description += ` (+${diff})`;
+    } else {
+      description = `设为 ${newValue}`;
+    }
+    return {
+      icon: 'update',
+      color: 'blue',
+      title: `${attributeBaseName}上限变化`,
+      description,
+    };
+  }
+
+  if (fieldType === '当前' && typeof newValue === 'number') {
+    const diff = typeof oldValue === 'number' ? newValue - oldValue : newValue;
+    let description = '';
+    if (typeof oldValue === 'number') {
+      description = `${oldValue} -> ${newValue}`;
+      if (diff > 0) description += ` (+${diff})`;
+      if (diff < 0) description += ` (${diff})`;
+    } else {
+      description = `设为 ${newValue}`;
+    }
+    return {
+      icon: 'update',
+      color: 'blue',
+      title: `${attributeBaseName}当前值变化`,
+      description,
     };
   }
 

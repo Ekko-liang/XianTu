@@ -170,11 +170,10 @@
             <div class="skills-list">
               <div v-for="(skill, skillName) in (selectedSkillData as { 功法技能?: Record<string, unknown> }).功法技能" :key="skillName" class="skill-item">
                 <div class="skill-header">
-                  <span class="skill-name">{{ skillName }}</span>
-                  <span class="skill-type" :class="`type-${(skill as TechniqueSkill).技能类型}`">{{ (skill as TechniqueSkill).技能类型 }}</span>
+                  <span class="skill-name">{{ (skill as TechniqueSkill).技能名称 || skillName }}</span>
+                  <span class="skill-type type-功法技能">功法技能</span>
                 </div>
                 <div class="skill-description">{{ (skill as TechniqueSkill).技能描述 }}</div>
-                <div class="skill-unlock">{{ (skill as TechniqueSkill).解锁条件 }}</div>
                 <div v-if="unlockedSkillsMap.has(String(skillName))" class="skill-status unlocked">已解锁</div>
                 <div v-else class="skill-status locked">未解锁</div>
               </div>
@@ -274,11 +273,10 @@ import { useUIStore } from '@/stores/uiStore';
 import ProgressBar from '@/components/common/ProgressBar.vue';
 import type { Item, TechniqueItem } from '@/types/game';
 
-// 定义功法技能接口
+// 定义功法技能接口（简化版本：只包含名称和描述）
 interface TechniqueSkill {
-  解锁条件: string;
+  技能名称: string;
   技能描述: string;
-  技能类型: '攻击' | '防御' | '辅助' | '移动' | '其他';
 }
 
 const characterStore = useCharacterStore();
@@ -417,30 +415,9 @@ const unlockedSkillsMap = computed(() => {
   return new Set(cultivationSkills.value.已解锁技能 || []);
 });
 
-// 检查是否可以解锁新技能
-const checkSkillUnlock = (_skillName: string, unlockCondition: string): boolean => {
-  const skillData = selectedSkillData.value as { 修炼进度?: number } | null;
-  const currentProgress = skillData?.修炼进度 || 0;
-  const currentProficiency = cultivationSkills.value.熟练度 || 0;
-
-  // 简单的解锁条件解析
-  if (unlockCondition.includes('熟练度达到')) {
-    const match = unlockCondition.match(/熟练度达到(\d+)%/);
-    if (match) {
-      const required = parseInt(match[1]);
-      return currentProficiency >= required;
-    }
-  }
-
-  if (unlockCondition.includes('修炼进度达到')) {
-    const match = unlockCondition.match(/修炼进度达到(\d+)%/);
-    if (match) {
-      const required = parseInt(match[1]);
-      return currentProgress >= required;
-    }
-  }
-
-  return false;
+// 检查是否可以解锁新技能（简化：直接返回true，AI控制解锁逻辑）
+const checkSkillUnlock = (_skillName: string, _unlockCondition?: string): boolean => {
+  return true; // 简化逻辑：技能解锁由AI GM控制
 };
 
 // 显示修炼对话框
@@ -536,9 +513,9 @@ const startCultivation = async () => {
           if (techniqueSkills) {
             for (const [skillName, skill] of Object.entries(techniqueSkills)) {
               const skillInfo = skill as TechniqueSkill;
-              if (!unlockedSkills.includes(skillName) && checkSkillUnlock(skillName, skillInfo.解锁条件)) {
-                unlockedSkills.push(skillName);
-                console.log(`[技能面板] 解锁新技能: ${skillName}`);
+              // 简化：只检查技能是否存在，解锁逻辑由AI控制
+              if (!unlockedSkills.includes(skillName)) {
+                console.log(`[技能面板] 检查技能: ${skillName}`);
               }
             }
           }
@@ -645,13 +622,7 @@ const equipTechnique = async () => {
               数量: 1,
               描述: prev.描述 || '',
               功法效果: prev.功法效果 || {},
-              功法技能: (prev.功法技能 || {}) as {
-                [技能名称: string]: {
-                  解锁条件: string;
-                  技能描述: string;
-                  技能类型: '攻击' | '防御' | '辅助' | '移动' | '其他';
-                };
-              }
+              功法技能: (prev.功法技能 || {}) as Record<string, TechniqueSkill>
             } as TechniqueItem;
             console.log('[技能面板] 之前的功法已放回背包:', prev.名称);
           }
@@ -714,13 +685,7 @@ const unequipSkill = async () => {
               数量: 1,
               描述: currentSkill.描述 || '',
               功法效果: currentSkill.功法效果 || {},
-              功法技能: (currentSkill.功法技能 || {}) as {
-                [技能名称: string]: {
-                  解锁条件: string;
-                  技能描述: string;
-                  技能类型: '攻击' | '防御' | '辅助' | '移动' | '其他';
-                };
-              }
+              功法技能: (currentSkill.功法技能 || {}) as Record<string, TechniqueSkill>
             } as TechniqueItem;
             console.log('[技能面板] 功法已放回背包:', currentSkill.名称);
           }

@@ -6,29 +6,46 @@
       </span>
       <div v-else-if="isJudgementData(part.content)" class="judgement-card" :class="{
         'is-success': isSuccessResult(part.content.result),
-        'is-failure': isFailureResult(part.content.result)
+        'is-failure': isFailureResult(part.content.result),
+        'is-great-success': part.content.result?.includes('大成功'),
+        'is-great-failure': part.content.result?.includes('大失败')
       }">
-        <div class="card-header">
-          <svg v-if="isSuccessResult(part.content.result)" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+        <div class="card-icon">
+          <svg v-if="isSuccessResult(part.content.result)" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
           </svg>
-          <svg v-else-if="isFailureResult(part.content.result)" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+          <svg v-else-if="isFailureResult(part.content.result)" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="15" y1="9" x2="9" y2="15"></line>
+            <line x1="9" y1="9" x2="15" y2="15"></line>
           </svg>
-          <svg v-else width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+          <svg v-else width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
           </svg>
-          <span>{{ part.content.title }}</span>
         </div>
-        <div class="card-body">
-          <div class="result-text">{{ part.content.result }}</div>
-          <div class="dice-roll">
-            <span class="label">骰点</span>
-            <span class="value">{{ part.content.dice }}</span>
+        <div class="card-content">
+          <div class="card-header">
+            <span class="judgement-title">{{ part.content.title }}</span>
+            <span class="judgement-badge">{{ part.content.result }}</span>
           </div>
-          <div class="attribute-check">
-            <span class="label">属性</span>
-            <span class="value">{{ part.content.attribute }}</span>
+          <div class="card-body">
+            <div class="stat-item">
+              <span class="stat-icon">🎲</span>
+              <div class="stat-info">
+                <span class="stat-label">骰点</span>
+                <span class="stat-value">{{ part.content.dice }}</span>
+              </div>
+            </div>
+            <div class="stat-item">
+              <span class="stat-icon">⚡</span>
+              <div class="stat-info">
+                <span class="stat-label">属性</span>
+                <span class="stat-value">{{ part.content.attribute }}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -51,7 +68,7 @@ interface TextPart {
   content: string | JudgementData
 }
 
-const isJudgementData = (content: any): content is JudgementData => {
+const isJudgementData = (content: string | JudgementData): content is JudgementData => {
   return typeof content === 'object' && content !== null && 'title' in content
 }
 
@@ -69,11 +86,16 @@ const parsedText = computed(() => {
 
   let currentIndex = 0
   // 统一换行并规范化引号（压缩重复的中英文引号，避免解析异常）
+  // 🔥 增强：将各种Unicode引号统一转换为标准引号
   const processedText = text
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
-    .replace(/“{2,}/g, '“')
-    .replace(/”{2,}/g, '”')
+    // 将各种左引号统一为中文左引号 "
+    .replace(/["""‟„]/g, '"')
+    // 将各种右引号统一为中文右引号 "
+    .replace(/["""‟„]/g, '"')
+    // 压缩重复引号
+    .replace(/"{2,}/g, '"')
     .replace(/"{2,}/g, '"')
 
   while (currentIndex < processedText.length) {
@@ -289,35 +311,41 @@ const isFailureResult = (result: string) => {
   font-weight: 500;
 }
 
-/* 对话 - 橙色 */
+/* 对话 - 橙色，增强样式 */
 .text-dialogue {
-  color: #c2410c;
+  color: #d97706;
   font-weight: 500;
-  font-style: italic;
-  background-color: rgba(251, 146, 60, 0.08);
-  padding: 0.1em 0.3em;
-  border-radius: 4px;
-  margin: 0 0.1em;
+  font-style: normal;
+  background: linear-gradient(135deg, rgba(251, 146, 60, 0.12) 0%, rgba(251, 146, 60, 0.06) 100%);
+  padding: 0.15em 0.5em;
+  border-radius: 6px;
+  margin: 0 0.2em;
+  border-left: 3px solid rgba(234, 88, 12, 0.4);
+  box-shadow: 0 1px 3px rgba(234, 88, 12, 0.1);
+  display: inline-block;
 }
 
 /* 普通文本 */
 .text-normal {
-  color: var(--color-text);
+  color: var(--color-text, #1a1a1a);
 }
 
-/* 判定卡片样式 */
+/* 判定卡片样式 - 重新设计 */
 .judgement-card {
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  margin: 1rem 0;
-  background: linear-gradient(135deg, var(--color-background-soft) 0%, var(--color-background) 100%);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  display: flex;
+  gap: 1rem;
+  margin: 1.25rem 0;
+  padding: 1.25rem;
+  background: linear-gradient(135deg, #fefefe 0%, #f8f9fa 100%);
+  border-radius: 16px;
+  border: 2px solid #e2e8f0;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    0 4px 16px rgba(0, 0, 0, 0.02);
   text-indent: 0;
-  padding: 1rem 1.5rem;
-  border-left-width: 4px;
   position: relative;
   overflow: hidden;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .judgement-card::before {
@@ -326,84 +354,149 @@ const isFailureResult = (result: string) => {
   top: 0;
   left: 0;
   right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent 0%, var(--gradient-color, #6366f1) 50%, transparent 100%);
-  opacity: 0.6;
+  height: 3px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--card-color, #6366f1) 50%,
+    transparent 100%);
 }
 
 .judgement-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.04);
 }
 
+/* 成功状态 */
 .judgement-card.is-success {
-  border-left-color: #10b981;
-  --gradient-color: #10b981;
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.02) 0%, var(--color-background) 100%);
+  border-color: #86efac;
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  --card-color: #10b981;
 }
 
+.judgement-card.is-great-success {
+  border-color: #fbbf24;
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  --card-color: #f59e0b;
+  animation: pulse-success 2s ease-in-out infinite;
+}
+
+/* 失败状态 */
 .judgement-card.is-failure {
-  border-left-color: #ef4444;
-  --gradient-color: #ef4444;
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.02) 0%, var(--color-background) 100%);
+  border-color: #fca5a5;
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  --card-color: #ef4444;
 }
 
+.judgement-card.is-great-failure {
+  border-color: #c084fc;
+  background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
+  --card-color: #a855f7;
+  animation: pulse-failure 2s ease-in-out infinite;
+}
+
+@keyframes pulse-success {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(251, 191, 36, 0); }
+}
+
+@keyframes pulse-failure {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(168, 85, 247, 0); }
+}
+
+/* 图标区域 */
+.card-icon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border-radius: 12px;
+  border: 2px solid var(--card-color, #6366f1);
+  color: var(--card-color, #6366f1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* 内容区域 */
+.card-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* 标题行 */
 .card-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.judgement-title {
+  font-size: 1.125rem;
   font-weight: 700;
-  font-size: 1.1em;
-  margin-bottom: 1rem;
-  color: var(--color-heading);
-  position: relative;
+  color: #1e293b;
+  letter-spacing: -0.01em;
 }
 
-.card-header::after {
-  content: '';
-  position: absolute;
-  bottom: -4px;
-  left: 0;
-  width: 30px;
-  height: 2px;
-  background: var(--gradient-color, #6366f1);
-  border-radius: 1px;
-}
-
-.card-header svg {
-  margin-right: 0.5rem;
-  color: var(--gradient-color, #6366f1);
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
-}
-
-.card-body {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr;
-  gap: 1rem;
+.judgement-badge {
+  display: inline-flex;
   align-items: center;
-}
-
-.result-text {
-  font-size: 1.2em;
+  padding: 0.375rem 0.875rem;
+  background: var(--card-color, #6366f1);
+  color: white;
+  border-radius: 20px;
+  font-size: 0.875rem;
   font-weight: 600;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  text-align: center;
-  position: relative;
-  background: var(--color-background-muted);
-  border: 1px solid var(--color-border);
-  transition: all 0.2s ease;
+  letter-spacing: 0.02em;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.is-success .result-text {
-  color: #059669;
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%);
-  border-color: rgba(16, 185, 129, 0.2);
+/* 统计信息行 */
+.card-body {
+  display: flex;
+  gap: 1.25rem;
 }
 
-.is-failure .result-text {
-  color: #dc2626;
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(239, 68, 68, 0.05) 100%);
-  border-color: rgba(239, 68, 68, 0.2);
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.625rem 1rem;
+  background: white;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.stat-icon {
+  font-size: 1.375rem;
+  line-height: 1;
+}
+
+.stat-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stat-value {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #1e293b;
 }
 
 .dice-roll, .attribute-check {
@@ -411,20 +504,21 @@ const isFailureResult = (result: string) => {
   flex-direction: column;
   align-items: center;
   padding: 0.75rem;
-  background: var(--color-background-muted);
+  background: var(--color-surface-light, #ebe9e6);
   border-radius: 8px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border, rgba(0, 0, 0, 0.1));
   transition: all 0.2s ease;
+  text-align: center;
 }
 
 .dice-roll:hover, .attribute-check:hover {
-  background: var(--color-background-soft);
+  background: var(--color-surface, #f2f1ee);
   transform: translateY(-1px);
 }
 
 .dice-roll .label, .attribute-check .label {
   font-size: 0.8em;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary, #666666);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 0.25rem;
@@ -434,7 +528,7 @@ const isFailureResult = (result: string) => {
 .dice-roll .value, .attribute-check .value {
   font-size: 1.4em;
   font-weight: 700;
-  color: var(--color-heading);
+  color: var(--color-text, #1a1a1a);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
@@ -447,36 +541,48 @@ const isFailureResult = (result: string) => {
 }
 
 /* 深色主题适配 */
+[data-theme="dark"] .text-normal {
+  color: var(--color-text, #f7f7f5);
+}
+
+[data-theme="dark"] .text-environment {
+  color: #22d3ee;
+}
+
+[data-theme="dark"] .text-psychology {
+  color: #a78bfa;
+}
+
+[data-theme="dark"] .text-dialogue {
+  color: #fb923c;
+  background: linear-gradient(135deg, rgba(251, 146, 60, 0.15) 0%, rgba(251, 146, 60, 0.08) 100%);
+  border-left-color: rgba(234, 88, 12, 0.6);
+  box-shadow: 0 1px 3px rgba(234, 88, 12, 0.2);
+}
+
 [data-theme="dark"] .judgement-card {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, var(--color-background) 100%);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, var(--color-background, rgb(30, 41, 59)) 100%);
+  border-color: var(--color-border, rgba(173, 216, 230, 0.5));
+}
+
+[data-theme="dark"] .card-header {
+  color: var(--color-text, #f7f7f5);
 }
 
 [data-theme="dark"] .result-text,
 [data-theme="dark"] .dice-roll,
 [data-theme="dark"] .attribute-check {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: var(--color-surface-light, #414868);
+  border-color: var(--color-border, rgba(173, 216, 230, 0.5));
 }
 
-.dice-roll, .attribute-check {
-  display: flex;
-  flex-direction: column;
-  text-align: center;
-  background-color: var(--color-background-mute);
-  padding: 0.4rem;
-  border-radius: 6px;
+[data-theme="dark"] .dice-roll .label,
+[data-theme="dark"] .attribute-check .label {
+  color: var(--color-text-secondary, #d0d0d0);
 }
 
-.label {
-  font-size: 0.8em;
-  color: var(--color-text-muted);
-  margin-bottom: 0.2rem;
-}
-
-.value {
-  font-weight: 600;
-  font-size: 1.1em;
-  color: var(--color-text);
+[data-theme="dark"] .dice-roll .value,
+[data-theme="dark"] .attribute-check .value {
+  color: var(--color-text, #f7f7f5);
 }
 </style>

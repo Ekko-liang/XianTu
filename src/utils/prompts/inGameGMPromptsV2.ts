@@ -9,50 +9,86 @@ import { DATA_STRUCTURE_DEFINITIONS } from './dataStructureDefinitions';
 import { generateJudgmentPrompt } from '../judgement/heavenlyRules';
 
 // 剧情推进提示词
-export const IN_GAME_MESSAGE_PROMPT = [
-  '【剧情推进】根据当前游戏状态推进一段叙事，并返回唯一 JSON。',
-  '',
-  '# 时间推进规则（极其重要）',
-  '',
-  '⚠️ **每次剧情推进必须让时间流逝！**',
-  '',
-  '1. **强制时间流逝**: 除非玩家明确说"不做任何事"、"原地不动"，否则任何行动都必须推进时间',
-  '2. **最小时间单位**: 每次至少推进1分钟，哪怕只是简单对话',
-  '3. **时间推进参考**:',
-  '   - 简单对话: 1-5分钟',
-  '   - 战斗: 5-30分钟',
-  '   - 修炼: 30分钟-数小时',
-  '   - 炼丹/炼器: 数小时-数天',
-  '   - 赶路: 数小时-数天',
-  '   - 闭关: 数天-数月',
-  '',
-  '4. **时间格式**: 时间推进量用分钟数表示（例如：7200表示5天）',
-  '',
-  '',
-  DATA_STRUCTURE_DEFINITIONS,
-  '',
-  generateJudgmentPrompt(),
-  '',
-  '# 状态变更识别规则 (极其重要)',
-  '',
-  '⚠️ **你不仅是叙事者，更是游戏状态的维护者。**',
-  '1. **主动识别**: 你必须主动从【玩家输入】和【你生成的剧情】中识别出任何导致角色或世界状态变化的关键事件。',
-  '2. **关键事件示例**: 如果发生以下事件，**必须**生成对应的`state_changes`和`tavern_commands`：',
-  '   - **修炼/突破**: 角色境界提升、属性增长、灵力/气血变化。',
-  '   - **学习/领悟**: 角色学会新功法、技能、神通。',
-  '   - **获得/失去物品**: 角色背包中增加或减少丹药、法宝、材料等。',
-  '   - **战斗/受伤**: 角色或NPC的气血、灵力、状态发生变化。',
-  '   - **情感/关系变化**: 角色与NPC的好感度、关系状态改变。',
-  '3. **无变更则不生成**: 如果剧情确实没有导致任何状态变更，则`state_changes`和`tavern_commands`可以为空数组。',
-].join('\n')
+export const buildInGameMessagePrompt = (shortTermMemories?: string[], playerAction?: string): string => {
+  // 格式化短期记忆为"上一幕剧情"
+  let previousStory = '游戏刚刚开始，你正站在命运的起点。';
+  if (shortTermMemories && shortTermMemories.length > 0) {
+    // 短期记忆数组：最新的在前面（index 0），最旧的在后面
+    // 显示时从最新到最旧
+    previousStory = shortTermMemories.join('\n\n');
+  }
 
-export function getRandomizedInGamePrompt(): string {
-  return IN_GAME_MESSAGE_PROMPT;
+  const storyContext = `
+# 故事延续
+
+## 上一幕剧情
+${previousStory}
+
+## 玩家的行动
+${playerAction || '静观其变。'}
+
+## 你的任务
+**严格承接上一幕剧情和玩家的行动，只描述接下来发生的事情。严禁重复或总结上一幕的内容，专注于推进新的剧情发展。**
+`;
+
+  return [
+    '【剧情推进】根据当前游戏状态推进一段叙事，并返回唯一 JSON。',
+    storyContext,
+    '',
+    '# 时间推进规则（极其重要）',
+    '',
+    '⚠️ **每次剧情推进必须让时间流逝！**',
+    '',
+    '1. **强制时间流逝**: 除非玩家明确说"不做任何事"、"原地不动"，否则任何行动都必须推进时间',
+    '2. **最小时间单位**: 每次至少推进1分钟，哪怕只是简单对话',
+    '3. **时间推进参考**:',
+    '   - 简单对话: 1-5分钟',
+    '   - 战斗: 5-30分钟',
+    '   - 修炼: 30分钟-数小时',
+    '   - 炼丹/炼器: 数小时-数天',
+    '   - 赶路: 数小时-数天',
+    '   - 闭关: 数天-数月',
+    '',
+    '4. **时间格式**: 时间推进量用分钟数表示（例如：7200表示5天）',
+    '',
+    '# 叙事格式规则',
+    '',
+    '⚠️ **重要：不要在叙事文本开头添加时间标记**',
+    '- ❌ 错误示例：`【仙道1年3月15日 09:00】陈朝阳睁开双眼...`',
+    '- ✅ 正确示例：`陈朝阳睁开双眼...`',
+    '- 系统会自动为每条记忆添加时间前缀，你只需要写纯粹的叙事内容',
+    '',
+    '**判定结果格式**：',
+    '- 使用`〖〗`标记判定结果以获得特殊样式',
+    '- 格式：`〖判定类型:结果,骰点:数值,属性:数值,难度:数值〗`',
+    '- 示例：`〖修炼判定:成功,骰点:23,灵性:8,难度:15〗`',
+    '- 结果类型：成功/大成功/失败/大失败',
+    '',
+    DATA_STRUCTURE_DEFINITIONS,
+    '',
+    generateJudgmentPrompt(),
+    '',
+    '# 状态变更识别规则 (极其重要)',
+    '',
+    '⚠️ **你不仅是叙事者，更是游戏状态的维护者。**',
+    '1. **主动识别**: 你必须主动从【玩家输入】和【你生成的剧情】中识别出任何导致角色或世界状态变化的关键事件。',
+    '2. **关键事件示例**: 如果发生以下事件，**必须**生成对应的`state_changes`和`tavern_commands`：',
+    '   - **修炼/突破**: 角色境界提升、属性增长、灵力/气血变化。',
+    '   - **学习/领悟**: 角色学会新功法、技能、神通。',
+    '   - **获得/失去物品**: 角色背包中增加或减少丹药、法宝、材料等。',
+    '   - **战斗/受伤**: 角色或NPC的气血、灵力、状态发生变化。',
+    '   - **情感/关系变化**: 角色与NPC的好感度、关系状态改变。',
+    '3. **无变更则不生成**: 如果剧情确实没有导致任何状态变更，则`state_changes`和`tavern_commands`可以为空数组。',
+  ].join('\n');
+};
+
+export function getRandomizedInGamePrompt(shortTermMemories?: string[], playerAction?: string): string {
+  return buildInGameMessagePrompt(shortTermMemories, playerAction);
 }
 
 // 调试函数：检查提示词完整性和Token分析
 export function debugPromptInfo(): void {
-  const fullPrompt = IN_GAME_MESSAGE_PROMPT
+  const fullPrompt = buildInGameMessagePrompt(['这是一个测试用的短期记忆。'], '玩家选择继续修炼。');
   console.log('[提示词调试] 提示词类型:', typeof fullPrompt)
   console.log('[提示词调试] 提示词长度:', fullPrompt.length)
   console.log('[提示词调试] 开头200字符:', fullPrompt.substring(0, 200))
