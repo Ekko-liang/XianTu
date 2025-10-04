@@ -320,28 +320,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
 
       // 4. 将修改写回 rootState（触发响应式）
       if (profile.模式 === '单机' && profile.存档列表) {
-        // 🔥 自动存档逻辑：如果当前存档是"自动存档"，先备份到"上次对话"
-        if (active.存档槽位 === '自动存档') {
-          const currentAutoSave = profile.存档列表['自动存档'];
-          if (currentAutoSave?.存档数据) {
-            // 深拷贝当前自动存档到"上次对话"
-            profile.存档列表['上次对话'] = {
-              存档名: '上次对话',
-              保存时间: currentAutoSave.保存时间,
-              最后保存时间: currentAutoSave.最后保存时间,
-              游戏内时间: currentAutoSave.游戏内时间,
-              游戏时长: currentAutoSave.游戏时长,
-              角色名字: currentAutoSave.角色名字,
-              境界: currentAutoSave.境界,
-              位置: currentAutoSave.位置,
-              修为进度: currentAutoSave.修为进度,
-              世界地图: currentAutoSave.世界地图,
-              存档数据: JSON.parse(JSON.stringify(currentAutoSave.存档数据))
-            };
-            debug.log('角色商店', '[自动存档] 已备份当前状态到"上次对话"');
-          }
-        }
-
+        // 注意：不再在这里备份到"上次对话"，已改为在发送消息前备份
         rootState.value.角色列表[active.角色ID].存档列表 = {
           ...profile.存档列表,
           [active.存档槽位]: slot
@@ -909,33 +888,12 @@ export const useCharacterStore = defineStore('characterV3', () => {
       if (currentSaveData.游戏时间) {
         const time = currentSaveData.游戏时间;
         slot.游戏内时间 = `${time.年}年${time.月}月${time.日}日`;
-        slot.游戏时长 = currentSaveData.游戏时间.总分钟数 || 0;
+        // 注意：游戏时长是玩家实际游玩时间，不是游戏内时间，保持原值不变
       }
 
       // 3. 将修改写回 rootState
       if (profile.模式 === '单机' && profile.存档列表) {
-        // 🔥 自动存档逻辑：如果当前存档是"自动存档"，先备份到"上次对话"
-        if (active.存档槽位 === '自动存档') {
-          const currentAutoSave = profile.存档列表['自动存档'];
-          if (currentAutoSave?.存档数据) {
-            // 深拷贝当前自动存档到"上次对话"
-            profile.存档列表['上次对话'] = {
-              存档名: '上次对话',
-              保存时间: currentAutoSave.保存时间,
-              最后保存时间: currentAutoSave.最后保存时间,
-              游戏内时间: currentAutoSave.游戏内时间,
-              游戏时长: currentAutoSave.游戏时长,
-              角色名字: currentAutoSave.角色名字,
-              境界: currentAutoSave.境界,
-              位置: currentAutoSave.位置,
-              修为进度: currentAutoSave.修为进度,
-              世界地图: currentAutoSave.世界地图,
-              存档数据: JSON.parse(JSON.stringify(currentAutoSave.存档数据))
-            };
-            debug.log('角色商店', '[保存游戏] 已备份当前状态到"上次对话"');
-          }
-        }
-
+        // 注意：不再在这里备份到"上次对话"，已改为在发送消息前备份
         profile.存档列表[active.存档槽位] = slot;
       } else if (profile.模式 === '联机') {
         profile.存档 = slot;

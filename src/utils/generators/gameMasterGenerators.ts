@@ -94,50 +94,17 @@ export async function generateInitialMessage(
       console.warn('【数据缓存】酒馆连接不可用，跳过数据缓存');
     }
 
-    // 1. 处理随机出身和随机灵根，具体化为实际设定
-    let processedOrigin = initialGameData.creationDetails.originName;
-    let processedSpiritRoot = initialGameData.creationDetails.spiritRootName;
+    // 1. 保留随机选项，让 AI 自行创造性处理
+    const processedOrigin = initialGameData.creationDetails.originName;
+    const processedSpiritRoot = initialGameData.creationDetails.spiritRootName;
 
-    // 随机出身处理
+    // 不再硬编码处理随机选项，完全交给 AI 根据提示词引导创造
     if (processedOrigin === '随机出身') {
-      // 更贴近常见人生样本：默认有家庭；“孤儿出身”仅作为低概率选项
-      type OriginWeight = { label: string; weight: number };
-      const originPool: OriginWeight[] = [
-        { label: '世家子弟', weight: 2 },
-        { label: '宗门弟子', weight: 2 },
-        { label: '平民出身', weight: 3 },
-        { label: '商贾之家', weight: 2 },
-        { label: '猎户人家', weight: 2 },
-        { label: '书香门第', weight: 2 },
-        { label: '官宦之家', weight: 1.5 },
-        { label: '农家子弟', weight: 2 },
-        { label: '手艺人家', weight: 2 },
-        { label: '散修出身', weight: 1 },
-        { label: '孤儿出身', weight: 0.2 }, // 极低概率，除非玩家明确选择
-      ];
-
-      const total = originPool.reduce((s, o) => s + o.weight, 0);
-      let roll = Math.random() * total;
-      for (const o of originPool) {
-        if ((roll -= o.weight) <= 0) { processedOrigin = o.label; break; }
-      }
-      if (!processedOrigin || processedOrigin === '随机出身') processedOrigin = '平民出身';
-      console.log('【随机出身】已选定:', processedOrigin);
+      console.log('【随机出身】检测到随机出身，将由 AI 创造性生成');
     }
 
-    // 随机灵根处理 - 使用智能生成系统
     if (processedSpiritRoot === '随机灵根' || isRandomSpiritRoot(processedSpiritRoot)) {
-      try {
-        console.log('【智能灵根生成】开始生成:', { 天资: initialGameData.baseInfo.天资 });
-        processedSpiritRoot = generateRandomSpiritRoot(initialGameData.baseInfo.天资 || '中人之姿');
-        console.log('【智能灵根生成】已生成:', processedSpiritRoot);
-      } catch (error) {
-        console.warn('【智能灵根生成】生成失败，使用简单随机:', error);
-        // 如果智能生成失败，回退到简单随机
-        const possibleRoots = ['五行灵根', '金灵根', '木灵根', '水灵根', '火灵根', '土灵根', '冰灵根', '雷灵根', '风灵根'];
-        processedSpiritRoot = possibleRoots[Math.floor(Math.random() * possibleRoots.length)];
-        console.log('【简单随机灵根】已选定:', processedSpiritRoot);
-      }
+      console.log('【随机灵根】检测到随机灵根，将由 AI 创造性生成');
     }
 
     // 1.1 构建GM_Request对象，展示给AI看
@@ -724,16 +691,19 @@ export async function generateInGameResponse(
       timestamp: new Date().toISOString()
     };
 
-    // 获取通用提示词，并传入上下文
-    const finalPrompt = getRandomizedInGamePrompt(shortTermMemories, playerAction);
-    
-    console.log('【剧情推进】最终提示词长度:', finalPrompt.length);
-    console.log('【剧情推进-调试】最终提示词前500字符:', finalPrompt.substring(0, 500));
+    // 获取通用提示词（不包含playerAction）
+    const systemPrompt = getRandomizedInGamePrompt(shortTermMemories);
+
+    // 构建完整的输入：系统提示词 + 玩家行动作为单独的用户消息
+    const fullInput = `${systemPrompt}\n\n---\n\n## 玩家的行动\n${playerAction || '静观其变。'}`;
+
+    console.log('【剧情推进】最终提示词长度:', fullInput.length);
+    console.log('【剧情推进-调试】最终提示词前500字符:', fullInput.substring(0, 500));
     console.log('【剧情推进】GM请求数据:', gmRequest);
 
     // 调用AI生成响应
     const result = await generateItemWithTavernAI<GM_Response>(
-      finalPrompt,
+      fullInput,
       '剧情推进',
       false,
       3,

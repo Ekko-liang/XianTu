@@ -145,10 +145,6 @@
 
                   <div class="sect-strength">
                     <div class="strength-item">
-                      <span class="strength-label">长老数量</span>
-                      <span class="strength-value">{{ selectedSect.leadership.长老数量 }}位</span>
-                    </div>
-                    <div class="strength-item">
                       <span class="strength-label">最强修为</span>
                       <span class="strength-value peak-power">{{ selectedSect.leadership.最强修为 }}</span>
                     </div>
@@ -581,7 +577,7 @@ const formatLocation = (location: unknown): string => {
 const getContinentName = (sect: WorldFaction): string => {
   // 优先使用大洲字段
   if (sect.所在大洲) return sect.所在大洲;
-  
+
   // 从世界信息中查找
   const worldInfo = characterStore.activeSaveSlot?.存档数据?.世界信息 as WorldInfo | undefined;
   const continents = worldInfo?.continents || worldInfo?.大陆信息;
@@ -595,7 +591,7 @@ const getContinentName = (sect: WorldFaction): string => {
       }
     }
   }
-  
+
   // 从世界信息的势力信息中查找
   if (worldInfo?.势力信息) {
     for (const faction of worldInfo.势力信息) {
@@ -606,20 +602,20 @@ const getContinentName = (sect: WorldFaction): string => {
       }
     }
   }
-  
+
   // 如果都找不到，根据位置推测
   if (sect.位置 && typeof sect.位置 === 'object' && 'longitude' in sect.位置 && 'latitude' in sect.位置) {
     const lng = sect.位置.longitude;
     const lat = sect.位置.latitude;
-    
+
     // 简单的地理分区推测（可根据实际坐标范围调整）
     if (lng < 110 && lat > 40) return '北境雪域';
-    if (lng < 110 && lat < 30) return '南疆荒漠'; 
+    if (lng < 110 && lat < 30) return '南疆荒漠';
     if (lng > 120 && lat > 35) return '东海群岛';
     if (lng > 120 && lat < 35) return '东南丛林';
     return '中土大陆';
   }
-  
+
   return '未知大洲';
 };
 
@@ -633,7 +629,7 @@ const getMainResources = (sect: WorldFaction): string => {
   if (sectAsAny.resources && Array.isArray(sectAsAny.resources)) {
     return sectAsAny.resources.slice(0, 3).join('、');
   }
-  
+
   // 根据宗门类型推测资源
   const type = sect.类型 || '';
   if (type.includes('剑')) return '神铁、剑谱、磨剑石';
@@ -642,7 +638,7 @@ const getMainResources = (sect: WorldFaction): string => {
   if (type.includes('魔') || type.includes('邪')) return '魔石、煞气、秘法';
   if (type.includes('商')) return '灵石、珍宝、情报';
   if (type.includes('世家')) return '传承、人脉、底蕴';
-  
+
   return '灵石、功法、修炼资源';
 };
 

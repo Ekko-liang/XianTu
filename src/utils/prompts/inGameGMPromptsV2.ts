@@ -9,13 +9,12 @@ import { DATA_STRUCTURE_DEFINITIONS } from './dataStructureDefinitions';
 import { generateJudgmentPrompt } from '../judgement/heavenlyRules';
 
 // 剧情推进提示词
-export const buildInGameMessagePrompt = (shortTermMemories?: string[], playerAction?: string): string => {
-  // 格式化短期记忆为"上一幕剧情"
+export const buildInGameMessagePrompt = (shortTermMemories?: string[]): string => {
+  // 只取最新一条短期记忆作为"上一幕剧情"，避免AI因过多历史记忆而剧情串套
   let previousStory = '游戏刚刚开始，你正站在命运的起点。';
   if (shortTermMemories && shortTermMemories.length > 0) {
-    // 短期记忆数组：最新的在前面（index 0），最旧的在后面
-    // 显示时从最新到最旧
-    previousStory = shortTermMemories.join('\n\n');
+    // 短期记忆数组使用 push() 添加，所以最新的在最后
+    previousStory = shortTermMemories[shortTermMemories.length - 1];
   }
 
   const storyContext = `
@@ -23,9 +22,6 @@ export const buildInGameMessagePrompt = (shortTermMemories?: string[], playerAct
 
 ## 上一幕剧情
 ${previousStory}
-
-## 玩家的行动
-${playerAction || '静观其变。'}
 
 ## 你的任务
 **严格承接上一幕剧情和玩家的行动，只描述接下来发生的事情。严禁重复或总结上一幕的内容，专注于推进新的剧情发展。**
@@ -49,7 +45,11 @@ ${playerAction || '静观其变。'}
     '   - 赶路: 数小时-数天',
     '   - 闭关: 数天-数月',
     '',
-    '4. **时间格式**: 时间推进量用分钟数表示（例如：7200表示5天）',
+    '4. **时间推进命令**: 使用 `{"action":"add","key":"游戏时间.分钟","value":推进的分钟数}` 来推进时间',
+    '   - ⚠️ **重要**: value 是本次推进的时间量，不是累计总时间',
+    '   - ✅ 正确示例: `{"action":"add","key":"游戏时间.分钟","value":30}` 表示推进30分钟',
+    '   - ❌ 错误示例: 不要传递累计的总分钟数（如111445）',
+    '   - 换算参考: 1小时=60, 1天=1440, 1月=43200, 1年=518400',
     '',
     '# 叙事格式规则',
     '',
@@ -82,13 +82,13 @@ ${playerAction || '静观其变。'}
   ].join('\n');
 };
 
-export function getRandomizedInGamePrompt(shortTermMemories?: string[], playerAction?: string): string {
-  return buildInGameMessagePrompt(shortTermMemories, playerAction);
+export function getRandomizedInGamePrompt(shortTermMemories?: string[]): string {
+  return buildInGameMessagePrompt(shortTermMemories);
 }
 
 // 调试函数：检查提示词完整性和Token分析
 export function debugPromptInfo(): void {
-  const fullPrompt = buildInGameMessagePrompt(['这是一个测试用的短期记忆。'], '玩家选择继续修炼。');
+  const fullPrompt = buildInGameMessagePrompt(['这是一个测试用的短期记忆。']);
   console.log('[提示词调试] 提示词类型:', typeof fullPrompt)
   console.log('[提示词调试] 提示词长度:', fullPrompt.length)
   console.log('[提示词调试] 开头200字符:', fullPrompt.substring(0, 200))

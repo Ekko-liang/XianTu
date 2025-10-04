@@ -481,6 +481,8 @@ export interface PlayerStatus extends AIMetadata {
   声望: number;
   位置: {
     描述: string;
+    x?: number; // 地图X坐标
+    y?: number; // 地图Y坐标
   };
   气血: ValuePair<number>;
   灵气: ValuePair<number>;
@@ -712,8 +714,8 @@ export interface GameTime extends AIMetadata {
   月: number;
   日: number;
   小时: number;
-  总分钟数?: number; // 可选：总分钟数（从游戏开始累计）
   分钟?: number; // 可选：保持向后兼容
+  总分钟数?: number; // 新增：用于精确时间计算
 }
 
 // --- 存档数据核心 ---

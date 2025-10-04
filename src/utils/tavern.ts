@@ -175,16 +175,26 @@ export async function clearAllCharacterData(): Promise<void> {
     errorCount++;
   }
 
-  // 步骤2: 清理全局变量 - 彻底清空所有变量（防止数据堆叠）
+  // 步骤2: 清理全局变量 - 保留开局自定义数据
   try {
     const globalVars = await helper.getVariables({ type: 'global' });
     const globalKeys = Object.keys(globalVars);
 
-    if (globalKeys.length > 0) {
-      console.log(`[清理] 发现 ${globalKeys.length} 个全局变量，全部清理:`, globalKeys);
+    // 需要保留的全局变量（开局自定义数据等）
+    const preservedKeys = ['DAD_creationData'];
+
+    // 过滤出需要删除的变量
+    const keysToDelete = globalKeys.filter(key => !preservedKeys.includes(key));
+
+    if (keysToDelete.length > 0) {
+      console.log(`[清理] 发现 ${keysToDelete.length} 个全局变量需要清理:`, keysToDelete);
+      if (globalKeys.length > keysToDelete.length) {
+        console.log(`[清理] 保留 ${globalKeys.length - keysToDelete.length} 个全局变量:`, preservedKeys.filter(k => globalKeys.includes(k)));
+      }
+
       // 逐个删除，即使某个失败也继续删除其他的
       let deletedCount = 0;
-      for (const key of globalKeys) {
+      for (const key of keysToDelete) {
         try {
           await helper.deleteVariable(key, { type: 'global' });
           deletedCount++;
@@ -192,7 +202,7 @@ export async function clearAllCharacterData(): Promise<void> {
           console.warn(`[清理] 删除全局变量 ${key} 失败:`, delError);
         }
       }
-      console.log(`[清理] 全局变量清理完成，成功删除 ${deletedCount}/${globalKeys.length} 个。`);
+      console.log(`[清理] 全局变量清理完成，成功删除 ${deletedCount}/${keysToDelete.length} 个。`);
     } else {
       console.log(`[清理] 未发现需要清理的全局变量。`);
     }

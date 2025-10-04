@@ -1398,6 +1398,33 @@ const sendMessage = async () => {
 
   const userMessage = inputText.value.trim();
 
+  // 🔥 在发送消息之前，保存当前状态到"上次对话"
+  try {
+    const currentProfile = characterStore.activeCharacterProfile;
+    if (currentProfile?.模式 === '单机' && currentProfile.存档列表) {
+      const currentAutoSave = currentProfile.存档列表['自动存档'];
+      if (currentAutoSave?.存档数据) {
+        // 深拷贝当前自动存档到"上次对话"
+        currentProfile.存档列表['上次对话'] = {
+          存档名: '上次对话',
+          保存时间: currentAutoSave.保存时间,
+          最后保存时间: currentAutoSave.最后保存时间,
+          游戏内时间: currentAutoSave.游戏内时间,
+          游戏时长: currentAutoSave.游戏时长,
+          角色名字: currentAutoSave.角色名字,
+          境界: currentAutoSave.境界,
+          位置: currentAutoSave.位置,
+          修为进度: currentAutoSave.修为进度,
+          世界地图: currentAutoSave.世界地图,
+          存档数据: JSON.parse(JSON.stringify(currentAutoSave.存档数据))
+        };
+        console.log('[上次对话] 已在发送消息前备份当前状态');
+      }
+    }
+  } catch (error) {
+    console.warn('[上次对话] 备份失败（非致命）:', error);
+  }
+
   // 获取动作队列中的文本
   const actionQueueText = actionQueue.getActionPrompt();
 

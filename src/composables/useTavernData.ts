@@ -71,8 +71,49 @@ export function useTavernData() {
                                chat['character.baseInfo'] ||
                                null) as TavernCharacterData | null
 
-      // 读取存档数据
-      const rawSaveData = (chat['character.saveData'] || {}) as SaveData | Record<string, TavernVariableValue>
+      // 读取存档数据 - 支持新旧格式
+      // 优先使用分片格式，回退到旧的 character.saveData
+      let rawSaveData: SaveData | Record<string, TavernVariableValue>
+
+      if (chat['基础信息'] || chat['境界'] || chat['属性']) {
+        // 新格式：从分片变量组装
+        console.log('[酒馆数据] 检测到分片格式存档，正在组装...')
+        rawSaveData = {
+          角色基础信息: chat['基础信息'],
+          玩家角色状态: {
+            境界: chat['境界'],
+            声望: 0,
+            位置: chat['位置'] || { 描述: '未知', x: 0, y: 0 },
+            气血: chat['属性']?.气血,
+            灵气: chat['属性']?.灵气,
+            神识: chat['属性']?.神识,
+            寿命: chat['属性']?.寿命,
+            状态效果: chat['状态效果'] || []
+          },
+          修炼功法: chat['修炼功法'],
+          掌握技能: chat['掌握技能'] || [],
+          装备栏: chat['装备栏'],
+          背包: {
+            灵石: chat['背包_灵石'],
+            物品: chat['背包_物品']
+          },
+          人物关系: chat['人物关系'] || {},
+          三千大道: chat['三千大道'] || { 已解锁大道: [], 大道进度: {}, 大道路径定义: {} },
+          世界信息: chat['世界信息'],
+          记忆: {
+            短期记忆: chat['记忆_短期'] || [],
+            中期记忆: chat['记忆_中期'] || [],
+            长期记忆: chat['记忆_长期'] || [],
+            隐式中期记忆: chat['记忆_隐式中期'] || []
+          },
+          游戏时间: chat['游戏时间'],
+          宗门系统: { availableSects: [], sectRelationships: {}, sectHistory: [] }
+        } as SaveData
+      } else {
+        // 旧格式：直接读取 character.saveData
+        rawSaveData = (chat['character.saveData'] || {}) as SaveData | Record<string, TavernVariableValue>
+      }
+
       saveData.value = rawSaveData
 
       // 从存档解析世界与记忆

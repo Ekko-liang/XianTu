@@ -141,72 +141,35 @@ export async function generateMapFromWorld(world: any, userConfig?: { majorFacti
 - 如果是皇室出身：生成皇城、行宫、重要城池`;
     }
     
-    const uniquePrompt = `${worldInfo}
+    // 使用程序化生成地图，不调用 AI
+    console.log('【地图生成】使用程序化生成基础地图结构');
 
-随机种子: ${randomSeed}
-生成时间: ${timestamp}
+    // 生成基础的 GeoJSON 地图数据
+    const randomCity = `${worldName}·起始区域`;
+    const randomX = (Math.random() - 0.5) * 0.1; // -0.05 到 0.05
+    const randomY = (Math.random() - 0.5) * 0.1;
 
-请基于以上世界信息、配置要求和角色背景生成对应的地图，确保每次生成的地图都有所不同，并且包含角色相关的重要地点。`;
-    const prompt = MAP_GENERATION_PROMPT + uniquePrompt;
-
-    // 1. 直接让AI生成GeoJSON
-    console.log('【地图生成-调试】准备调用generateItemWithTavernAI');
-    console.log('【地图生成-调试】MAP_GENERATION_PROMPT长度:', MAP_GENERATION_PROMPT.length);
-    console.log('【地图生成-调试】MAP_GENERATION_PROMPT前200字符:', MAP_GENERATION_PROMPT.substring(0, 200));
-    console.log('【地图生成-调试】完整prompt长度:', prompt.length);
-    console.log('【地图生成-调试】完整prompt前300字符:', prompt.substring(0, 300));
-    
-    const geoJson = await generateItemWithTavernAI<any>(prompt, '世界舆图GeoJSON', false);
-
-    if (!geoJson || !geoJson.type || !geoJson.features) {
-        console.error('【神识印记-衍化山河失败根源】AI未能生成有效的GeoJSON:', geoJson);
-        console.warn('【神识印记-山河应急措施】使用默认的山河脉络');
-        
-        // 使用通用的安全起始点，避免硬编码具体名称
-        const randomCity = `起始安全区域`;
-        const randomX = (Math.random() - 0.5) * 0.1; // -0.05 到 0.05
-        const randomY = (Math.random() - 0.5) * 0.1;
-        
-        const fallbackGeoJson = {
-            type: 'FeatureCollection',
-            features: [
-                {
-                    type: 'Feature',
-                    properties: {
-                        name: randomCity,
-                        type: '凡人城镇',
-                        description: `适合初入修仙的新人居住的安全区域`,
-                        danger_level: '安全',
-                        suitable_for: '凡人-炼气'
-                    },
-                    geometry: {
-                        type: 'Point',
-                        coordinates: [randomX, randomY]
-                    }
+    const fallbackGeoJson = {
+        type: 'FeatureCollection',
+        features: [
+            {
+                type: 'Feature',
+                properties: {
+                    name: randomCity,
+                    type: '凡人城镇',
+                    description: `${worldName}的起始安全区域`,
+                    danger_level: '安全',
+                    suitable_for: '凡人-炼气'
+                },
+                geometry: {
+                    type: 'Point',
+                    coordinates: [randomX, randomY]
                 }
-            ]
-        };
+            }
+        ]
+    };
 
-        // 2. 在代码中可靠地封装成GM_Response
-        const gmResponse: GM_Response = {
-            text: `鸿蒙初判，清浊始分。吾以神念衍化，为这方名为'${worldName}'的新生世界，定下山川脉络，划定万古基石。
-
-虚空中，一幅巨大的光幕缓缓展开，其上星罗棋布，正是这方世界的完整舆图。万里山河尽收眼底，各方势力盘踞其间，静待道友的到来。`,
-            mid_term_memory: "【世界诞生】新生世界创建完成，地图数据已设定",
-            tavern_commands: [
-                {
-                    action: "set",
-                    scope: "chat",
-                    key: "world.mapData",
-                    value: fallbackGeoJson
-                }
-            ]
-        };
-        console.log("【神识印记】成功在本地封装应急舆图法旨:", gmResponse);
-        return gmResponse;
-    }
-
-    // 2. 在代码中可靠地封装成GM_Response
+    // 封装成 GM_Response 返回
     const gmResponse: GM_Response = {
         text: `鸿蒙初判，清浊始分。吾以神念衍化，为这方名为'${worldName}'的新生世界，定下山川脉络，划定万古基石。
 
@@ -217,11 +180,11 @@ export async function generateMapFromWorld(world: any, userConfig?: { majorFacti
                 action: "set",
                 scope: "chat",
                 key: "world.mapData",
-                value: geoJson
+                value: fallbackGeoJson
             }
         ]
     };
-    console.log("【神识印记】成功在本地封装舆图法旨:", gmResponse);
+    console.log("【地图生成】程序化地图数据已封装:", gmResponse);
     return gmResponse;
 }
 

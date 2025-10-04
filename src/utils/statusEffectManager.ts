@@ -7,6 +7,20 @@ import type { SaveData, StatusEffect, GameTime } from '@/types/game';
 import { get, set } from 'lodash';
 
 /**
+ * 兼容旧格式的状态效果类型
+ */
+type LegacyStatusEffect = Partial<StatusEffect> & {
+  时间?: string;
+  剩余时间?: string;
+  name?: string;
+  type?: 'buff' | 'debuff';
+  description?: string;
+  intensity?: number;
+  source?: string;
+  duration?: string;
+};
+
+/**
  * 将游戏时间转换为总分钟数
  * @param gameTime 游戏时间对象
  * @returns 总分钟数
@@ -110,8 +124,8 @@ export function isStatusEffectExpired(effect: StatusEffect, currentGameTime: Gam
   }
   
   // 旧格式兼容：解析字符串时间（向后兼容）
-  if ((effect as any).时间 && (effect as any).剩余时间) {
-    const remainingMinutes = parseDurationToMinutes((effect as any).剩余时间);
+  if (effect.时间 && effect.剩余时间) {
+    const remainingMinutes = parseDurationToMinutes(effect.剩余时间);
     return remainingMinutes <= 0;
   }
   
@@ -137,8 +151,8 @@ export function calculateRemainingMinutes(effect: StatusEffect, currentGameTime:
   }
   
   // 旧格式兼容
-  if ((effect as any).剩余时间) {
-    return Math.max(0, parseDurationToMinutes((effect as any).剩余时间));
+  if (effect.剩余时间) {
+    return Math.max(0, parseDurationToMinutes(effect.剩余时间));
   }
   
   // 如果没有时间信息，返回一个默认值
@@ -151,7 +165,7 @@ export function calculateRemainingMinutes(effect: StatusEffect, currentGameTime:
  * @param gameTime 当前游戏时间
  * @returns 规范化的状态效果对象，如果无法规范化返回null
  */
-export function normalizeStatusEffect(effect: any, gameTime: GameTime): StatusEffect | null {
+export function normalizeStatusEffect(effect: LegacyStatusEffect, gameTime: GameTime): StatusEffect | null {
   try {
     if (!effect || typeof effect !== 'object') {
       console.warn('[状态效果] 无效的状态效果数据:', effect);
@@ -171,9 +185,8 @@ export function normalizeStatusEffect(effect: any, gameTime: GameTime): StatusEf
         年: gameTime.年,
         月: gameTime.月,
         日: gameTime.日,
-        小时: gameTime.小时,
-        总分钟数: gameTime.总分钟数,
-        分钟: gameTime.分钟
+        小时: gameTime.小时 || 0,
+        分钟: gameTime.分钟 ?? 0
       }, // 使用当前游戏时间作为生成时间
       持续时间分钟: 0,
       状态描述: effect.状态描述 || effect.description || '无描述',
@@ -259,7 +272,7 @@ export function updateStatusEffects(saveData: SaveData): boolean {
  * @param effectData 状态效果数据
  * @returns 是否添加成功
  */
-export function addStatusEffect(saveData: SaveData, effectData: any): boolean {
+export function addStatusEffect(saveData: SaveData, effectData: LegacyStatusEffect): boolean {
   try {
     const currentGameTime = saveData.游戏时间;
     if (!currentGameTime) {

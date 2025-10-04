@@ -174,70 +174,19 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
     processedBaseInfo.年龄 = age;
   }
 
-  // 处理随机灵根 - 在此处具体化，不再留给AI处理
+  // 注意：不再在此处理随机灵根和随机出生，完全交给 AI 处理
+  // AI 会根据提示词中的引导，创造性地生成独特的灵根和出生
+  // 这样可以避免固定的套路，每次初始化都会有不同的结果
+
   if (isRandomSpiritRoot(processedBaseInfo.灵根)) {
-    console.log('[灵根生成] 检测到随机灵根，正在生成具体灵根...');
-    
-    // 根据天资等级影响随机结果
-    const talentTierName = typeof processedBaseInfo.天资 === 'string' ? processedBaseInfo.天资 :
-                          (processedBaseInfo.天资 as any)?.name || '凡人';
-    
-    let availableRoots = LOCAL_SPIRIT_ROOTS;
-    
-    // 根据天资筛选可用灵根
-    if (talentTierName === '废柴') {
-      availableRoots = LOCAL_SPIRIT_ROOTS.filter(root => (root.rarity || 1) <= 2);
-    } else if (talentTierName === '凡人') {
-      availableRoots = LOCAL_SPIRIT_ROOTS.filter(root => (root.rarity || 1) <= 3);
-    } else if (talentTierName === '俊杰') {
-      availableRoots = LOCAL_SPIRIT_ROOTS.filter(root => (root.rarity || 1) <= 4);
-    } else if (talentTierName === '天骄') {
-      availableRoots = LOCAL_SPIRIT_ROOTS.filter(root => (root.rarity || 1) <= 5);
-    } else if (talentTierName === '妖孽') {
-      // 妖孽可以获得任何灵根
-      availableRoots = LOCAL_SPIRIT_ROOTS;
-    }
-    
-    // 随机选择一个灵根
-    const randomRoot = availableRoots[Math.floor(Math.random() * availableRoots.length)];
-    
-    // 转换为中文格式
-    processedBaseInfo.灵根 = {
-      名称: randomRoot.name,
-      品级: randomRoot.tier || '凡品',
-      描述: randomRoot.description || '基础灵根'
-    };
-    
-    console.log(`[灵根生成] 已生成具体灵根: ${randomRoot.name}(${randomRoot.tier})`);
+    console.log('[灵根生成] 检测到随机灵根，将由 AI 创造性生成');
+    // 保留"随机灵根"字符串，让 AI 处理
   }
 
-  // 处理随机出生 - 在此处具体化
   if (typeof processedBaseInfo.出生 === 'string' &&
       (processedBaseInfo.出生 === '随机出生' || processedBaseInfo.出生.includes('随机'))) {
-    console.log('[出生生成] 检测到随机出生，正在生成具体出身...');
-    
-    // 根据天资等级影响随机结果
-    const talentTierName = typeof processedBaseInfo.天资 === 'string' ? processedBaseInfo.天资 :
-                          (processedBaseInfo.天资 as any)?.name || '凡人';
-    
-    let availableOrigins = LOCAL_ORIGINS;
-    
-    // 根据天资筛选可用出身
-    if (talentTierName === '废柴' || talentTierName === '凡人') {
-      availableOrigins = LOCAL_ORIGINS.filter(origin => (origin.rarity || 1) <= 3);
-    } else if (talentTierName === '俊杰') {
-      availableOrigins = LOCAL_ORIGINS.filter(origin => (origin.rarity || 1) <= 4);
-    } else if (talentTierName === '天骄' || talentTierName === '妖孽') {
-      // 高天资可以获得任何出身
-      availableOrigins = LOCAL_ORIGINS;
-    }
-    
-    // 随机选择一个出身
-    const randomOrigin = availableOrigins[Math.floor(Math.random() * availableOrigins.length)];
-    
-    processedBaseInfo.出生 = randomOrigin.name;
-    
-    console.log(`[出生生成] 已生成具体出身: ${randomOrigin.name}`);
+    console.log('[出生生成] 检测到随机出生，将由 AI 创造性生成');
+    // 保留"随机出生"字符串，让 AI 处理
   }
 
   // 计算初始属性
@@ -479,7 +428,7 @@ function deriveBaseFieldsFromDetails(baseInfo: CharacterBaseInfo, worldName: str
   if (derivedInfo.灵根详情) {
     const detail = derivedInfo.灵根详情 as any;
     derivedInfo.灵根 = {
-      名称: String(detail.name || detail.名称 || '混沌灵根'),
+      名称: String(detail.name || detail.名称 || '五行灵根'),
       品级: String(detail.tier || detail.品级 || '凡品'),
       描述: String(detail.description || detail.描述 || '基础灵根')
     };

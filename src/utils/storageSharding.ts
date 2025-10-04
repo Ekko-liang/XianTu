@@ -159,7 +159,7 @@ export function assembleSaveData(shards: Partial<StorageShards>): SaveData {
       灵气: attrs.灵气,
       神识: attrs.神识,
       寿命: attrs.寿命,
-      位置: shards['位置'] || { 描述: '未知' },
+      位置: shards['位置'] || { 描述: '未知', x: 0, y: 0 },
       状态效果: shards['状态效果'] || [],
     },
     修炼功法: shards['修炼功法'] || { 功法: null, 正在修炼: false, 修炼进度: 0, 熟练度: 0, 已解锁技能: [], 修炼时间: 0, 突破次数: 0 },

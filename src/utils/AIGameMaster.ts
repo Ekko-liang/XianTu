@@ -712,57 +712,65 @@ async function executeCommand(command: { action: string; key: string; value?: un
         if (String(path).includes('先天六司')) added = clamp(added);
 
         // 🔥 特殊处理：游戏时间自动进位
-        if (path === '游戏时间.分钟' || path.endsWith('游戏时间.分钟') ||
-            path === '游戏时间.总分钟数' || path.endsWith('游戏时间.总分钟数')) {
-          console.log(`[executeCommand] 🕐 游戏时间增加 ${value} 分钟，开始自动进位计算`);
+        if (path === '游戏时间.分钟' || path.endsWith('游戏时间.分钟')) {
+          console.log(`[executeCommand] 🕐 时间推进 ${value} 分钟，开始自动进位计算`);
 
           // 获取当前游戏时间
-          const gameTime = get(saveData, '游戏时间', { 年: 1, 月: 1, 日: 1, 小时: 0, 分钟: 0, 总分钟数: 0 }) as GameTime;
+          const gameTime = get(saveData, '游戏时间', { 年: 1, 月: 1, 日: 1, 小时: 0, 分钟: 0 }) as GameTime;
 
-          // 计算新的总分钟数（从游戏开始累计）
-          const currentTotalMinutes = gameTime.总分钟数 || 0;
-          const newTotalMinutes = currentTotalMinutes + Number(value || 0);
+          // 将当前时间转换为总分钟数（用于计算）
+          const currentMinutes = gameTime.分钟 || 0;
+          const currentHours = gameTime.小时 || 0;
+          const currentDays = (gameTime.日 || 1) - 1; // 日期从1开始，所以-1
+          const currentMonths = (gameTime.月 || 1) - 1; // 月份从1开始，所以-1
+          const currentYears = (gameTime.年 || 1) - 1; // 年份从1开始，所以-1
 
-          // 从总分钟数计算年月日时分
-          // 1年 = 12月, 1月 = 30天, 1天 = 24小时, 1小时 = 60分钟
           const 分钟每小时 = 60;
           const 小时每天 = 24;
           const 天每月 = 30;
           const 月每年 = 12;
 
+          // 计算当前时间的总分钟数
+          const currentTotalMinutes = currentYears * 月每年 * 天每月 * 小时每天 * 分钟每小时 +
+                                      currentMonths * 天每月 * 小时每天 * 分钟每小时 +
+                                      currentDays * 小时每天 * 分钟每小时 +
+                                      currentHours * 分钟每小时 +
+                                      currentMinutes;
+
+          // 增加时间
+          const newTotalMinutes = currentTotalMinutes + Number(value || 0);
+
+          // 从总分钟数反推年月日时分
           const 分钟每天 = 分钟每小时 * 小时每天; // 1440
           const 分钟每月 = 分钟每天 * 天每月; // 43200
           const 分钟每年 = 分钟每月 * 月每年; // 518400
 
-          // 从总分钟数计算
           let 剩余分钟 = newTotalMinutes;
 
-          const 新年 = Math.floor(剩余分钟 / 分钟每年) + 1; // +1 因为游戏从第1年开始
+          const 新年 = Math.floor(剩余分钟 / 分钟每年) + 1;
           剩余分钟 = 剩余分钟 % 分钟每年;
 
-          const 新月 = Math.floor(剩余分钟 / 分钟每月) + 1; // +1 因为月份从1开始
+          const 新月 = Math.floor(剩余分钟 / 分钟每月) + 1;
           剩余分钟 = 剩余分钟 % 分钟每月;
 
-          const 新日 = Math.floor(剩余分钟 / 分钟每天) + 1; // +1 因为日期从1开始
+          const 新日 = Math.floor(剩余分钟 / 分钟每天) + 1;
           剩余分钟 = 剩余分钟 % 分钟每天;
 
           const 新小时 = Math.floor(剩余分钟 / 分钟每小时);
           const 新分钟 = 剩余分钟 % 分钟每小时;
 
-          // 更新整个游戏时间对象
+          // 更新游戏时间，不保存总分钟数
           set(saveData, '游戏时间', {
             年: 新年,
             月: 新月,
             日: 新日,
             小时: 新小时,
-            总分钟数: newTotalMinutes,
             分钟: 新分钟
           });
 
           console.log(`[executeCommand] ✅ 游戏时间已更新: ${新年}年${新月}月${新日}日 ${新小时}:${新分钟}`);
-          console.log(`[executeCommand]   原时间: ${gameTime.年}年${gameTime.月}月${gameTime.日}日 ${gameTime.小时}:${getMinutes(gameTime)} (总分钟数: ${currentTotalMinutes})`);
-          console.log(`[executeCommand]   新时间总分钟数: ${newTotalMinutes}`);
-          console.log(`[executeCommand]   增加: ${value}分钟`);
+          console.log(`[executeCommand]   原时间: ${gameTime.年}年${gameTime.月}月${gameTime.日}日 ${gameTime.小时}:${currentMinutes}`);
+          console.log(`[executeCommand]   推进: ${value}分钟`);
         } else {
           set(saveData, path, added);
           console.log(`[executeCommand] ✅ 已增加: ${currentValue} + ${value} = ${added}`);
