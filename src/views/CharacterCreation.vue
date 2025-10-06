@@ -242,52 +242,27 @@ async function executeCloudAiGeneration(code: string, userPrompt?: string) {
     const aiModule = await import('../utils/tavernAI');
     let generatedContent: unknown = null;
 
-    // 如果有自定义提示词，则使用带提示词的生成函数
-    if (userPrompt) {
-      switch (type) {
-        case 'world':
-          generatedContent = await aiModule.generateWorldWithPrompt(userPrompt);
-          break;
-        case 'talent_tier':
-          generatedContent = await aiModule.generateTalentTierWithPrompt(userPrompt);
-          break;
-        case 'origin':
-          if (!store.selectedWorld) {
-            toast.error('请先选择世界！');
-            return;
-          }
-          generatedContent = await aiModule.generateOriginWithPrompt(userPrompt);
-          break;
-        case 'spirit_root':
-          generatedContent = await aiModule.generateSpiritRootWithPrompt(userPrompt);
-          break;
-        case 'talent':
-          generatedContent = await aiModule.generateTalentWithPrompt(userPrompt);
-          break;
-      }
-    } else {
-      // 使用默认生成函数
-      switch (type) {
-        case 'world':
-          generatedContent = await aiModule.generateWorld();
-          break;
-        case 'talent_tier':
-          generatedContent = await aiModule.generateTalentTier();
-          break;
-        case 'origin':
-          if (!store.selectedWorld) {
-            toast.error('请先选择世界！');
-            return;
-          }
-          generatedContent = await aiModule.generateOrigin();
-          break;
-        case 'spirit_root':
-          generatedContent = await aiModule.generateSpiritRoot();
-          break;
-        case 'talent':
-          generatedContent = await aiModule.generateTalent();
-          break;
-      }
+    // 使用默认生成函数 (自定义提示词功能已移除)
+    switch (type) {
+      case 'world':
+        generatedContent = await aiModule.generateWorld();
+        break;
+      case 'talent_tier':
+        generatedContent = await aiModule.generateTalentTier();
+        break;
+      case 'origin':
+        if (!store.selectedWorld) {
+          toast.error('请先选择世界！');
+          return;
+        }
+        generatedContent = await aiModule.generateOrigin();
+        break;
+      case 'spirit_root':
+        generatedContent = await aiModule.generateSpiritRoot();
+        break;
+      case 'talent':
+        generatedContent = await aiModule.generateTalent();
+        break;
     }
 
     if (!generatedContent) {

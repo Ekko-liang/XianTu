@@ -11,10 +11,10 @@
 import { generateInGameResponse } from './generators/gameMasterGenerators';
 import { processGmResponse, getFromTavern } from './AIGameMaster';
 import { getTavernHelper } from './tavern';
-import type { TavernHelper } from './tavernCore';
+import type { TavernHelper } from '@/types';
 import { toast } from './toast';
 import type { GM_Response } from '@/types/AIGameMaster';
-import type { CharacterProfile } from '@/types/game';
+import type { CharacterProfile, StateChangeLog } from '@/types/game';
 
 type PlainObject = Record<string, unknown>;
 
@@ -23,18 +23,6 @@ export interface ProcessOptions {
   onProgressUpdate?: (progress: string) => void;
   onStateChange?: (newState: PlainObject) => void;
   useStreaming?: boolean;
-}
-
-export interface StateChangeLog {
-  before: PlainObject;
-  after: PlainObject;
-  changes: Array<{
-    key: string;
-    action: string;
-    oldValue: unknown;
-    newValue: unknown;
-  }>;
-  timestamp: string;
 }
 
 class AIBidirectionalSystemClass {
@@ -125,6 +113,7 @@ class AIBidirectionalSystemClass {
           // 原问题：之前没有接收返回值，导致命令执行后的数据被丢弃
           const processResult = await processGmResponse(gmResponse, currentSaveData);
           const updatedSaveData = processResult.saveData;
+          stateChanges = processResult.stateChanges;
 
           // 🔥 重要：立即将更新后的SaveData分片并同步回酒馆
           // 这样后续的syncFromTavern能正确获取到最新数据
@@ -132,6 +121,12 @@ class AIBidirectionalSystemClass {
           const shards = shardSaveData(updatedSaveData);
           await saveAllShards(shards, tavernHelper!);
           console.log('[AI双向系统] ✅ 已将命令执行后的SaveData同步到酒馆分片');
+
+          // 🔥 新增：立即更新characterStore中的SaveData，确保UI实时响应
+          const { useCharacterStore } = await import('@/stores/characterStore');
+          const characterStore = useCharacterStore();
+          characterStore.updateSaveDataDirectly(updatedSaveData);
+          console.log('[AI双向系统] ✅ 已将命令执行后的SaveData更新到Store，UI将实时响应');
         } else {
           console.warn('[AI双向系统] 无法获取SaveData，跳过指令执行');
         }
@@ -283,14 +278,8 @@ class AIBidirectionalSystemClass {
     // 路径格式: "境界.名称", "属性.气血.当前", "背包_物品.天蚕羽衣.名称"
     // obj 结构: { '境界': {...}, '属性': {...}, '背包_物品': {...} }
 
-    // 移除可能存在的旧格式前缀
-    let cleanPath = path;
-    if (path.startsWith('character.saveData.')) {
-      cleanPath = path.substring('character.saveData.'.length);
-    }
-
     // 分片路径解析: "属性.气血.当前" -> ['属性', '气血', '当前']
-    const parts = cleanPath.split('.');
+    const parts = path.split('.');
 
     // 递归遍历路径
     let current: any = obj;

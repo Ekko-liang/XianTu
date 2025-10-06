@@ -1,7 +1,6 @@
 import { generateItemWithTavernAI } from '../tavernCore';
 import { buildCharacterInitializationPrompt } from '../prompts/characterInitializationPrompts';
 import { getRandomizedInGamePrompt } from '../prompts/inGameGMPromptsV2';
-import { buildGmRequest } from '../AIGameMaster';
 
 import type { GM_Response, TavernCommand } from '../../types/AIGameMaster';
 import type { InitialGameData, SaveData, WorldInfo } from '../../types';
@@ -16,22 +15,6 @@ function isRandomSpiritRoot(spiritRoot: string | object): boolean {
   return false;
 }
 
-/**
- * 根据天资生成随机灵根（简化版）
- */
-function generateRandomSpiritRoot(talent: string): string {
-  const commonRoots = ['金灵根', '木灵根', '水灵根', '火灵根', '土灵根'];
-  const rareRoots = ['雷灵根', '冰灵根', '风灵根'];
-  const legendaryRoots = ['光灵根', '暗灵根', '混沌灵根'];
-
-  if (talent.includes('天骄') || talent.includes('神品')) {
-    return legendaryRoots[Math.floor(Math.random() * legendaryRoots.length)];
-  } else if (talent.includes('罕见') || talent.includes('上品')) {
-    return rareRoots[Math.floor(Math.random() * rareRoots.length)];
-  } else {
-    return commonRoots[Math.floor(Math.random() * commonRoots.length)];
-  }
-}
 
 /**
  * 调用酒馆AI生成初始降世消息 (GM模式)
@@ -70,10 +53,10 @@ export async function generateInitialMessage(
         // 获取并缓存现有的世界数据
         const existingVars = await tavernHelper.getVariables({ type: 'chat' });
         chatVariablesForPrompt = existingVars || {};
-        const existingSaveData = existingVars['character.saveData'] as SaveData | undefined;
+        const existingWorldInfo = existingVars['世界信息'] as WorldInfo | undefined;
 
-        if (existingSaveData && existingSaveData.世界信息) {
-          cachedWorldData = JSON.parse(JSON.stringify(existingSaveData.世界信息)); // 深拷贝避免引用问题
+        if (existingWorldInfo) {
+          cachedWorldData = JSON.parse(JSON.stringify(existingWorldInfo)); // 深拷贝避免引用问题
           if (cachedWorldData) {
             console.log('【数据缓存】已缓存世界数据:', {
               世界名称: cachedWorldData.世界名称,
@@ -128,55 +111,39 @@ export async function generateInitialMessage(
 
     console.log('【属性验证】确保先天六司在0-10范围内:', safeAttributes);
 
-    const gmRequest = buildGmRequest(
-      {
-        ...initialGameData.baseInfo,
-        出生: processedOrigin,  // 使用处理后的具体出身
-        灵根: processedSpiritRoot,  // 使用处理后的具体灵根
-        性别: initialGameData.baseInfo.性别 || '男', // 确保传递性别信息
-        先天六司: safeAttributes // 使用安全验证后的属性
-      },
-      creationDetails,
-      mapData
-    );
-    console.log('【神识印记】构建的GM_Request:', gmRequest);
 
     // 1.5. 创建清理过的chat变量副本，供AI参考使用
     // ⚠️ 关键优化：只提取必要的世界信息摘要，避免传输完整的巨大数据
     const sanitizedChatVars: Record<string, unknown> = {};
-    if (chatVariablesForPrompt && chatVariablesForPrompt['character.saveData']) {
-      const fullSaveData = chatVariablesForPrompt['character.saveData'] as SaveData;
+    if (chatVariablesForPrompt && chatVariablesForPrompt['世界信息']) {
+      const worldInfo = chatVariablesForPrompt['世界信息'] as WorldInfo;
 
       // 只提取世界信息的关键摘要，不传输完整数据
-      const worldInfoSummary = fullSaveData.世界信息 ? {
-        世界名称: fullSaveData.世界信息.世界名称,
-        大陆信息: fullSaveData.世界信息.大陆信息?.map((continent) => ({
+      const worldInfoSummary = {
+        世界名称: worldInfo.世界名称,
+        大陆信息: worldInfo.大陆信息?.map((continent) => ({
           名称: continent.名称 || (continent as Record<string, unknown>).name,
           描述: ((continent.描述 || (continent as Record<string, unknown>).description || '') as string).substring(0, 100), // 只保留100字描述
           大洲边界: continent.大洲边界 || (continent as Record<string, unknown>).continent_bounds
         })),
         // 不传输势力、地点的完整数据，只传输数量统计
-        势力数量: fullSaveData.世界信息.势力信息?.length || 0,
-        地点数量: fullSaveData.世界信息.地点信息?.length || 0
-      } : null;
-
-      sanitizedChatVars['character.saveData'] = {
-        世界信息: worldInfoSummary
+        势力数量: worldInfo.势力信息?.length || 0,
+        地点数量: worldInfo.地点信息?.length || 0
       };
 
+      sanitizedChatVars['世界信息'] = worldInfoSummary;
+
       console.log('【优化】精简世界信息，只保留必要摘要');
-      console.log('【优化】大陆数量:', worldInfoSummary?.大陆信息?.length || 0);
-      console.log('【优化】势力/地点数量（不传输详情）:', worldInfoSummary?.势力数量, worldInfoSummary?.地点数量);
+      console.log('【优化】大陆数量:', worldInfoSummary.大陆信息?.length || 0);
+      console.log('【优化】势力/地点数量（不传输详情）:', worldInfoSummary.势力数量, worldInfoSummary.地点数量);
     }
 
     // 1.6. 提取上一条对话的AI/GM文本（用于连续性），在初始化阶段通常为空
     let lastTextMemory = '';
     try {
-      const saveFromChat = (chatVariablesForPrompt?.['character.saveData'] as SaveData | undefined) || {};
-      const mem = saveFromChat?.['记忆'] || saveFromChat?.记忆;
-      const short = mem?.['短期记忆'] || mem?.短期记忆;
-      if (Array.isArray(short) && short.length > 0 && typeof short[short.length - 1] === 'string') {
-        lastTextMemory = String(short[short.length - 1]);
+      const shortMemory = chatVariablesForPrompt?.['记忆_短期'] as string[] | undefined;
+      if (Array.isArray(shortMemory) && shortMemory.length > 0 && typeof shortMemory[shortMemory.length - 1] === 'string') {
+        lastTextMemory = String(shortMemory[shortMemory.length - 1]);
       }
     } catch (e) {
       console.warn('【神识印记】提取上一条文本失败（可忽略）:', e);
@@ -209,10 +176,10 @@ export async function generateInitialMessage(
 
     const derivedStats = {
       基线数值: {
-        气血: { 当前: hpMax, 最大: hpMax },
-        灵气: { 当前: 0, 最大: lingMax },
-        神识: { 当前: shenMax, 最大: shenMax },
-        寿命: { 当前: lifeCurrent, 最大: lifeMax }
+        气血: { 当前: hpMax, 上限: hpMax },
+        灵气: { 当前: 0, 上限: lingMax },
+        神识: { 当前: shenMax, 上限: shenMax },
+        寿命: { 当前: lifeCurrent, 上限: lifeMax }
       },
       先天六司: attrs,
       天资: userSelections.talentTier,
@@ -224,16 +191,14 @@ export async function generateInitialMessage(
       const { getTavernHelper } = await import('../tavern');
       const tv = getTavernHelper();
       if (tv) {
-        const vars = await tv.getVariables({ type: 'chat' });
-        const saveData = (vars['character.saveData'] as SaveData) || {};
-        saveData['玩家角色状态'] = saveData['玩家角色状态'] || {};
-        const st = saveData['玩家角色状态'];
-        st['气血'] = { 当前: hpMax, 最大: hpMax };
-        st['灵气'] = { 当前: 0, 最大: lingMax };
-        st['神识'] = { 当前: shenMax, 最大: shenMax };
-        st['寿命'] = { 当前: lifeCurrent, 最大: lifeMax };
-        await tv.insertOrAssignVariables({ 'character.saveData': saveData }, { type: 'chat' });
-        console.log('[初始化基线] 已写入玩家角色状态基线: ', st);
+        const attrs = {
+          气血: { 当前: hpMax, 上限: hpMax },
+          灵气: { 当前: 0, 上限: lingMax },
+          神识: { 当前: shenMax, 上限: shenMax },
+          寿命: { 当前: lifeCurrent, 上限: lifeMax }
+        };
+        await tv.insertOrAssignVariables({ '属性': attrs }, { type: 'chat' });
+        console.log('[初始化基线] 已写入玩家角色属性基线: ', attrs);
       }
     } catch (e) {
       console.warn('[初始化基线] 写入玩家角色状态基线失败（非致命）：', e);
@@ -244,7 +209,6 @@ export async function generateInitialMessage(
         selections: userSelections,
         derived_stats: derivedStats
       },
-      gmRequest,
       reference: {
         chatVariables: sanitizedChatVars || {},
         last_text: lastTextMemory,
@@ -266,7 +230,6 @@ export async function generateInitialMessage(
     console.log('【角色初始化-调试】完整prompt前300字符:', prompt.substring(0, 300));
     console.log('【神识印记-调试】构建的完整prompt:', prompt);
     console.log('【神识印记-调试】prompt长度:', prompt.length);
-    console.log('【神识印记-调试】GM_Request数据:', gmRequest);
     console.log('【神识印记-调试】用户选择信息:', userSelections);
 
     // 3. 调用通用生成器，并期望返回GM_Response格式
@@ -385,22 +348,27 @@ export async function generateInitialMessage(
         // 路径修正规范：兼容AI常见别名/误写
         const normalizeKey = (rawKey: string): string => {
           let key = String(rawKey || '').trim();
-          // 物品/背包路径统一
-          if (key.startsWith('character.saveData.物品')) key = key.replace('character.saveData.物品', 'character.saveData.背包.物品');
-          if (key.startsWith('character.物品')) key = key.replace('character.物品', 'character.saveData.背包.物品');
-          if (key.startsWith('物品.')) { key = key.replace('物品.', '背包.物品.'); if (!key.startsWith('character.saveData.')) key = 'character.saveData.' + key; }
-          if (key.startsWith('character.inventory.items')) key = key.replace('character.inventory.items', 'character.saveData.背包.物品');
-          if (key.startsWith('character.saveData.inventory.items')) key = key.replace('character.saveData.inventory.items', 'character.saveData.背包.物品');
-          if (key.startsWith('character.inventory.currency.灵石')) key = key.replace('character.inventory.currency.灵石', 'character.saveData.背包.灵石');
+          // 移除旧的 character.saveData 前缀（如果AI仍然使用）
+          if (key.startsWith('character.saveData.')) {
+            key = key.substring('character.saveData.'.length);
+          }
+          if (key.startsWith('character.')) {
+            key = key.substring('character.'.length);
+          }
 
-          // 人物关系路径统一
-          if (key.startsWith('character.人物关系')) key = key.replace('character.人物关系', 'character.saveData.人物关系');
-          if (key.startsWith('人物关系.')) key = 'character.saveData.' + key;
-          if (key.startsWith('character.saveData.关系网')) key = key.replace('character.saveData.关系网', 'character.saveData.人物关系');
-          if (key.startsWith('character.关系网')) key = key.replace('character.关系网', 'character.saveData.人物关系');
+          // 路径归一化（分片路径）
+          // 物品/背包路径
+          if (key.startsWith('物品.')) key = key.replace('物品.', '背包_物品.');
+          if (key === '背包.灵石' || key.startsWith('背包.灵石.')) key = key.replace('背包.灵石', '背包_灵石');
+          if (key === '背包.物品' || key.startsWith('背包.物品.')) key = key.replace('背包.物品', '背包_物品');
 
-          // 玩家状态路径
-          if (key.startsWith('character.玩家角色状态') || key.startsWith('character.玩家状态')) key = key.replace('character.', 'character.saveData.');
+          // inventory 英文路径转换
+          if (key.startsWith('inventory.items')) key = key.replace('inventory.items', '背包_物品');
+          if (key.startsWith('inventory.currency.灵石')) key = key.replace('inventory.currency.灵石', '背包_灵石');
+
+          // 关系网 -> 人物关系
+          if (key.startsWith('关系网')) key = key.replace('关系网', '人物关系');
+
           return key;
         };
         cmd.key = normalizeKey(cmd.key);
@@ -478,7 +446,7 @@ export async function generateInitialMessage(
         // 移除AI可能生成的world相关命令，避免冲突
         const originalCommandCount = result.tavern_commands.length;
         result.tavern_commands = result.tavern_commands.filter((cmd: TavernCommand) =>
-          !cmd.key || (!cmd.key.includes('世界信息') && !cmd.key.includes('world_') && cmd.key !== 'character.saveData')
+          !cmd.key || (!cmd.key.includes('世界信息') && !cmd.key.includes('world_'))
         );
 
         if (originalCommandCount !== result.tavern_commands.length) {
@@ -493,7 +461,7 @@ export async function generateInitialMessage(
       result.tavern_commands.push({
         action: "set",
         scope: "chat",
-        key: "character.saveData.世界信息",
+        key: "世界信息",
         value: cachedWorldData
       });
 
@@ -564,10 +532,10 @@ export async function generateInGameResponse(
         };
         const realmLevel = realmLevelMap[realmName] || 0;
         const vit = {
-          hp: status?.气血 || { 当前: 0, 最大: 0 },
-          mp: status?.灵气 || { 当前: 0, 最大: 0 },
-          spirit: status?.神识 || { 当前: 0, 最大: 0 },
-          lifespan: status?.寿命 || { 当前: 0, 最大: 0 }
+          hp: status?.气血 || { 当前: 0, 上限: 0 },
+          mp: status?.灵气 || { 当前: 0, 上限: 0 },
+          spirit: status?.神识 || { 当前: 0, 上限: 0 },
+          lifespan: status?.寿命 || { 当前: 0, 上限: 0 }
         };
         const afterSix = save?.角色基础信息?.先天六司 || {};
         // 确保先天六司不超过10的限制
@@ -634,7 +602,8 @@ export async function generateInGameResponse(
           exploration: { // 探索
             risk_level: (() => {
               let risk = 5;
-              const locationName = status?.['位置']?.['描述'] || '';
+              const locationDesc = status?.['位置']?.['描述'];
+              const locationName = typeof locationDesc === 'string' ? locationDesc : (typeof locationDesc === 'object' && locationDesc !== null ? (locationDesc as any).描述 : '');
               const worldInfo = save?.世界信息;
               const locationInfo = worldInfo?.地点信息?.find((l: { 名称: string; }) => l.名称 === locationName);
               if (locationInfo?.['安全等级'] === '极危险') risk += 5;
@@ -651,10 +620,13 @@ export async function generateInGameResponse(
           }
         };
 
+        const locationDesc = status?.位置?.描述;
+        const locationStr = typeof locationDesc === 'string' ? locationDesc : (typeof locationDesc === 'object' && locationDesc !== null ? (locationDesc as any).描述 : '未知');
+
         return {
           battle_power: battlePower,
           realm_level: realmLevel,
-          location: status?.位置?.描述 || '未知',
+          location: locationStr,
           vitals: {
             hp: vit.hp,
             mp: vit.mp,

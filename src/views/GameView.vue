@@ -306,8 +306,9 @@ onMounted(async () => {
     const helper = getTavernHelper();
     if (helper) {
       const vars = await helper.getVariables({ type: 'chat' });
-      const saveData = vars['character.saveData'] as SaveData | undefined;
-      const baseInfo = (saveData as any)?.角色基础信息 || vars['character.baseInfo'] as CharacterBaseInfo | undefined || null;
+      const { assembleSaveData } = await import('@/utils/storageSharding');
+      const saveData = assembleSaveData(vars as any);
+      const baseInfo = vars['基础信息'] as CharacterBaseInfo | undefined;
       if (saveData && baseInfo) {
         await syncHeavenlyPrecalcToTavern(saveData, baseInfo as CharacterBaseInfo);
         console.log('[GameView] 已刷新天道演算预计算');

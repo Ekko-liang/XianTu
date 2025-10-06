@@ -137,10 +137,10 @@ export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: num
     位置: {
       描述: "位置生成失败" // 标记为错误状态而不是默认值
     },
-    气血: { 当前: 初始气血, 最大: 初始气血 },
-    灵气: { 当前: 初始灵气, 最大: 初始灵气 }, // 凡人灵气为零
-    神识: { 当前: 初始神识, 最大: 初始神识 },
-    寿命: { 当前: age, 最大: 最大寿命 }, // 当前年龄和最大寿命
+    气血: { 当前: 初始气血, 上限: 初始气血 },
+    灵气: { 当前: 初始灵气, 上限: 初始灵气 },
+    神识: { 当前: 初始神识, 上限: 初始神识 },
+    寿命: { 当前: age, 上限: 最大寿命 },
     状态效果: [] // 使用新的StatusEffect数组格式
   };
 }
@@ -220,12 +220,7 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
   };
 
   // 注入AI元数据提示
-  (saveData.角色基础信息 as any)._AI重要提醒 = '⚠️ 绝对禁止修改：姓名、性别、世界、天资、出生、灵根、先天六司';
-  (saveData.玩家角色状态 as any)._AI说明 = '玩家实时状态。位置仅更新"描述"字段；气血/灵气/神识/寿命/修为为{当前,最大}结构，所有变更必须通过tavern_commands实现';
-  (saveData.玩家角色状态 as any)._AI重要提醒 = '⚠️ 严禁在位置中添加经度、纬度等字段，只能有"描述"字段';
   (saveData.装备栏 as any)._AI重要提醒 = '⚠️ 引用的物品ID必须已经在背包.物品数组中存在，否则会被系统清除！';
-  (saveData.记忆 as any)._AI重要提醒 = '⚠️ 禁止直接修改记忆字段，由系统维护';
-  (saveData.游戏时间 as any)._AI说明 = '每次回应必须推进时间';
   (saveData.人物关系 as any)._AI重要提醒 = '⚠️ 每次与NPC对话或者在周围存在互动必须添加人物记忆';
 
   return { saveData, processedBaseInfo };
@@ -425,12 +420,27 @@ function deriveBaseFieldsFromDetails(baseInfo: CharacterBaseInfo, worldName: str
   derivedInfo.天资 = derivedInfo.天资详情?.name || derivedInfo.天资详情?.名称 || derivedInfo.天资;
   derivedInfo.出生 = derivedInfo.出身详情?.name || derivedInfo.出身详情?.名称 || derivedInfo.出生;
 
+  // 处理灵根：优先使用灵根详情，其次使用灵根对象本身，最后使用回退逻辑
   if (derivedInfo.灵根详情) {
     const detail = derivedInfo.灵根详情 as any;
     derivedInfo.灵根 = {
       名称: String(detail.name || detail.名称 || '五行灵根'),
       品级: String(detail.tier || detail.品级 || '凡品'),
       描述: String(detail.description || detail.描述 || '基础灵根')
+    };
+  } else if (typeof derivedInfo.灵根 === 'object' && derivedInfo.灵根) {
+    // 如果灵根已经是对象格式但没有灵根详情，检查是否需要补充名称
+    const rootObj = derivedInfo.灵根 as any;
+    if (rootObj.名称 === '随机灵根' && rootObj.品级 && rootObj.品级 !== '凡品') {
+      // 如果名称还是"随机灵根"但有品级，生成一个临时名称
+      rootObj.名称 = `${rootObj.品级}灵根（待AI确定属性）`;
+    }
+  } else if (typeof derivedInfo.灵根 === 'string' && derivedInfo.灵根 === '随机灵根') {
+    // 如果还是字符串"随机灵根"，转换为对象格式
+    derivedInfo.灵根 = {
+      名称: '随机灵根',
+      品级: '凡品',
+      描述: '大道五十，天衍四九，人遁其一'
     };
   }
 
@@ -468,6 +478,16 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
     年龄: age,
     先天六司: baseInfo.先天六司,
   };
+
+  // 🔥 特殊处理：对于"随机"选项，使用AI生成的数据而不是用户的原始选择
+  if (typeof baseInfo.灵根 === 'string' && baseInfo.灵根.includes('随机')) {
+    console.log('[数据合并] 检测到随机灵根，使用AI生成的灵根数据');
+    mergedBaseInfo.灵根 = saveData.角色基础信息?.灵根 || baseInfo.灵根;
+  }
+  if (typeof baseInfo.出生 === 'string' && baseInfo.出生.includes('随机')) {
+    console.log('[数据合并] 检测到随机出生，使用AI生成的出生数据');
+    mergedBaseInfo.出生 = saveData.角色基础信息?.出生 || baseInfo.出生;
+  }
 
   // 2. 从详情对象派生基础字段，确保数据一致性
   const finalBaseInfo = deriveBaseFieldsFromDetails(mergedBaseInfo, world.name);
@@ -553,15 +573,17 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
       }
     }
 
-    // 删除旧的character.开头的变量（兼容旧版本）
+    // 删除旧的character.开头的变量
     const characterKeys = Object.keys(allVars).filter(key => key.startsWith('character.'));
     for (const key of characterKeys) {
       await helper.deleteVariable(key, { type: 'chat' });
     }
 
-    // 只同步一次完整的 saveData
-    console.log('[初始化流程] 同步完整saveData到酒馆（仅一次）');
-    await helper.setVariable('character.saveData', saveData, { type: 'chat' });
+    // 使用分片存储同步数据
+    console.log('[初始化流程] 使用分片格式同步数据到酒馆');
+    const { shardSaveData, saveAllShards } = await import('@/utils/storageSharding');
+    const shards = shardSaveData(saveData);
+    await saveAllShards(shards, helper);
     await helper.insertOrAssignVariables({ 'character.name': baseInfo.名字 }, { type: 'global' });
 
     console.log('[初始化流程] 数据同步到Tavern成功');

@@ -62,15 +62,6 @@
                     {{ getDaoStageDisplay(daoName) }}
                   </div>
                 </div>
-                <div class="dao-progress">
-                  <div class="progress-bar">
-                    <div class="progress-fill" :style="{ width: getDaoProgressPercent(daoName) + '%' }"></div>
-                  </div>
-                  <span class="progress-text">{{ getDaoProgressPercent(daoName) }}%</span>
-                </div>
-                <div class="dao-experience">
-                  {{ getDaoExperienceDisplay(daoName) }}
-                </div>
               </div>
             </div>
           </div>
@@ -109,24 +100,6 @@
           </button>
         </div>
         <div class="details-content">
-          <div class="detail-section">
-            <h4>感悟境界</h4>
-            <div class="stage-info">
-              <div class="stage-display">
-                <span class="stage-name">{{ getCurrentStageName(selectedDao) }}</span>
-                <span class="stage-number">第{{ selectedDaoProgress.当前阶段 ?? 0 }}阶段</span>
-              </div>
-              <div class="stage-progress">
-                <div class="progress-bar">
-                  <div class="progress-fill" :style="{ width: getDaoProgressPercent(selectedDao) + '%' }"></div>
-                </div>
-                <span class="progress-detail">
-                  {{ selectedDaoProgress.当前经验 ?? 0 }} / {{ getNextStageRequirement(selectedDao) }}
-                </span>
-              </div>
-            </div>
-          </div>
-          
           <div class="detail-section" v-if="getDaoPath(selectedDao)">
             <h4>大道描述</h4>
             <p class="dao-description">{{ getDaoPath(selectedDao)?.描述 || '此道深奥，需要进一步感悟才能理解其精髓。' }}</p>
@@ -197,11 +170,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { RotateCcw, X, Zap } from 'lucide-vue-next';
+import { useUnifiedCharacterData } from '@/composables/useCharacterData';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
 import type { DaoProgress, DaoPath, ThousandDaoSystem } from '@/types/game.d.ts';
 import { panelBus } from '@/utils/panelBus';
 
+const { characterData, saveData } = useUnifiedCharacterData();
 const characterStore = useCharacterStore();
 const actionQueueStore = useActionQueueStore();
 const loading = ref(false);
@@ -211,7 +186,7 @@ const selectedDao = ref<string | null>(null);
 
 // 获取三千大道系统数据
 const daoSystem = computed((): ThousandDaoSystem => {
-  return characterStore.activeSaveSlot?.存档数据?.三千大道 || {
+  return characterData.value?.三千大道 || {
     已解锁大道: [],
     大道进度: {},
     大道路径定义: {}

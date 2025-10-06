@@ -5,12 +5,12 @@
  * 核心优势:
  * - 精准访问: 只读取需要的字段
  * - 真正增量更新: 直接修改单个分片
- * - 路径简化: 境界.名称 vs character.saveData.玩家角色状态.境界.名称
+ * - 路径简化: 境界.名称 vs 玩家角色状态.境界.名称
  * - Token节省: AI请求从20k降至1.5k tokens
  */
 
 import type { CharacterBaseInfo, InnateAttributes, Realm, SaveData, ValuePair, WorldInfo } from '@/types/game';
-import type { TavernHelper } from './tavernCore';
+import type { TavernHelper } from '@/types';
 import { debug } from './debug';
 
 // 定义分片结构 - 使用最简洁的路径格式
@@ -135,10 +135,10 @@ export function assembleSaveData(shards: Partial<StorageShards>): SaveData {
   const baseInfo = shards['基础信息']!;
   const realm = shards['境界'] || { 名称: '凡人', 阶段: '第0层', 当前进度: 0, 下一级所需: 100, 突破描述: '无' };
   const attrs = shards['属性'] || {
-    气血: { 当前: 100, 最大: 100 },
-    灵气: { 当前: 100, 最大: 100 },
-    神识: { 当前: 50, 最大: 50 },
-    寿命: { 当前: 0, 最大: 80 },
+    气血: { 当前: 100, 上限: 100 },
+    灵气: { 当前: 100, 上限: 100 },
+    神识: { 当前: 50, 上限: 50 },
+    寿命: { 当前: 0, 上限: 80 },
   };
 
   const saveData: SaveData = {
@@ -250,44 +250,6 @@ export function getShardFromSaveData(saveData: SaveData, shardKey: keyof Storage
   }
 }
 
-/**
- * 检查是否存在旧格式的SaveData
- */
-export async function hasLegacySaveData(helper: TavernHelper): Promise<boolean> {
-  try {
-    const legacyData = await helper.getVariable('character.saveData', { type: 'chat' });
-    return !!legacyData;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * 将旧格式SaveData迁移到新的分片格式
- */
-export async function migrateLegacyToShards(helper: TavernHelper): Promise<void> {
-  debug.log('分片存储', '开始迁移旧格式数据...');
-
-  const legacyData = await helper.getVariable('character.saveData', { type: 'chat' });
-  if (!legacyData || typeof legacyData !== 'object') {
-    debug.warn('分片存储', '未找到有效的旧格式数据');
-    return;
-  }
-
-  const saveData = legacyData as SaveData;
-  const shards = shardSaveData(saveData);
-  await saveAllShards(shards, helper);
-
-  // 删除旧的character.saveData变量
-  try {
-    await helper.deleteVariable('character.saveData', { type: 'chat' });
-    debug.log('分片存储', '已删除旧的character.saveData变量');
-  } catch (error) {
-    debug.warn('分片存储', '删除旧变量失败', error);
-  }
-
-  debug.log('分片存储', '迁移完成');
-}
 
 /**
  * 保存所有分片到酒馆
@@ -414,26 +376,29 @@ export function mapOldPathToShard(oldPath: string): {
   shardKey: keyof StorageShards;
   subPath: string;
 } | null {
-  // 移除 character.saveData. 前缀
-  const cleanPath = oldPath.replace(/^character\.saveData\./, '');
+  const cleanPath = oldPath;
 
   // 映射规则
   if (cleanPath.startsWith('角色基础信息.')) {
     return { shardKey: '基础信息', subPath: cleanPath.substring('角色基础信息.'.length) };
   }
-  if (cleanPath.startsWith('玩家角色状态.境界')) {
-    const subPath = cleanPath.substring('玩家角色状态.境界'.length);
+  if (cleanPath.startsWith('玩家角色状态.境界') || cleanPath.startsWith('境界')) {
+    const prefix = cleanPath.startsWith('玩家角色状态.境界') ? '玩家角色状态.境界' : '境界';
+    const subPath = cleanPath.substring(prefix.length);
     return { shardKey: '境界', subPath: subPath.startsWith('.') ? subPath.substring(1) : subPath };
   }
-  if (cleanPath.startsWith('玩家角色状态.气血') || cleanPath.startsWith('玩家角色状态.灵气') || cleanPath.startsWith('玩家角色状态.神识') || cleanPath.startsWith('玩家角色状态.寿命')) {
-    return { shardKey: '属性', subPath: cleanPath.substring('玩家角色状态.'.length) };
+  if (cleanPath.startsWith('玩家角色状态.气血') || cleanPath.startsWith('玩家角色状态.灵气') || cleanPath.startsWith('玩家角色状态.神识') || cleanPath.startsWith('玩家角色状态.寿命') || cleanPath.startsWith('属性.')) {
+    const prefix = cleanPath.startsWith('玩家角色状态.') ? '玩家角色状态.' : '属性.';
+    return { shardKey: '属性', subPath: cleanPath.substring(prefix.length) };
   }
-  if (cleanPath.startsWith('玩家角色状态.位置')) {
-    const subPath = cleanPath.substring('玩家角色状态.位置'.length);
+  if (cleanPath.startsWith('玩家角色状态.位置') || cleanPath.startsWith('位置')) {
+    const prefix = cleanPath.startsWith('玩家角色状态.位置') ? '玩家角色状态.位置' : '位置';
+    const subPath = cleanPath.substring(prefix.length);
     return { shardKey: '位置', subPath: subPath.startsWith('.') ? subPath.substring(1) : subPath };
   }
-  if (cleanPath.startsWith('玩家角色状态.状态效果')) {
-    const subPath = cleanPath.substring('玩家角色状态.状态效果'.length);
+  if (cleanPath.startsWith('玩家角色状态.状态效果') || cleanPath.startsWith('状态效果')) {
+    const prefix = cleanPath.startsWith('玩家角色状态.状态效果') ? '玩家角色状态.状态效果' : '状态效果';
+    const subPath = cleanPath.substring(prefix.length);
     return { shardKey: '状态效果', subPath: subPath.startsWith('.') ? subPath.substring(1) : subPath };
   }
   if (cleanPath.startsWith('修炼功法')) {

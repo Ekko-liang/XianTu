@@ -884,11 +884,11 @@ export class EnhancedActionQueueManager {
         return;
       }
       
-      // 同步整个存档数据到酒馆，而不是单独同步装备栏
+      // 使用分片存储同步
       await helper.insertOrAssignVariables({
-        'character.saveData': saveData
+        '装备栏': saveData.装备栏
       }, { type: 'chat' });
-      
+
       console.log('[装备同步] 装备栏已同步到酒馆变量');
     } catch (error) {
       console.warn('[装备同步] 同步装备栏到酒馆变量失败:', error);
@@ -917,9 +917,9 @@ export class EnhancedActionQueueManager {
         修炼进度: saveData.修炼功法.修炼进度 || 0
       } : null;
 
-      // 更新修炼功法变量
+      // 使用分片存储同步修炼功法
       await helper.insertOrAssignVariables({
-        'character.saveData.修炼功法': cleanedCultivation
+        '修炼功法': cleanedCultivation
       }, { type: 'chat' });
 
       console.log('[修炼同步] 修炼功法已同步到酒馆变量（已清理多余字段）');

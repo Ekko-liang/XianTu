@@ -208,7 +208,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { Settings } from 'lucide-vue-next';
 import { panelBus } from '@/utils/panelBus';
-import { useCharacterStore } from '@/stores/characterStore';
+import { useUnifiedCharacterData } from '@/composables/useCharacterData';
 import { getTavernHelper } from '@/utils/tavern';
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
@@ -229,7 +229,7 @@ interface Memory {
   importance?: number; // 记忆重要性（1-10）
 }
 
-const characterStore = useCharacterStore();
+const { characterData, saveData } = useUnifiedCharacterData();
 const loading = ref(false);
 const activeFilter = ref('all');
 const showSettings = ref(false);
@@ -440,22 +440,20 @@ const clearMemory = async () => {
         longTermMemories.value = [];
 
         // 同步清理酒馆存档数据
-        const characterStore = useCharacterStore();
-        const save = characterStore.activeSaveSlot;
-        if (save?.存档数据) {
+        if (saveData.value) {
           // 清理存档中的记忆数据
-          if (save.存档数据.记忆) {
-            save.存档数据.记忆.短期记忆 = [];
-            save.存档数据.记忆.中期记忆 = [];
-            save.存档数据.记忆.长期记忆 = [];
+          if (characterData.value?.记忆) {
+            characterData.value.记忆.短期记忆 = [];
+            characterData.value.记忆.中期记忆 = [];
+            characterData.value.记忆.长期记忆 = [];
           }
 
           // 同步到酒馆
           const helper = getTavernHelper();
           if (helper) {
-            await helper.insertOrAssignVariables({
-              'character.saveData': save.存档数据
-            }, { type: 'chat' });
+            const { shardSaveData, saveAllShards } = await import('@/utils/storageSharding');
+            const shards = shardSaveData(saveData.value);
+            await saveAllShards(shards, helper);
             console.log('[记忆中心] 已同步清理酒馆记忆数据');
           }
         }
@@ -496,8 +494,7 @@ const loadMemoryData = async () => {
     const loadedLongMemories: Memory[] = [];
 
     // 直接从存档数据获取记忆（字符串数组）
-    const save = characterStore.activeSaveSlot;
-    const memoryData = save?.存档数据?.记忆;
+    const memoryData = characterData.value?.记忆;
 
     if (memoryData) {
       debug.log('记忆中心', '从存档数据加载记忆:', Object.keys(memoryData));

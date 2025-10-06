@@ -119,7 +119,7 @@ export interface Vector2 {
 
 export interface ValuePair<T> {
   当前: T;
-  最大: T;
+  上限: T;
 }
 
 /** 英文字段名的ValuePair（用于vitals字段） */
@@ -175,6 +175,7 @@ export interface AttributeBonus {
 export interface TechniqueSkill {
   技能名称: string;
   技能描述: string;
+  消耗?: string;
 }
 
 /** 功法效果 */
@@ -663,8 +664,8 @@ export interface NpcProfile {
   人物记忆: Array<{
     时间: string;
     事件: string;
-    重要度?: '普通' | '重要' | '关键';
   }>;
+  记忆总结?: string[]; // NPC记忆的总结，类似长期记忆
 
   // 位置信息（保留原有字段）
   最后出现位置: {
@@ -714,8 +715,7 @@ export interface GameTime extends AIMetadata {
   月: number;
   日: number;
   小时: number;
-  分钟?: number; // 可选：保持向后兼容
-  总分钟数?: number; // 新增：用于精确时间计算
+  分钟: number;
 }
 
 // --- 存档数据核心 ---
@@ -745,6 +745,7 @@ export interface GameMessage {
     世界信息?: WorldInfo;
     修炼功法: CultivationTechniqueData;
     掌握技能: MasteredSkill[]; // 角色掌握的所有技能
+    天赋进度?: Record<string, TalentProgress>; // 天赋神通进度系统
     三千大道系统?: {
       大道路径定义: Record<string, DaoStage[]>;
       大道进度: Record<string, DaoProgress>;

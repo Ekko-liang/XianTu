@@ -14,36 +14,109 @@
     </div>
 
     <div v-else-if="baseInfo" class="character-details-content">
-      <!-- 顶部角色基本信息（全新布局）-->
-      <div class="character-header header-modern">
-        <div class="header-left">
-          <div class="avatar-circle" :title="baseInfo.名字">
-            <span class="avatar-initial">{{ nameInitial }}</span>
-          </div>
-          <div class="title-area">
-            <h1 class="character-name">{{ baseInfo.名字 }}</h1>
-            <div class="meta-chips">
-              <span class="meta-chip realm-chip" :class="`realm-${playerStatus?.境界?.名称}`">
-                {{ formatRealmDisplay(playerStatus?.境界?.名称, undefined) }}
-              </span>
-              <span class="meta-chip">{{ playerStatus?.寿命?.当前 }}岁</span>
-              <span v-if="playerStatus?.位置?.描述" class="meta-chip">{{ getLocationName(playerStatus.位置.描述) }}</span>
+      <!-- 顶部角色信息卡片 - 全新设计 -->
+      <div class="character-header-card">
+        <!-- 背景装饰 -->
+        <div class="header-bg-decoration"></div>
+
+        <!-- 主要信息区 -->
+        <div class="header-content">
+          <!-- 左侧：头像和基础信息 -->
+          <div class="profile-section">
+            <div class="avatar-wrapper">
+              <div class="avatar-circle" :title="baseInfo.名字">
+                <span class="avatar-text">{{ nameInitial }}</span>
+              </div>
+              <div class="avatar-glow"></div>
+            </div>
+
+            <div class="identity-info">
+              <h1 class="character-title">{{ baseInfo.名字 }}</h1>
+              <div class="character-subtitle">
+                <span class="subtitle-item gender-badge" :class="`gender-${baseInfo.性别}`">
+                  {{ baseInfo.性别 === '男' ? '♂' : '♀' }} {{ baseInfo.性别 }}
+                </span>
+                <span class="subtitle-divider">·</span>
+                <span class="subtitle-item age-text">{{ playerStatus?.寿命?.当前 }}岁</span>
+                <span class="subtitle-divider" v-if="baseInfo.出生">·</span>
+                <span class="subtitle-item origin-text" v-if="baseInfo.出生">
+                  {{ typeof baseInfo.出生 === 'string' ? baseInfo.出生 : baseInfo.出生?.名称 }}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
-        <div class="header-right">
-          <div v-if="isAnimalStage(playerStatus?.境界?.名称)" class="cultivation-compact mortal">
-            <span class="mortal-hint">{{ getAnimalStageDisplay() }}</span>
-          </div>
-          <div v-else-if="hasValidCultivation()" class="cultivation-compact">
-            <span class="compact-label">修为</span>
-            <div class="compact-bar" title="修为进度">
-              <div class="compact-progress" :style="{ width: getCultivationProgress() + '%' }"></div>
+
+          <!-- 中间：核心数据卡片组 -->
+          <div class="core-stats-grid">
+            <!-- 境界卡片 -->
+            <div class="stat-card realm-card">
+              <div class="card-icon">
+                <Mountain :size="20" />
+              </div>
+              <div class="card-content">
+                <div class="card-label">境界</div>
+                <div class="card-value realm-value">{{ formatRealmDisplay(playerStatus?.境界?.名称) || '凡人' }}</div>
+              </div>
             </div>
-            <span class="compact-text">{{ formatCultivationText() }}</span>
+
+            <!-- 灵根卡片 -->
+            <div class="stat-card spirit-card" v-if="baseInfo.灵根">
+              <div class="card-icon">
+                <Sparkles :size="20" />
+              </div>
+              <div class="card-content">
+                <div class="card-label">灵根</div>
+                <div class="card-value spirit-value">{{ formatSpiritRoot(baseInfo.灵根) }}</div>
+              </div>
+            </div>
+
+            <!-- 位置卡片 -->
+            <div class="stat-card location-card" v-if="playerStatus?.位置?.描述" :title="playerStatus.位置.描述">
+              <div class="card-icon">
+                <MapPin :size="20" />
+              </div>
+              <div class="card-content">
+                <div class="card-label">位置</div>
+                <div class="card-value location-value">{{ playerStatus.位置.描述 }}</div>
+              </div>
+            </div>
+
+            <!-- 声望卡片 -->
+            <div class="stat-card reputation-card" v-if="playerStatus?.声望">
+              <div class="card-icon">
+                <Star :size="20" />
+              </div>
+              <div class="card-content">
+                <div class="card-label">声望</div>
+                <div class="card-value reputation-value">{{ playerStatus.声望 }}</div>
+              </div>
+            </div>
           </div>
-          <div v-else class="cultivation-compact mortal">
-            <span class="mortal-hint">等待仙缘</span>
+
+          <!-- 右侧：修为进度 -->
+          <div class="cultivation-section">
+            <div v-if="isAnimalStage(playerStatus?.境界?.名称)" class="cultivation-status mortal-status">
+              <div class="status-icon">🌱</div>
+              <div class="status-text">{{ getAnimalStageDisplay() }}</div>
+            </div>
+            <div v-else-if="hasValidCultivation()" class="cultivation-progress-card">
+              <div class="progress-header">
+                <span class="progress-label">修为进度</span>
+                <span class="progress-percentage">{{ getCultivationProgress() }}%</span>
+              </div>
+              <div class="progress-bar-container">
+                <div class="progress-bar-bg">
+                  <div class="progress-bar-fill" :style="{ width: getCultivationProgress() + '%' }">
+                    <div class="progress-bar-shine"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="progress-text">{{ formatCultivationText() }}</div>
+            </div>
+            <div v-else class="cultivation-status waiting-status">
+              <div class="status-icon">✨</div>
+              <div class="status-text">等待仙缘</div>
+            </div>
           </div>
         </div>
       </div>
@@ -105,7 +178,13 @@
               </div>
               <div class="basic-info-item">
                 <span class="info-label">出生</span>
-                <span class="info-value origin">{{ getOriginDisplay(baseInfo.出生) }}</span>
+                <span
+                  class="info-value origin clickable"
+                  @click="showOriginDetails(baseInfo.出生)"
+                  :title="typeof baseInfo.出生 === 'object' ? '点击查看详情' : ''"
+                >
+                  {{ getOriginDisplay(baseInfo.出生) }}
+                </span>
               </div>
               <div v-if="baseInfo.世界" class="basic-info-item">
                 <span class="info-label">世界</span>
@@ -765,17 +844,20 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { useCharacterStore } from '@/stores/characterStore';
+import { useUnifiedCharacterData } from '@/composables/useCharacterData';
+import { useUIStore } from '@/stores/uiStore';
 import { debug } from '@/utils/debug';
 import { calculateFinalAttributes } from '@/utils/attributeCalculation';
 import type { CharacterBaseInfo, DaoProgress, Item, SkillInfo, InnateAttributes, SaveData, StatusEffect, NpcProfile, TechniqueItem, TechniqueSkill } from '@/types/game.d.ts';
 import { formatRealmWithStage } from '@/utils/realmUtils';
 import {
   AlertCircle, Heart, Sparkles, Star, BarChart3, BookOpen,
-  Zap, Users, Backpack, Mountain, Bird, Sprout, Handshake, ChevronDown, X
+  Zap, Users, Backpack, Mountain, Bird, Sprout, Handshake, ChevronDown, X, MapPin
 } from 'lucide-vue-next';
 
-const characterStore = useCharacterStore();
+// 使用统一的数据访问
+const { characterData, saveData } = useUnifiedCharacterData();
+const uiStore = useUIStore();
 const isLoading = ref(false);
 
 // 界面状态
@@ -799,19 +881,18 @@ type LearnedSkillDisplay = {
 const selectedSkill = ref<SkillInfo | LearnedSkillDisplay | string | null>(null);
 const selectedDao = ref<string | null>(null);
 
-// 基础数据
-const baseInfo = computed(() => characterStore.activeCharacterProfile?.角色基础信息);
+// 基础数据 - 使用统一的中文字段访问
+const baseInfo = computed(() => characterData.value?.基础信息);
 // 名字首字，用于头像占位
 const nameInitial = computed(() => {
   const n = String(baseInfo.value?.名字 || '').trim();
   return n ? n.charAt(0) : '?';
 });
-const playerStatus = computed(() => characterStore.activeSaveSlot?.存档数据?.玩家角色状态);
-const saveData = computed(() => characterStore.activeSaveSlot?.存档数据);
+const playerStatus = computed(() => characterData.value?.玩家角色状态);
 
-// 修炼功法数据
+// 修炼功法数据 - 使用统一的中文字段
 const cultivationData = computed(() => {
-  return saveData.value?.修炼功法 || {
+  return characterData.value?.修炼功法 || {
     功法: null,
     熟练度: 0,
     已解锁技能: [],
@@ -825,9 +906,12 @@ const cultivationData = computed(() => {
 // 获取完整的功法对象
 const fullTechnique = computed((): TechniqueItem | Item | null => {
   const techniqueRef = cultivationData.value.功法;
-  const inventoryItems = saveData.value?.背包?.物品;
+  const inventoryItems = characterData.value?.背包_物品;
 
-  if (!techniqueRef || !inventoryItems || !Array.isArray(inventoryItems)) return null;
+  if (!techniqueRef || !inventoryItems) return null;
+  
+  // 兼容数组和对象两种格式
+  const itemsAsArray = Array.isArray(inventoryItems) ? inventoryItems : Object.values(inventoryItems);
 
   let techniqueId: string | null = null;
   if (typeof techniqueRef === 'string') {
@@ -837,7 +921,7 @@ const fullTechnique = computed((): TechniqueItem | Item | null => {
   }
 
   if (techniqueId) {
-    const item = inventoryItems.find(i => i.物品ID === techniqueId);
+    const item = itemsAsArray.find(i => i.物品ID === techniqueId);
     if (item?.类型 === '功法') {
       return item as TechniqueItem;
     }
@@ -846,9 +930,9 @@ const fullTechnique = computed((): TechniqueItem | Item | null => {
   return null;
 });
 
-// 三千大道数据
+// 三千大道数据 - 使用统一的中文字段
 const daoData = computed(() => {
-  return saveData.value?.三千大道 || {
+  return characterData.value?.三千大道 || {
     已解锁大道: [],
     大道进度: {}
   };
@@ -898,19 +982,19 @@ const vitalsData = computed(() => {
     {
       label: '气血',
       current: safe(playerStatus.value.气血?.当前),
-      max: safeMax(playerStatus.value.气血?.最大),
+      max: safeMax(playerStatus.value.气血?.上限),
       color: 'red'
     },
     {
       label: '灵气',
       current: safe(playerStatus.value.灵气?.当前),
-      max: safeMax(playerStatus.value.灵气?.最大),
+      max: safeMax(playerStatus.value.灵气?.上限),
       color: 'blue'
     },
     {
       label: '神识',
       current: safe(playerStatus.value.神识?.当前),
-      max: safeMax(playerStatus.value.神识?.最大),
+      max: safeMax(playerStatus.value.神识?.上限),
       color: 'gold'
     }
   ];
@@ -959,7 +1043,9 @@ const skillsList = computed((): SkillInfo[] => {
 
   // 从背包中获取完整的功法物品信息
   const techniqueId = typeof techniqueRef === 'string' ? techniqueRef : techniqueRef.物品ID;
-  const fullTechnique = Object.values(saveData.value.背包.物品).find(i => i.物品ID === techniqueId);
+  const inventoryItems = saveData.value.背包.物品;
+  const itemsAsArray = Array.isArray(inventoryItems) ? inventoryItems : Object.values(inventoryItems);
+  const fullTechnique = itemsAsArray.find(i => i.物品ID === techniqueId);
   if (fullTechnique?.类型 !== '功法' || !('功法技能' in fullTechnique) || !fullTechnique.功法技能) return [];
 
   const skills: SkillInfo[] = [];
@@ -990,7 +1076,7 @@ const allLearnedSkills = computed((): LearnedSkillDisplay[] => {
 
   const skills: LearnedSkillDisplay[] = [];
   const skillNameSet = new Set(); // 防止重复添加技能
-  
+
   // 从已解锁技能获取（直接学会的技能）
   if (cultivationInfo?.已解锁技能?.length) {
     cultivationInfo.已解锁技能.forEach(skillName => {
@@ -1011,7 +1097,9 @@ const allLearnedSkills = computed((): LearnedSkillDisplay[] => {
   // 从功法技能定义获取（达到条件解锁的技能）
   if (techniqueRef && saveData.value?.背包?.物品) {
     const techniqueId = typeof techniqueRef === 'string' ? techniqueRef : techniqueRef.物品ID;
-    const fullTechnique = Object.values(saveData.value.背包.物品).find(i => i.物品ID === techniqueId);
+    const inventoryItems = saveData.value.背包.物品;
+    const itemsAsArray = Array.isArray(inventoryItems) ? inventoryItems : Object.values(inventoryItems);
+    const fullTechnique = itemsAsArray.find(i => i.物品ID === techniqueId);
     if (fullTechnique?.类型 === '功法' && '功法技能' in fullTechnique && fullTechnique.功法技能) {
       Object.entries(fullTechnique.功法技能).forEach(([skillName, rawSkillInfo]) => {
         const skillInfo = rawSkillInfo as TechniqueSkill;
@@ -1139,8 +1227,8 @@ const formatCultivationText = (): string => {
   return `${current}/${max}`;
 };
 
-// 显示境界：统一返回“境界+阶段”（初期/中期/后期/圆满），凡人不加阶段
-const formatRealmDisplay = (name?: string, _level?: number): string => {
+// 显示境界：统一返回"境界+阶段"（初期/中期/后期/圆满），凡人不加阶段
+const formatRealmDisplay = (name?: string): string => {
   const progress = playerStatus.value?.境界?.当前进度;
   const maxProgress = playerStatus.value?.境界?.下一级所需;
   const stage = playerStatus.value?.境界?.阶段;
@@ -1267,6 +1355,7 @@ const getPersistentProficiency = (skillName: string, source: string): number => 
 };
 
 // 检查技能是否已解锁（简化版：默认全部解锁）
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const checkSkillUnlocked = (skillName: string, technique: TechniqueItem, cultivationInfo: SaveData['修炼功法']): boolean => {
   if (!technique.功法技能?.[skillName]) return false;
 
@@ -1383,6 +1472,8 @@ const getSkillModalContent = () => {
 const refreshData = async () => {
   isLoading.value = true;
   try {
+    const { useCharacterStore } = await import('@/stores/characterStore');
+    const characterStore = useCharacterStore();
     await characterStore.syncFromTavern();
   } catch (error) {
     debug.error('人物详情', '刷新数据失败', error);
@@ -1400,19 +1491,54 @@ onMounted(async () => {
 const getOriginDisplay = (origin: string | { 名称: string; 描述: string } | undefined): string => {
   if (!origin) return '待定';
   if (typeof origin === 'string') return origin;
-  return origin.名称 || '待定';
+  if (typeof origin === 'object' && origin !== null && '名称' in origin) {
+    return origin.名称 || '待定';
+  }
+  return '格式错误';
+};
+
+// 显示出身详情
+const showOriginDetails = (origin: unknown) => {
+  if (origin && typeof origin === 'object' && origin !== null && '名称' in origin && '描述' in origin) {
+    const originObj = origin as { 名称: string; 描述: string };
+    uiStore.showDetailModal({
+      title: `出身背景: ${originObj.名称}`,
+      content: originObj.描述,
+    });
+  }
 };
 
 // 增强的灵根系统 - 简化版
 const parseSpiritRoot = (spiritRoot: string | { 名称: string; 品级?: string; 描述?: string } | undefined) => {
   if (!spiritRoot) return { name: '未知', grade: '', description: '' };
 
-  if (typeof spiritRoot === 'string') {
-    // 兼容旧的字符串格式的灵根，如"上品火灵根"、"随机灵根"
-    if (spiritRoot === '随机灵根') {
-      return { name: '随机灵根', grade: '', description: '大道五十，天衍四九，人遁其一' };
+  // 优先处理对象格式：{ 名称, 品级, 描述 }
+  if (typeof spiritRoot === 'object') {
+    let name = spiritRoot.名称 || '未知';
+    const grade = spiritRoot.品级 || '';
+    const description = spiritRoot.描述 || '';
+
+    // 特殊处理：如果名称还是"随机灵根"，尝试从描述中提取真实的灵根类型
+    if (name === '随机灵根' && description) {
+      // 尝试匹配描述中的灵根类型，如"上品火灵根"、"水木双灵根"等
+      const typeMatch = description.match(/([金木水火土风雷冰光暗混沌阴阳]+)([双三四五])?灵根/);
+      if (typeMatch) {
+        name = typeMatch[1] + (typeMatch[2] || '') + '灵根';
+      } else if (grade && grade !== '凡品') {
+        // 如果无法从描述提取，但有品级，则显示为"品级灵根"（待AI更新）
+        name = `${grade}灵根（待确定属性）`;
+      }
     }
 
+    return {
+      name: name,
+      grade: grade,
+      description: description
+    };
+  }
+
+  // 处理字符串格式的灵根
+  if (typeof spiritRoot === 'string') {
     // 首先尝试匹配明确的品级词汇
     const gradeMatch = spiritRoot.match(/(下品|中品|上品|极品|神品|特殊|凡品)/);
     let grade = gradeMatch ? gradeMatch[1] : '';
@@ -1443,14 +1569,7 @@ const parseSpiritRoot = (spiritRoot: string | { 名称: string; 品级?: string;
     };
   }
 
-  // 处理新的对象格式：{ 名称, 品级, 描述 }
-  const result = {
-    name: spiritRoot.名称 || '未知',
-    grade: spiritRoot.品级 || '',
-    description: spiritRoot.描述 || ''
-  };
-
-  return result;
+  return { name: '未知', grade: '', description: '' };
 };
 
 const getSpiritRootDisplay = (spiritRoot: string | { 名称: string; 品级?: string; 描述?: string } | undefined): string => {
@@ -1460,6 +1579,13 @@ const getSpiritRootDisplay = (spiritRoot: string | { 名称: string; 品级?: st
   if (parsed.grade && parsed.grade !== '未知' && parsed.grade !== '凡品') {
     return `${parsed.name}(${parsed.grade})`;
   }
+  return parsed.name;
+};
+
+// 格式化灵根显示（简洁版，用于顶部）
+const formatSpiritRoot = (spiritRoot: string | { 名称: string; 品级?: string; 描述?: string } | undefined): string => {
+  const parsed = parseSpiritRoot(spiritRoot);
+  if (!parsed.name || parsed.name === '未知') return '未知';
   return parsed.name;
 };
 
@@ -1476,14 +1602,14 @@ const getSpiritRootDescription = (spiritRoot: string | { 名称: string; 品级?
 const getSpiritRootClass = (spiritRoot: string | { 名称: string; 品级?: string; 描述?: string } | undefined): string => {
   const parsed = parseSpiritRoot(spiritRoot);
   const grade = parsed.grade?.toLowerCase() || '';
-  
+
   if (grade.includes('神品')) return 'spirit-divine';
   if (grade.includes('极品')) return 'spirit-supreme';
   if (grade.includes('上品')) return 'spirit-superior';
   if (grade.includes('中品')) return 'spirit-medium';
   if (grade.includes('下品')) return 'spirit-inferior';
   if (grade.includes('凡品')) return 'spirit-common';
-  
+
   return 'spirit-unknown';
 };
 
@@ -1579,7 +1705,16 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
 
 /* 新版头部布局 */
 .header-modern {
+  flex-direction: column;
+  gap: 16px;
+}
+
+.header-main {
+  display: flex;
   justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: 16px;
 }
 
 .header-left {
@@ -1587,6 +1722,54 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   align-items: center;
   gap: 16px;
   min-width: 0;
+  flex: 1;
+}
+
+.header-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  width: 100%;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--color-surface-light);
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 0.9rem;
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.stat-value.gender.gender-男 {
+  color: #3b82f6;
+}
+
+.stat-value.gender.gender-女 {
+  color: #ec4899;
+}
+
+.stat-value.spirit-root {
+  color: var(--color-primary);
+}
+
+.stat-value.reputation {
+  color: var(--color-warning);
 }
 
 .avatar-circle {
@@ -1639,6 +1822,18 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   color: var(--color-primary);
   background: rgba(var(--color-primary-rgb), 0.06);
   border-color: rgba(var(--color-primary-rgb), 0.35);
+}
+
+.age-chip {
+  color: var(--color-info);
+  background: rgba(var(--color-info-rgb), 0.06);
+  border-color: rgba(var(--color-info-rgb), 0.35);
+}
+
+.location-chip {
+  color: var(--color-success);
+  background: rgba(var(--color-success-rgb), 0.06);
+  border-color: rgba(var(--color-success-rgb), 0.35);
 }
 
 .header-right {
@@ -3078,6 +3273,25 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
     gap: 8px;
   }
 
+  .header-main {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .header-right {
+    width: 100%;
+  }
+
+  .header-stats {
+    padding-top: 8px;
+    gap: 8px;
+  }
+
+  .stat-item {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 120px;
+  }
+
   .gender-symbol {
     width: 40px;
     height: 40px;
@@ -4060,5 +4274,385 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
     justify-content: center;
     gap: 4px;
   }
+  }
+  
+  .info-value.clickable {
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-style: dashed;
+    text-underline-offset: 3px;
+    transition: color 0.2s, text-decoration-color 0.2s;
+  }
+  
+  .info-value.clickable:hover {
+    text-decoration-style: solid;
+    color: var(--color-primary-hover);
+  }
+  
+  .info-value.origin.clickable {
+    color: var(--color-accent);
+  }
+  
+  .info-value.origin.clickable:hover {
+    color: var(--color-accent-hover);
+  }
+
+/* ==================== 全新顶部卡片设计 ==================== */
+.character-header-card {
+  position: relative;
+  background: linear-gradient(135deg, #1a1f35 0%, #0f1419 100%);
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
-</style>
+
+.header-bg-decoration {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background:
+    radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 50%, rgba(168, 85, 247, 0.15) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.header-content {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 24px;
+  padding: 28px;
+  align-items: center;
+}
+
+.profile-section {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.avatar-wrapper {
+  position: relative;
+}
+
+.avatar-circle {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.4);
+  position: relative;
+  z-index: 2;
+}
+
+.avatar-text {
+  color: #fff;
+  font-size: 2rem;
+  font-weight: 800;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.avatar-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100px;
+  height: 100px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.4) 0%, transparent 70%);
+  border-radius: 50%;
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+}
+
+.identity-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.character-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+  letter-spacing: 0.5px;
+}
+
+.character-subtitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.subtitle-item {
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 500;
+}
+
+.gender-badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.gender-badge.gender-男 {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.gender-badge.gender-女 {
+  background: rgba(236, 72, 153, 0.2);
+  color: #f472b6;
+  border: 1px solid rgba(236, 72, 153, 0.3);
+}
+
+.subtitle-divider {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.age-text, .origin-text {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.core-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  flex: 1;
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.realm-card .card-icon {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(37, 99, 235, 0.2));
+  color: #60a5fa;
+}
+
+.spirit-card .card-icon {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(147, 51, 234, 0.2));
+  color: #c084fc;
+}
+
+.location-card .card-icon {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.2));
+  color: #34d399;
+}
+
+.reputation-card .card-icon {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(245, 158, 11, 0.2));
+  color: #fbbf24;
+}
+
+.card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.card-label {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.card-value {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.location-value {
+  font-size: 0.9rem;
+  line-height: 1.3;
+}
+
+.cultivation-section {
+  min-width: 200px;
+}
+
+.cultivation-progress-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.progress-label {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 600;
+}
+
+.progress-percentage {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #60a5fa;
+}
+
+.progress-bar-container {
+  position: relative;
+}
+
+.progress-bar-bg {
+  height: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+  border-radius: 999px;
+  position: relative;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.progress-bar-shine {
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  animation: shine 2s infinite;
+}
+
+@keyframes shine {
+  to { left: 100%; }
+}
+
+.progress-text {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+}
+
+.cultivation-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+}
+
+.status-icon {
+  font-size: 1.5rem;
+}
+
+.status-text {
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* 响应式设计 */
+@media (max-width: 1200px) {
+  .header-content {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .core-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .cultivation-section {
+    min-width: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .header-content {
+    padding: 20px;
+  }
+
+  .profile-section {
+    flex-direction: column;
+    text-align: center;
+    gap: 12px;
+  }
+
+  .character-subtitle {
+    justify-content: center;
+  }
+
+  .core-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .avatar-circle {
+    width: 64px;
+    height: 64px;
+  }
+
+  .avatar-text {
+    font-size: 1.5rem;
+  }
+
+  .character-title {
+    font-size: 1.5rem;
+  }
+}
+  </style>

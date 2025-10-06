@@ -28,28 +28,24 @@
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue'
 import { Maximize, Minimize } from 'lucide-vue-next'
-import { useCharacterStore } from '@/stores/characterStore'
+import { useUnifiedCharacterData } from '@/composables/useCharacterData'
 import { formatRealmWithStage } from '@/utils/realmUtils'
 import type { GameTime } from '@/types/game'
 
 /**
- * 从GameTime获取分钟数（兼容新旧格式）
+ * 从GameTime获取分钟数
  */
 function getMinutes(gameTime: GameTime): number {
-  // 优先使用总分钟数计算
-  if (gameTime.总分钟数 !== undefined) {
-    return gameTime.总分钟数 % 60;
-  }
-  // 否则使用分钟字段
   return gameTime.分钟 ?? 0;
 }
 
-const characterStore = useCharacterStore()
+// 使用统一的数据访问
+const { characterData } = useUnifiedCharacterData()
 const isFullscreen = ref(false)
 
 const characterName = computed(() => {
   try {
-    return characterStore.activeCharacterProfile?.角色基础信息?.名字 || ''
+    return characterData.value?.基础信息?.名字 || ''
   } catch (e) {
     console.error('[TopBar] Error getting characterName:', e)
     return ''
@@ -58,8 +54,7 @@ const characterName = computed(() => {
 
 const characterRealm = computed(() => {
   try {
-    const save = characterStore.activeSaveSlot
-    return formatRealmWithStage(save?.存档数据?.玩家角色状态?.境界)
+    return formatRealmWithStage(characterData.value?.境界)
   } catch (e) {
     console.error('[TopBar] Error getting characterRealm:', e)
     return '凡人'
@@ -68,8 +63,7 @@ const characterRealm = computed(() => {
 
 const currentLocation = computed(() => {
   try {
-    const save = characterStore.activeSaveSlot
-    return save?.存档数据?.玩家角色状态?.位置?.描述 || '初始地'
+    return characterData.value?.位置?.描述 || '初始地'
   } catch (e) {
     console.error('[TopBar] Error getting currentLocation:', e)
     return '初始地'
@@ -78,9 +72,8 @@ const currentLocation = computed(() => {
 
 const gameTime = computed(() => {
   try {
-    const save = characterStore.activeSaveSlot
-    if (save?.存档数据?.游戏时间) {
-      const time = save.存档数据.游戏时间
+    const time = characterData.value?.游戏时间
+    if (time) {
       const minutes = getMinutes(time)
       const formattedMinutes = minutes.toString().padStart(2, '0')
       const formattedHours = time.小时.toString().padStart(2, '0')

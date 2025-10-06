@@ -9,6 +9,7 @@
       :log="uiStore.stateChangeLogToShow"
       @close="uiStore.closeStateChangeViewer"
     />
+    <DetailModal />
     <!-- 全局操作按钮 - 只在非游戏界面显示 -->
     <div v-if="!isInGameView" class="global-actions">
       <label class="theme-toggle" @click.prevent="toggleTheme">
@@ -126,6 +127,7 @@ import GlobalLoadingOverlay from './components/common/GlobalLoadingOverlay.vue';
 import RetryConfirmDialog from './components/common/RetryConfirmDialog.vue';
 import DataValidationErrorDialog from './components/common/DataValidationErrorDialog.vue';
 import StateChangeViewer from './components/common/StateChangeViewer.vue';
+import DetailModal from './components/common/DetailModal.vue';
 import './style.css';
 import { useCharacterCreationStore } from './stores/characterCreationStore';
 import { useCharacterStore } from './stores/characterStore';
@@ -296,7 +298,7 @@ const handleCreationComplete = async (rawPayload: CharacterCreationPayload) => {
         throw new Error('严重错误：角色创建后无法在角色列表中找到！');
       }
 
-      const slotKey = profile.模式 === '单机' ? '自动存档' : '存档';
+      const slotKey = profile.模式 === '单机' ? '存档1' : '存档';
       characterStore.rootState.当前激活存档 = { 角色ID: charId, 存档槽位: slotKey };
       characterStore.commitToStorage();
 
@@ -481,8 +483,24 @@ onMounted(() => {
     restoreFullscreenIfNeeded();
   }, 500);
 
+  // 5. 定时保存当前存档 - 每5分钟
+  const saveInterval = setInterval(async () => {
+    try {
+      const activeSlot = characterStore.activeSaveSlot;
+      if (activeSlot?.存档数据) {
+        console.log('[定时保存] 保存当前存档...');
+        await characterStore.syncToTavernAndSave();
+        console.log('[定时保存] 保存成功');
+      }
+    } catch (error) {
+      console.error('[定时保存] 保存失败:', error);
+    }
+  }, 5 * 60 * 1000); // 5分钟
+
   // 统一的清理逻辑
   onUnmounted(() => {
+    // 清理定时保存定时器
+    clearInterval(saveInterval);
     // 清理父窗口resize监听
     if (window.parent !== window) {
       try {
@@ -499,7 +517,7 @@ onMounted(() => {
   });
 });
 
-// 5. 监听路由变化，在路由切换后恢复全屏状态
+// 6. 监听路由变化，在路由切换后恢复全屏状态
 watch(route, (newRoute, oldRoute) => {
   if (newRoute.path !== oldRoute?.path) {
     console.log(`[全屏] 路由从 ${oldRoute?.path} 切换到 ${newRoute.path}`);

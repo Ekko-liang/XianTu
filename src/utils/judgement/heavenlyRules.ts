@@ -66,9 +66,9 @@ function calculateCoreAttributes(saveData: SaveData, baseInfo: CharacterBaseInfo
   const 气运 = safeNum(baseInfo?.先天六司?.气运, 5);
 
   // 资源状态
-  const 气血 = get(saveData, '玩家角色状态.气血', { 当前: 100, 最大: 100 });
-  const 灵气 = get(saveData, '玩家角色状态.灵气', { 当前: 100, 最大: 100 });
-  const 神识 = get(saveData, '玩家角色状态.神识', { 当前: 100, 最大: 100 });
+  const 气血 = get(saveData, '玩家角色状态.气血', { 当前: 100, 上限: 100 });
+  const 灵气 = get(saveData, '玩家角色状态.灵气', { 当前: 100, 上限: 100 });
+  const 神识 = get(saveData, '玩家角色状态.神识', { 当前: 100, 上限: 100 });
 
   // 境界名称映射到等级（用于数值计算）
   const 境界名称 = String(get(saveData, '玩家角色状态.境界.名称', '凡人'));
@@ -90,7 +90,7 @@ function calculateCoreAttributes(saveData: SaveData, baseInfo: CharacterBaseInfo
 
   // 计算最终属性
   const 攻击力 = Math.round((根骨 * 3 + 灵性 * 4 + safeNum(灵气.当前) * 0.5 + 装备加成.攻击 + 功法加成.攻击 + 状态加成.攻击) * 境界加成);
-  const 防御力 = Math.round((根骨 * 4 + 心性 * 3 + safeNum(气血.最大) * 0.3 + 装备加成.防御 + 功法加成.防御 + 状态加成.防御) * 境界加成);
+  const 防御力 = Math.round((根骨 * 4 + 心性 * 3 + safeNum(气血.上限) * 0.3 + 装备加成.防御 + 功法加成.防御 + 状态加成.防御) * 境界加成);
   const 灵识 = Math.round((悟性 * 4 + 灵性 * 3 + safeNum(神识.当前) * 0.6 + 装备加成.灵识 + 功法加成.灵识 + 状态加成.灵识) * 境界加成);
   const 敏捷 = Math.round((灵性 * 3 + 根骨 * 2 + 装备加成.敏捷 + 功法加成.敏捷 + 状态加成.敏捷) * 境界加成);
 
@@ -236,8 +236,8 @@ export function checkCharacterDeath(saveData: SaveData): {
 // [重构] 检查并更新死亡状态的实现，适配新的 DeathState 类型
 function checkAndUpdateDeathStateImpl(saveData: SaveData): DeathState {
   try {
-    const 气血 = get(saveData, '玩家角色状态.气血', { 当前: 100, 最大: 100 });
-    const 寿命 = get(saveData, '玩家角色状态.寿命', { 当前: 100, 最大: 100 });
+    const 气血 = get(saveData, '玩家角色状态.气血', { 当前: 100, 上限: 100 });
+    const 寿命 = get(saveData, '玩家角色状态.寿命', { 当前: 100, 上限: 100 });
     const 现有死亡状态 = get(saveData, '玩家角色状态.死亡状态', { 已死亡: false });
 
     if (现有死亡状态?.已死亡) {
@@ -246,7 +246,7 @@ function checkAndUpdateDeathStateImpl(saveData: SaveData): DeathState {
 
     const 当前气血 = safeNum(气血.当前, 100);
     const 当前年龄 = safeNum(寿命.当前, 100);
-    const 最大寿命 = safeNum(寿命.最大, 100);
+    const 最大寿命 = safeNum(寿命.上限, 100);
 
     let 死亡状态: DeathState = { 已死亡: false };
 
@@ -419,8 +419,8 @@ export function resetDeathState(saveData: SaveData): void {
     const 死亡状态: DeathState = { 已死亡: false };
     set(saveData, '玩家角色状态.死亡状态', 死亡状态);
 
-    const 气血 = get(saveData, '玩家角色状态.气血', { 当前: 1, 最大: 100 });
-    const 最大气血 = safeNum(气血.最大, 100);
+    const 气血 = get(saveData, '玩家角色状态.气血', { 当前: 1, 上限: 100 });
+    const 最大气血 = safeNum(气血.上限, 100);
     set(saveData, '玩家角色状态.气血.当前', Math.max(1, Math.floor(最大气血 * 0.1)));
 
     console.log('[死亡系统] 角色已复活');

@@ -146,15 +146,14 @@
             <!-- 单机模式存档 -->
             <div v-else-if="selectedCharacter.模式 === '单机'" class="saves-container">
               <div class="saves-section">
-                <!-- 自动存档区 -->
+                <!-- 上次对话存档区 -->
                 <div class="auto-saves-section">
-                  <h3>自动存档</h3>
+                  <h3>上次对话</h3>
                   <div class="auto-saves-grid">
                     <!-- 上次对话存档 -->
                     <div class="save-card auto-save"
                          :class="{ 'has-data': selectedCharacter.存档列表?.['上次对话']?.存档数据 }"
-                         @click="selectedCharacter.存档列表?.['上次对话']?.存档数据 && handleSelect(selectedCharId!, '上次对话', true)"
-                         :style="{ cursor: selectedCharacter.存档列表?.['上次对话']?.存档数据 ? 'pointer' : 'default' }">
+                         :style="{ cursor: 'default' }">
                       <div v-if="selectedCharacter.存档列表?.['上次对话']?.存档数据" class="save-data">
                         <div class="save-header">
                           <h4 class="save-name">上次对话</h4>
@@ -168,15 +167,15 @@
                           <div class="stat-grid">
                             <div class="stat">
                               <span class="label">气血</span>
-                              <span class="value">{{ selectedCharacter.存档列表['上次对话'].存档数据.玩家角色状态?.气血?.当前 || 0 }}/{{ selectedCharacter.存档列表['上次对话'].存档数据.玩家角色状态?.气血?.最大 || 0 }}</span>
+                              <span class="value">{{ selectedCharacter.存档列表['上次对话'].存档数据.玩家角色状态?.气血?.当前 || 0 }}/{{ selectedCharacter.存档列表['上次对话'].存档数据.玩家角色状态?.气血?.上限 || 0 }}</span>
                             </div>
                             <div class="stat">
                               <span class="label">灵气</span>
-                              <span class="value">{{ selectedCharacter.存档列表['上次对话'].存档数据.玩家角色状态?.灵气?.当前 || 0 }}/{{ selectedCharacter.存档列表['上次对话'].存档数据.玩家角色状态?.灵气?.最大 || 0 }}</span>
+                              <span class="value">{{ selectedCharacter.存档列表['上次对话'].存档数据.玩家角色状态?.灵气?.当前 || 0 }}/{{ selectedCharacter.存档列表['上次对话'].存档数据.玩家角色状态?.灵气?.上限 || 0 }}</span>
                             </div>
                             <div class="stat">
                               <span class="label">神识</span>
-                              <span class="value">{{ selectedCharacter.存档列表['上次对话'].存档数据.玩家角色状态?.神识?.当前 || 0 }}/{{ selectedCharacter.存档列表['上次对话'].存档数据.玩家角色状态?.神识?.最大 || 0 }}</span>
+                              <span class="value">{{ selectedCharacter.存档列表['上次对话'].存档数据.玩家角色状态?.神识?.当前 || 0 }}/{{ selectedCharacter.存档列表['上次对话'].存档数据.玩家角色状态?.神识?.上限 || 0 }}</span>
                             </div>
                             <div class="stat">
                               <span class="label">声望</span>
@@ -189,60 +188,15 @@
                           <span class="location">{{ selectedCharacter.存档列表['上次对话'].存档数据.玩家角色状态?.位置?.描述 || '初始地' }}</span>
                           <span class="save-time">{{ formatTime(selectedCharacter.存档列表['上次对话'].保存时间) }}</span>
                         </div>
-                      </div>
-
-                      <div v-else class="save-empty">
-                        <div class="empty-slot-icon">🤖</div>
-                        <span class="empty-text">暂无自动存档</span>
-                        <span class="auto-save-desc">游戏会自动保存</span>
-                      </div>
-                    </div>
-
-                    <!-- 快速存档 -->
-                    <div class="save-card auto-save"
-                         :class="{ 'has-data': selectedCharacter.存档列表?.['自动存档']?.存档数据 }"
-                         @click="selectedCharacter.存档列表?.['自动存档']?.存档数据 && handleSelect(selectedCharId!, '自动存档', true)"
-                         :style="{ cursor: selectedCharacter.存档列表?.['自动存档']?.存档数据 ? 'pointer' : 'default' }">
-                      <div v-if="selectedCharacter.存档列表?.['自动存档']?.存档数据" class="save-data">
-                        <div class="save-header">
-                          <h4 class="save-name">自动存档</h4>
-                          <div class="save-badges">
-                            <span class="realm-badge">{{ getRealmName(selectedCharacter.存档列表['自动存档'].存档数据.玩家角色状态?.境界) }}</span>
-                            <span class="age-badge">{{ selectedCharacter.存档列表['自动存档'].存档数据.玩家角色状态?.寿命?.当前 || 18 }}岁</span>
-                          </div>
-                        </div>
-
-                        <div class="save-stats">
-                          <div class="stat-grid">
-                            <div class="stat">
-                              <span class="label">气血</span>
-                              <span class="value">{{ selectedCharacter.存档列表['自动存档'].存档数据.玩家角色状态?.气血?.当前 || 0 }}/{{ selectedCharacter.存档列表['自动存档'].存档数据.玩家角色状态?.气血?.最大 || 0 }}</span>
-                            </div>
-                            <div class="stat">
-                              <span class="label">灵气</span>
-                              <span class="value">{{ selectedCharacter.存档列表['自动存档'].存档数据.玩家角色状态?.灵气?.当前 || 0 }}/{{ selectedCharacter.存档列表['自动存档'].存档数据.玩家角色状态?.灵气?.最大 || 0 }}</span>
-                            </div>
-                            <div class="stat">
-                              <span class="label">神识</span>
-                              <span class="value">{{ selectedCharacter.存档列表['自动存档'].存档数据.玩家角色状态?.神识?.当前 || 0 }}/{{ selectedCharacter.存档列表['自动存档'].存档数据.玩家角色状态?.神识?.最大 || 0 }}</span>
-                            </div>
-                            <div class="stat">
-                              <span class="label">声望</span>
-                              <span class="value">{{ selectedCharacter.存档列表['自动存档'].存档数据.玩家角色状态?.声望 || 0 }}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div class="save-footer">
-                          <span class="location">{{ selectedCharacter.存档列表['自动存档'].存档数据.玩家角色状态?.位置?.描述 || '初始地' }}</span>
-                          <span class="save-time">{{ formatTime(selectedCharacter.存档列表['自动存档'].保存时间) }}</span>
+                        <div class="save-hint" style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(255, 193, 7, 0.1); border-radius: 4px; font-size: 0.85rem; color: var(--color-warning);">
+                          💡 此存档用于回滚，请在游戏中的"存档管理"面板使用回滚功能
                         </div>
                       </div>
 
                       <div v-else class="save-empty">
-                        <div class="empty-slot-icon">💾</div>
-                        <span class="empty-text">暂无自动存档</span>
-                        <span class="auto-save-desc">游戏会自动保存</span>
+                        <div class="empty-slot-icon">🔄</div>
+                        <span class="empty-text">暂无对话存档</span>
+                        <span class="auto-save-desc">每次对话前自动备份</span>
                       </div>
                     </div>
                   </div>
@@ -289,15 +243,15 @@
                           <div class="stat-grid">
                             <div class="stat">
                               <span class="label">气血</span>
-                              <span class="value">{{ slot.存档数据.玩家角色状态?.气血?.当前 || 0 }}/{{ slot.存档数据.玩家角色状态?.气血?.最大 || 0 }}</span>
+                              <span class="value">{{ slot.存档数据.玩家角色状态?.气血?.当前 || 0 }}/{{ slot.存档数据.玩家角色状态?.气血?.上限 || 0 }}</span>
                             </div>
                             <div class="stat">
                               <span class="label">灵气</span>
-                              <span class="value">{{ slot.存档数据.玩家角色状态?.灵气?.当前 || 0 }}/{{ slot.存档数据.玩家角色状态?.灵气?.最大 || 0 }}</span>
+                              <span class="value">{{ slot.存档数据.玩家角色状态?.灵气?.当前 || 0 }}/{{ slot.存档数据.玩家角色状态?.灵气?.上限 || 0 }}</span>
                             </div>
                             <div class="stat">
                               <span class="label">神识</span>
-                              <span class="value">{{ slot.存档数据.玩家角色状态?.神识?.当前 || 0 }}/{{ slot.存档数据.玩家角色状态?.神识?.最大 || 0 }}</span>
+                              <span class="value">{{ slot.存档数据.玩家角色状态?.神识?.当前 || 0 }}/{{ slot.存档数据.玩家角色状态?.神识?.上限 || 0 }}</span>
                             </div>
                             <div class="stat">
                               <span class="label">声望</span>
@@ -346,15 +300,15 @@
                     <div class="stat-grid">
                       <div class="stat">
                         <span class="label">气血</span>
-                        <span class="value">{{ selectedCharacter.存档.存档数据.玩家角色状态?.气血?.当前 || 0 }}/{{ selectedCharacter.存档.存档数据.玩家角色状态?.气血?.最大 || 0 }}</span>
+                        <span class="value">{{ selectedCharacter.存档.存档数据.玩家角色状态?.气血?.当前 || 0 }}/{{ selectedCharacter.存档.存档数据.玩家角色状态?.气血?.上限 || 0 }}</span>
                       </div>
                       <div class="stat">
                         <span class="label">灵气</span>
-                        <span class="value">{{ selectedCharacter.存档.存档数据.玩家角色状态?.灵气?.当前 || 0 }}/{{ selectedCharacter.存档.存档数据.玩家角色状态?.灵气?.最大 || 0 }}</span>
+                        <span class="value">{{ selectedCharacter.存档.存档数据.玩家角色状态?.灵气?.当前 || 0 }}/{{ selectedCharacter.存档.存档数据.玩家角色状态?.灵气?.上限 || 0 }}</span>
                       </div>
                       <div class="stat">
                         <span class="label">神识</span>
-                        <span class="value">{{ selectedCharacter.存档.存档数据.玩家角色状态?.神识?.当前 || 0 }}/{{ selectedCharacter.存档.存档数据.玩家角色状态?.神识?.最大 || 0 }}</span>
+                        <span class="value">{{ selectedCharacter.存档.存档数据.玩家角色状态?.神识?.当前 || 0 }}/{{ selectedCharacter.存档.存档数据.玩家角色状态?.神识?.上限 || 0 }}</span>
                       </div>
                       <div class="stat">
                         <span class="label">声望</span>
@@ -622,7 +576,7 @@ const handleSelect = async (charId: string, slotKey: string, hasData: boolean) =
     }
   } else {
     // 对于空存档，显示确认对话框
-    const isAutoSave = slotKey === '上次对话' || slotKey === '自动存档';
+    const isAutoSave = slotKey === '上次对话';
     const title = isAutoSave ? '创建新存档' : '开启新征程';
     const message = isAutoSave
       ? `是否在【${slotKey}】位置创建新的存档开始游戏？`
@@ -671,7 +625,7 @@ const handleDeleteCharacter = (charId: string) => {
 const handleDeleteSave = (charId: string, slotKey: string) => {
   const character = characterStore.rootState.角色列表[charId];
   const charName = character?.角色基础信息.名字;
-  const saveName = slotKey === '上次对话' ? '上次对话存档' : slotKey === '自动存档' ? '自动存档' : slotKey;
+  const saveName = slotKey === '上次对话' ? '上次对话存档' : slotKey;
 
   // 检查是否可以删除存档
   if (!canDeleteSave(character, slotKey)) {
@@ -722,9 +676,9 @@ const getManualSaves = (character: CharacterProfile | null): Record<string, Save
 
   const manualSaves: Record<string, SaveSlot> = {};
 
-  // 过滤出手动存档（排除自动存档）
+  // 过滤出手动存档（排除上次对话）
   Object.entries(character.存档列表).forEach(([key, value]) => {
-    if (key !== '上次对话' && key !== '自动存档') {
+    if (key !== '上次对话') {
       manualSaves[key] = value as SaveSlot;
     }
   });
@@ -1568,7 +1522,7 @@ const closeModal = () => {
   max-height: 100%;
 }
 
-/* 自动存档区域 */
+/* 上次对话存档区域 */
 .auto-saves-section {
   margin-bottom: 1.5rem;
 }

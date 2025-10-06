@@ -1,4 +1,5 @@
 import { toast } from './toast';
+import { getTavernHelper } from './tavern';
 
 // ⚠️ 所有规则已移至酒馆预设，不再从代码导入
 
@@ -71,106 +72,11 @@ interface LorebookEntry {
 }
 
 /**
- * TavernHelper API 接口定义 - 作为类型安全的唯一真实来源
- */
-// 提示词注入类型定义(根据@types文档)
-export interface InjectionPrompt {
-  id: string;
-  position: 'in_chat' | 'none';
-  depth: number;
-  role: 'system' | 'assistant' | 'user';
-  content: string;
-  filter?: (() => boolean) | (() => Promise<boolean>);
-  should_scan?: boolean;
-}
-
-export interface InjectPromptsOptions {
-  once?: boolean; // 是否只在下一次请求生成中有效
-}
-
-export interface Overrides {
-  char_description?: string;
-  char_personality?: string;
-  scenario?: string;
-  example_dialogue?: string;
-  [key: string]: unknown;
-}
-
-export interface TavernHelper {
-  // 核心生成与命令
-  generate: (config: {
-    user_input?: string;
-    should_stream?: boolean;
-    image?: File | string | (File | string)[];
-    overrides?: Overrides;
-    injects?: Omit<InjectionPrompt, 'id'>[];
-    max_chat_history?: 'all' | number;
-    custom_api?: Record<string, unknown>;
-    generation_id?: string;
-  }) => Promise<string>; // 更新generate方法签名
-  generateRaw: (config: Record<string, unknown>) => Promise<unknown>; // 更改为接受配置对象
-  triggerSlash: (command: string) => Promise<unknown>;
-
-  // 斜杠命令注册（扩展功能，可选）
-  registerSlashCommand?: (command: string, callback: (args?: any) => Promise<void> | void) => void;
-
-  // 提示词注入
-  injectPrompts: (prompts: InjectionPrompt[], options?: InjectPromptsOptions) => void;
-  uninjectPrompts: (ids: string[]) => void;
-
-  // 变量操作
-  getVariables(options: { type: 'global' | 'chat' | 'local' }): Promise<Record<string, unknown>>;
-  getVariable(key: string, options: { type: 'global' | 'chat' | 'local' }): Promise<unknown>;
-  setVariable(key: string, value: unknown, options: { type: 'global' | 'chat' | 'local' }): Promise<void>;
-  insertOrAssignVariables(data: Record<string, unknown>, options: { type: 'global' | 'chat' | 'local' }): Promise<void>;
-  deleteVariable(variable_path: string, options?: { type?: string; message_id?: number | 'latest' }): Promise<{ variables: Record<string, unknown>; delete_occurred: boolean }>;
-
-  // 角色与宏
-  getCharData(): Promise<{ name: string } | null>;
-  substitudeMacros(macro: string): Promise<string>;
-
-  // 世界书操作
-  getLorebooks(): Promise<string[]>;
-  createLorebook(name: string): Promise<void>;
-  getLorebookEntries(name: string): Promise<LorebookEntry[]>;
-  setLorebookEntries(name: string, entries: Partial<LorebookEntry>[]): Promise<void>;
-  createLorebookEntries(name: string, entries: unknown[]): Promise<void>;
-
-  // 聊天记录操作
-  getLastMessageId(): Promise<number>;
-  deleteChatMessages(message_ids: number[], options?: { refresh?: 'none' | 'all' }): Promise<void>;
-  updateChatHistory?(history: unknown[]): Promise<void>; // 为了向后兼容，设为可选
-  clearChat?(): Promise<void>; // 清空聊天记录
-
-  // 设置与其他
-  settings?: {
-    token?: string;
-  };
-}
-
-/**
  * 扩展 Window 接口以包含 TavernHelper
  */
+import type { TavernHelper } from '@/types';
 interface WindowWithTavernHelper extends Window {
   TavernHelper?: TavernHelper;
-}
-
-/**
- * 获取SillyTavern助手API，适配iframe环境。
- * @returns {TavernHelper} - 返回TavernHelper对象
- */
-
-export function getTavernHelper(): TavernHelper {
-  console.log('【神识印记】开始检查TavernHelper可用性...');
-  const parentWindow = window.parent as WindowWithTavernHelper;
-  if (parentWindow && parentWindow.TavernHelper?.generate) {
-    console.log('【神识印记】TavernHelper检查通过，包含generate方法');
-    return parentWindow.TavernHelper;
-  }
-
-  console.error('【神识印记】TavernHelper检查失败');
-  toast.error('感应酒馆助手灵脉失败，请确认在SillyTavern环境中运行！');
-  throw new Error('TavernHelper API not found in window.parent.');
 }
 
 /**
@@ -314,6 +220,9 @@ export async function generateItemWithTavernAI<T = unknown>(
   console.log(`【神识印记】准备发送任务提示词，大小:`, preparedPrompt.length, '字符');
 
   const helper = getTavernHelper();
+  if (!helper) {
+    throw new Error('酒馆助手未初始化');
+  }
 
   // 简单直接：将提示词作为 user_input 发送一次，禁用重试
   // 如果AI返回格式错误，让调用方自己处理
@@ -342,10 +251,9 @@ export async function generateItemWithTavernAI<T = unknown>(
     const rawResult = await helper.generate({
       user_input: preparedPrompt,  // 直接发送完整提示词
       should_stream: useStreaming,
-      max_chat_history: 0,  // 禁用聊天历史，防止提示词被记录
-      quiet_prompt: true,   // 静默提示，不添加到对话历史
-      quiet_image: true     // 静默图片，不添加到对话历史
-    });
+      max_chat_history: 0  // 禁用聊天历史，防止提示词被记录
+      // 注意：quiet_prompt 和 quiet_image 不在标准类型定义中，已移除
+    } as any);
 
     console.log(`【神识印记-调试】TavernHelper.generate()返回结果类型:`, typeof rawResult);
     console.log(`【神识印记-调试】TavernHelper.generate()返回结果:`, rawResult);

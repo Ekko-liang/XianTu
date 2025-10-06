@@ -26,12 +26,6 @@ type LegacyStatusEffect = Partial<StatusEffect> & {
  * @returns 总分钟数
  */
 export function gameTimeToTotalMinutes(gameTime: GameTime): number {
-  // 如果已有总分钟数字段，直接使用
-  if (gameTime.总分钟数 !== undefined) {
-    return gameTime.总分钟数;
-  }
-
-  // 否则从各个字段计算（向后兼容）
   const minutes = gameTime.分钟 ?? 0;
   return gameTime.年 * 365 * 24 * 60 +
          gameTime.月 * 30 * 24 * 60 +

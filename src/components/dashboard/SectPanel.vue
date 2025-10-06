@@ -30,13 +30,13 @@
                 <details>
                   <summary style="cursor: pointer;">调试信息 (点击展开)</summary>
                   <div style="margin-top: 0.5rem;">
-                    <p>存档数据存在: {{ !!characterStore.activeSaveSlot?.存档数据 }}</p>
-                    <p>存档数据字段: {{ characterStore.activeSaveSlot?.存档数据 ? Object.keys(characterStore.activeSaveSlot.存档数据).join(', ') : '无' }}</p>
-                    <p>世界信息存在: {{ !!characterStore.activeSaveSlot?.存档数据?.世界信息 }}</p>
-                    <p>世界信息.势力信息存在: {{ !!characterStore.activeSaveSlot?.存档数据?.世界信息?.势力信息 }}</p>
-                    <p>世界信息.势力信息数量: {{ characterStore.activeSaveSlot?.存档数据?.世界信息?.势力信息?.length || 0 }}</p>
-                    <p>宗门系统存在: {{ !!(characterStore.activeSaveSlot?.存档数据 as any)?.宗门系统 }}</p>
-                    <p>宗门系统.availableSects数量: {{ (characterStore.activeSaveSlot?.存档数据 as any)?.宗门系统?.availableSects?.length || 0 }}</p>
+                    <p>存档数据存在: {{ !!saveData }}</p>
+                    <p>存档数据字段: {{ saveData ? Object.keys(saveData).join(', ') : '无' }}</p>
+                    <p>世界信息存在: {{ !!saveData?.世界信息 }}</p>
+                    <p>世界信息.势力信息存在: {{ !!saveData?.世界信息?.势力信息 }}</p>
+                    <p>世界信息.势力信息数量: {{ saveData?.世界信息?.势力信息?.length || 0 }}</p>
+                    <p>宗门系统存在: {{ !!(saveData as any)?.宗门系统 }}</p>
+                    <p>宗门系统.availableSects数量: {{ (saveData as any)?.宗门系统?.availableSects?.length || 0 }}</p>
                     <p>筛选后数量: {{ filteredSects.length }}</p>
                     <button @click="syncFromTavern" style="margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #22c55e; color: white; border: none; border-radius: 4px; cursor: pointer;">
                       从酒馆同步数据
@@ -419,6 +419,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useCharacterStore } from '@/stores/characterStore';
+import { useUnifiedCharacterData } from '@/composables/useCharacterData';
 import type { WorldFaction, SectMemberInfo, WorldInfo, SaveData } from '@/types/game';
 import {
   Building, Users, Heart, UserPlus, Crown, CheckCircle,
@@ -429,19 +430,20 @@ import { toast } from '@/utils/toast';
 import { validateAndFixSectDataList } from '@/utils/worldGeneration/sectDataValidator';
 
 const characterStore = useCharacterStore();
+const { characterData, saveData } = useUnifiedCharacterData();
 const isLoading = ref(false);
 const selectedSect = ref<WorldFaction | null>(null);
 const searchQuery = ref('');
 
 // 获取世界中的宗门势力数据 - 统一数据源，支持多种数据结构
 const sectSystemData = computed(() => {
-  const saveData = characterStore.activeSaveSlot?.存档数据;
+  const data = saveData.value;
 
   console.log('[宗门系统] 开始获取数据');
-  console.log('[宗门系统] saveData存在:', !!saveData);
-  console.log('[宗门系统] 完整存档数据结构:', Object.keys(saveData || {}));
+  console.log('[宗门系统] saveData存在:', !!data);
+  console.log('[宗门系统] 完整存档数据结构:', Object.keys(data || {}));
 
-  if (!saveData) {
+  if (!data) {
     console.log('[宗门系统] 存档数据不存在，返回空数组');
     return { availableSects: [] };
   }
@@ -449,7 +451,7 @@ const sectSystemData = computed(() => {
   let availableSects: WorldFaction[] = [];
 
   // 方案1：从世界信息.势力信息中获取宗门数据
-  const worldInfo = saveData.世界信息 as WorldInfo | undefined;
+  const worldInfo = data.世界信息 as WorldInfo | undefined;
   if (worldInfo?.势力信息) {
     console.log('[宗门系统] 发现世界信息.势力信息，数量:', worldInfo.势力信息.length);
     console.log('[宗门系统] 势力信息类型:', worldInfo.势力信息.map((f: WorldFaction) => f.类型));
@@ -476,7 +478,7 @@ const sectSystemData = computed(() => {
   }
 
   // 方案2：从宗门系统.availableSects中获取数据
-  const sectSystem = (saveData as Partial<SaveData>)?.宗门系统;
+  const sectSystem = (data as Partial<SaveData>)?.宗门系统;
   if (sectSystem?.availableSects && sectSystem.availableSects.length > 0) {
     console.log('[宗门系统] 发现宗门系统.availableSects，数量:', sectSystem.availableSects.length);
     // 将SectInfo转换为WorldFaction
@@ -493,9 +495,9 @@ const sectSystemData = computed(() => {
   }
 
   // 方案3：检查是否有直接的宗门相关字段
-  Object.keys(saveData).forEach(key => {
+  Object.keys(data).forEach(key => {
     const lowerKey = key.toLowerCase();
-    const potentialData = (saveData as Record<string, any>)[key];
+    const potentialData = (data as Record<string, any>)[key];
     if ((lowerKey.includes('宗门') || lowerKey.includes('sect')) && Array.isArray(potentialData)) {
       console.log('[宗门系统] 发现可能的宗门数据字段:', key, '数量:', potentialData.length);
       availableSects = [...availableSects, ...(potentialData as WorldFaction[])];
@@ -518,8 +520,7 @@ const sectSystemData = computed(() => {
 
 // 玩家的宗门信息
 const playerSectInfo = computed((): SectMemberInfo | undefined => {
-  const saveData = characterStore.activeSaveSlot?.存档数据;
-  return saveData?.玩家角色状态?.宗门信息;
+  return saveData.value?.玩家角色状态?.宗门信息;
 });
 
 // 获取所有宗门列表
@@ -579,7 +580,7 @@ const getContinentName = (sect: WorldFaction): string => {
   if (sect.所在大洲) return sect.所在大洲;
 
   // 从世界信息中查找
-  const worldInfo = characterStore.activeSaveSlot?.存档数据?.世界信息 as WorldInfo | undefined;
+  const worldInfo = saveData.value?.世界信息 as WorldInfo | undefined;
   const continents = worldInfo?.continents || worldInfo?.大陆信息;
   if (continents) {
     for (const continent of continents) {
@@ -822,9 +823,9 @@ onMounted(() => {
   console.log('[宗门系统] 宗门势力面板已载入');
   console.log('[宗门系统] characterStore状态:', characterStore);
   console.log('[宗门系统] activeSaveSlot:', characterStore.activeSaveSlot);
-  console.log('[宗门系统] 存档数据:', characterStore.activeSaveSlot?.存档数据);
-  console.log('[宗门系统] 世界信息:', characterStore.activeSaveSlot?.存档数据?.世界信息);
-  console.log('[宗门系统] 势力信息:', characterStore.activeSaveSlot?.存档数据?.世界信息?.势力信息);
+  console.log('[宗门系统] 存档数据:', saveData.value);
+  console.log('[宗门系统] 世界信息:', saveData.value?.世界信息);
+  console.log('[宗门系统] 势力信息:', saveData.value?.世界信息?.势力信息);
   console.log('[宗门系统] sectSystemData:', sectSystemData.value);
   console.log('[宗门系统] filteredSects:', filteredSects.value);
 
@@ -832,9 +833,9 @@ onMounted(() => {
   setInterval(() => {
     console.log('[宗门系统] 定时检查 - 筛选后宗门数量:', filteredSects.value?.length || 0);
     console.log('[宗门系统] 定时检查 - 是否加载中:', isLoading.value);
-    console.log('[宗门系统] 定时检查 - 存档数据存在:', !!characterStore.activeSaveSlot?.存档数据);
-    console.log('[宗门系统] 定时检查 - 世界信息存在:', !!characterStore.activeSaveSlot?.存档数据?.世界信息);
-    console.log('[宗门系统] 定时检查 - 势力信息存在:', !!characterStore.activeSaveSlot?.存档数据?.世界信息?.势力信息);
+    console.log('[宗门系统] 定时检查 - 存档数据存在:', !!saveData.value);
+    console.log('[宗门系统] 定时检查 - 世界信息存在:', !!saveData.value?.世界信息);
+    console.log('[宗门系统] 定时检查 - 势力信息存在:', !!saveData.value?.世界信息?.势力信息);
   }, 5000);
 });
 </script>

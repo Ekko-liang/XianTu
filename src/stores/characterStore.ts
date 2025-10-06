@@ -1,6 +1,6 @@
-import { ref, computed } from 'vue';
+import { ref, computed, triggerRef } from 'vue';
 import { defineStore } from 'pinia';
-import { merge, set as setLodash } from 'lodash';
+import { merge, set as setLodash, cloneDeep } from 'lodash';
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
 import { useUIStore } from './uiStore'; // 导入UI Store
@@ -21,8 +21,6 @@ import {
   clearAllShards,
   getShardFromSaveData,
   mapOldPathToShard,
-  hasLegacySaveData,
-  migrateLegacyToShards,
   type StorageShards
 } from '@/utils/storageSharding'; // 导入分片存储工具
 import type { World } from '@/types';
@@ -104,7 +102,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
           境界: slot.存档数据?.玩家角色状态?.境界?.名称 || '凡人',
           位置: slot.存档数据?.玩家角色状态?.位置?.描述 || '初始地',
           游戏时长: 0, // TODO: 从存档数据中计算实际游戏时长
-          最后保存时间: slot.保存时间
+          最后保存时间: slot.最后保存时间 || slot.保存时间
         };
         return enhancedSlot;
       });
@@ -117,7 +115,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
         境界: profile.存档.存档数据?.玩家角色状态?.境界?.名称 || '凡人',
         位置: profile.存档.存档数据?.玩家角色状态?.位置?.描述 || '初始地',
         游戏时长: 0, // TODO: 从存档数据中计算实际游戏时长
-        最后保存时间: profile.存档.保存时间
+        最后保存时间: profile.存档.最后保存时间 || profile.存档.保存时间
       };
       return [enhancedSlot];
     }
@@ -161,13 +159,12 @@ export const useCharacterStore = defineStore('characterV3', () => {
         return;
       }
 
-      // 使用点号路径更新嵌套字段
-      const fullPath = `character.saveData.${path}`;
+      // 直接使用分片路径更新
       await helper.insertOrAssignVariables(
-        { [fullPath]: value },
+        { [path]: value },
         { type: 'chat' }
       );
-      debug.log('角色商店', `[增量更新] 已更新酒馆字段: ${fullPath}`);
+      debug.log('角色商店', `[增量更新] 已更新酒馆字段: ${path}`);
     } catch (error) {
       debug.error('角色商店', `[增量更新] 更新字段 ${path} 失败:`, error);
       throw error;
@@ -186,13 +183,8 @@ export const useCharacterStore = defineStore('characterV3', () => {
         return;
       }
 
-      // 转换为完整路径
-      const fullPathUpdates: Record<string, unknown> = {};
-      for (const [path, value] of Object.entries(updates)) {
-        fullPathUpdates[`character.saveData.${path}`] = value;
-      }
-
-      await helper.insertOrAssignVariables(fullPathUpdates, { type: 'chat' });
+      // 直接使用分片路径
+      await helper.insertOrAssignVariables(updates, { type: 'chat' });
       debug.log('角色商店', `[批量增量更新] 已更新 ${Object.keys(updates).length} 个酒馆字段`);
     } catch (error) {
       debug.error('角色商店', '[批量增量更新] 批量更新失败:', error);
@@ -287,9 +279,9 @@ export const useCharacterStore = defineStore('characterV3', () => {
         debug.warn('角色商店', '[同步] helper 为空，无法同步到酒馆');
       }
 
-      // 3. 更新存档槽位的保存时间和元数据
-      slot.保存时间 = new Date().toISOString();
-      slot.最后保存时间 = slot.保存时间;
+      // 3. 更新存档槽位的最后保存时间和元数据
+      // 注意：保存时间（创建时间）只在创建时设置，不再修改
+      slot.最后保存时间 = new Date().toISOString();
 
       // 提取元数据用于存档列表显示
       const playerState = slot.存档数据.玩家角色状态;
@@ -323,11 +315,14 @@ export const useCharacterStore = defineStore('characterV3', () => {
         // 注意：不再在这里备份到"上次对话"，已改为在发送消息前备份
         rootState.value.角色列表[active.角色ID].存档列表 = {
           ...profile.存档列表,
-          [active.存档槽位]: slot
+          [active.存档槽位]: { ...slot } // 创建新对象触发响应式
         };
       } else if (profile.模式 === '联机') {
-        rootState.value.角色列表[active.角色ID].存档 = slot;
+        rootState.value.角色列表[active.角色ID].存档 = { ...slot }; // 创建新对象触发响应式
       }
+
+      // 强制触发响应式更新
+      triggerRef(rootState);
 
       // 5. 保存到本地存储
       await commitToStorage();
@@ -437,27 +432,31 @@ export const useCharacterStore = defineStore('characterV3', () => {
         const now = new Date().toISOString();
         newProfile = {
           模式: '单机',
-          角色基础信息: baseInfo,
+          角色基础信息: initialSaveData.角色基础信息 || baseInfo, // 使用AI处理后的数据
           存档列表: {
-            '自动存档': {
-              存档名: '自动存档',
+            '存档1': {
+              存档名: '存档1',
               保存时间: now,
               最后保存时间: now,
               游戏内时间: '修仙元年 春',
-              游戏时长: 0,
-              角色名字: baseInfo.姓名,
+              角色名字: baseInfo.名字,
               境界: '凡人',
               位置: '未知',
               修为进度: 0,
               存档数据: initialSaveData
             },
-            '上次对话': { 存档名: '上次对话', 保存时间: null, 存档数据: null }
+            '上次对话': {
+              存档名: '上次对话',
+              保存时间: null,
+              最后保存时间: null,
+              存档数据: null
+            }
           },
         };
       } else { // 联机模式
         newProfile = {
           模式: '联机',
-          角色基础信息: baseInfo,
+          角色基础信息: initialSaveData.角色基础信息 || baseInfo, // 使用AI处理后的数据
           存档: {
             存档名: '云端修行',
             保存时间: new Date().toISOString(),
@@ -475,7 +474,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       rootState.value.角色列表[charId] = newProfile;
 
       // 2. 设置为当前激活存档
-      const slotKey = mode === '单机' ? '自动存档' : '存档';
+      const slotKey = mode === '单机' ? '存档1' : '存档';
       rootState.value.当前激活存档 = { 角色ID: charId, 存档槽位: slotKey };
       
       commitToStorage();
@@ -648,14 +647,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       debug.log('角色商店', '使用分片存储模式同步存档到酒馆');
 
       // 1. 清除旧的完整SaveData（如果存在）
-      try {
-        await helper.deleteVariable('character.saveData', { type: 'chat' });
-        debug.log('角色商店', '已清除旧格式的character.saveData');
-      } catch {
-        // 旧数据可能不存在，忽略错误
-      }
-
-      // 2. 清除所有旧分片
+      // 清除所有旧分片
       await clearAllShards(helper);
 
       // 3. 将SaveData转换为分片并保存
@@ -690,14 +682,6 @@ export const useCharacterStore = defineStore('characterV3', () => {
       const helper = getTavernHelper();
       if (!helper) {
         throw new Error('酒馆连接尚未建立！');
-      }
-
-      // 🔥 新架构：检查是否需要从旧格式迁移
-      const hasLegacy = await hasLegacySaveData(helper);
-      if (hasLegacy) {
-        debug.log('角色商店', '检测到旧格式存档，执行自动迁移...');
-        await migrateLegacyToShards(helper);
-        // 静默迁移，不显示提示
       }
 
       // 从分片加载所有数据
@@ -774,6 +758,14 @@ export const useCharacterStore = defineStore('characterV3', () => {
         debug.log('角色商店', '[同步] 保留本地记忆数据，避免被酒馆旧数据覆盖');
       }
 
+      // ⚠️ 保留本地的叙事历史，避免被酒馆的旧数据覆盖
+      // 叙事历史包含了状态变更日志，不应该被同步覆盖
+      const localNarrativeHistory = slot.存档数据?.叙事历史;
+      if (localNarrativeHistory && Array.isArray(localNarrativeHistory) && localNarrativeHistory.length > 0) {
+        saveData.叙事历史 = localNarrativeHistory;
+        debug.log('角色商店', `[同步] 保留本地叙事历史数据 (${localNarrativeHistory.length}条)，避免被酒馆旧数据覆盖`);
+      }
+
       // 更新本地存档数据 - 使用响应式更新方式
       const charId = active.角色ID;
       const slotId = active.存档槽位;
@@ -785,7 +777,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
           [slotId]: {
             ...profile.存档列表[slotId],
             存档数据: saveData,
-            保存时间: new Date().toISOString()
+            最后保存时间: new Date().toISOString()
           }
         };
       } else if (profile.模式 === '联机' && profile.存档) {
@@ -793,7 +785,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
         rootState.value.角色列表[charId].存档 = {
           ...profile.存档,
           存档数据: saveData,
-          保存时间: new Date().toISOString()
+          最后保存时间: new Date().toISOString()
         };
       }
 
@@ -805,6 +797,57 @@ export const useCharacterStore = defineStore('characterV3', () => {
     } catch (error) {
       debug.error('角色商店', '从酒馆同步数据失败', error);
     }
+  };
+
+  /**
+   * 🔥 [新增] 直接更新存档数据（用于AI命令执行后立即更新UI）
+   * 不从酒馆重新加载，直接使用传入的SaveData，确保数据实时性
+   * @param updatedSaveData AI命令执行后的最新SaveData
+   */
+  const updateSaveDataDirectly = (updatedSaveData: SaveData) => {
+    const active = rootState.value.当前激活存档;
+    const profile = activeCharacterProfile.value;
+    const slot = activeSaveSlot.value;
+
+    if (!active || !profile || !slot || !updatedSaveData) {
+      debug.warn('角色商店', '[直接更新] 缺少必要参数，跳过更新');
+      return;
+    }
+
+    const charId = active.角色ID;
+    const slotId = active.存档槽位;
+
+    debug.log('角色商店', '[直接更新] 开始更新存档数据到Store...');
+
+    // 保留本地专有数据（叙事历史）
+    const localNarrativeHistory = slot.存档数据?.叙事历史;
+    if (localNarrativeHistory && Array.isArray(localNarrativeHistory) && localNarrativeHistory.length > 0) {
+      updatedSaveData.叙事历史 = localNarrativeHistory;
+      debug.log('角色商店', `[直接更新] 保留本地叙事历史数据 (${localNarrativeHistory.length}条)`);
+    }
+
+    // 🔥 响应式更新存档数据
+    if (profile.模式 === '单机' && profile.存档列表) {
+      rootState.value.角色列表[charId].存档列表 = {
+        ...profile.存档列表,
+        [slotId]: {
+          ...profile.存档列表[slotId],
+          存档数据: updatedSaveData,
+          最后保存时间: new Date().toISOString()
+        }
+      };
+    } else if (profile.模式 === '联机' && profile.存档) {
+      rootState.value.角色列表[charId].存档 = {
+        ...profile.存档,
+        存档数据: updatedSaveData,
+        最后保存时间: new Date().toISOString()
+      };
+    }
+
+    // 立即持久化到localStorage
+    commitToStorage();
+
+    debug.log('角色商店', '✅ [直接更新] 存档数据已更新到Store并持久化');
   };
 
   /**
@@ -835,7 +878,15 @@ export const useCharacterStore = defineStore('characterV3', () => {
       const currentSaveData = assembleSaveData(shards as StorageShards);
 
       if (!currentSaveData) {
-        throw new Error('无法从酒馆获取当前存档数据(character.saveData)，可能尚未初始化。');
+        throw new Error('无法从酒馆获取当前存档数据，可能尚未初始化。');
+      }
+
+      // ⚠️ 保留本地的叙事历史，避免被酒馆数据覆盖
+      // 叙事历史只存在于本地，不在酒馆分片中
+      const localNarrativeHistory = slot.存档数据?.叙事历史;
+      if (localNarrativeHistory && Array.isArray(localNarrativeHistory) && localNarrativeHistory.length > 0) {
+        currentSaveData.叙事历史 = localNarrativeHistory;
+        debug.log('角色商店', `[保存] 保留本地叙事历史数据 (${localNarrativeHistory.length}条)`);
       }
 
       // 1.5 根据游戏时间自动更新寿命（年龄）
@@ -859,8 +910,8 @@ export const useCharacterStore = defineStore('characterV3', () => {
       }
 
       // 2. 更新 Pinia Store 中的存档槽位
-      slot.保存时间 = new Date().toISOString();
-      slot.最后保存时间 = slot.保存时间;
+      // 注意：保存时间（创建时间）只在创建时设置，不再修改
+      slot.最后保存时间 = new Date().toISOString();
       slot.存档数据 = currentSaveData;
 
       // 提取元数据用于存档列表显示
@@ -1012,6 +1063,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
     profile.存档列表[saveName] = {
       存档名: saveName,
       保存时间: null,
+      最后保存时间: null,
       存档数据: null
     };
 
@@ -1081,6 +1133,124 @@ export const useCharacterStore = defineStore('characterV3', () => {
       debug.error('角色商店', '另存为新存档失败', error);
       toast.error('另存为新存档失败');
       return null;
+    }
+  };
+
+  /**
+   * [新增] 将当前游戏进度保存到指定的存档槽位
+   * @param slotName 存档槽位名称（如"上次对话"等）
+   *
+   * 注意：
+   * - "上次对话"是特殊存档，用于对话回滚
+   */
+  const saveToSlot = async (slotName: string): Promise<void> => {
+    const active = rootState.value.当前激活存档;
+    const profile = activeCharacterProfile.value;
+
+    if (!active || !profile) {
+      const errorMsg = `没有激活的角色，无法保存到 ${slotName}`;
+      debug.error('角色商店', `[saveToSlot] ${errorMsg}`);
+      console.error(`[saveToSlot] ${errorMsg}`, { active, profile });
+      throw new Error(errorMsg);
+    }
+
+    if (profile.模式 !== '单机') {
+      const errorMsg = `联机模式不支持多存档，无法保存到 ${slotName}`;
+      debug.warn('角色商店', `[saveToSlot] ${errorMsg}`);
+      console.warn(`[saveToSlot] ${errorMsg}`, { 模式: profile.模式 });
+      throw new Error(errorMsg);
+    }
+
+    if (!profile.存档列表) {
+      profile.存档列表 = {};
+    }
+
+    try {
+      // 1. 从酒馆获取最新的游戏数据
+      const helper = getTavernHelper();
+      if (!helper) {
+        throw new Error('酒馆连接尚未建立！');
+      }
+
+      const shards = await loadAllShards(helper);
+      const currentSaveData = assembleSaveData(shards as StorageShards);
+
+      if (!currentSaveData) {
+        throw new Error('无法从酒馆获取当前存档数据');
+      }
+
+      // 2. 自动更新年龄
+      try {
+        updateLifespanFromGameTime(currentSaveData);
+        if (currentSaveData.人物关系 && currentSaveData.游戏时间) {
+          Object.values(currentSaveData.人物关系).forEach((npc: any) => {
+            if (npc && typeof npc === 'object') {
+              updateNpcLifespanFromGameTime(npc, currentSaveData.游戏时间);
+            }
+          });
+        }
+      } catch (error) {
+        debug.warn('角色商店', '[saveToSlot] 自动更新年龄失败（非致命）:', error);
+      }
+
+      // 3. 提取元数据
+      const playerState = currentSaveData.玩家角色状态;
+      const now = new Date().toISOString();
+
+      const targetSlotList = profile.存档列表;
+      const existingSlot = targetSlotList[slotName];
+
+      console.log(`[saveToSlot] 保存到槽位 "${slotName}"`, {
+        角色ID: active.角色ID,
+        角色名: profile.角色基础信息?.名字,
+        当前激活槽位: active.存档槽位,
+        目标槽位: slotName,
+        说明: '特殊存档不受当前激活存档影响，始终保存到角色级别'
+      });
+
+      // 4. 构建完整的槽位数据
+      const newSlotData: SaveSlot = {
+        存档名: slotName,
+        保存时间: existingSlot?.保存时间 || now, // 保留原创建时间，如果不存在则用当前时间
+        最后保存时间: now,
+        存档数据: currentSaveData,
+        角色名字: playerState?.名字 || profile.角色基础信息?.名字,
+        境界: '凡人',
+        位置: '未知',
+        修为进度: 0,
+        游戏内时间: undefined
+      };
+
+      // 更新境界信息
+      if (playerState) {
+        if (typeof playerState.境界 === 'object' && playerState.境界 !== null) {
+          newSlotData.境界 = (playerState.境界 as Realm).名称 || '凡人';
+          const realm = playerState.境界 as Realm;
+          if (realm.下一级所需 > 0) {
+            newSlotData.修为进度 = Math.floor((realm.当前进度 / realm.下一级所需) * 100);
+          }
+        } else {
+          newSlotData.境界 = String(playerState.境界 || '凡人');
+        }
+        newSlotData.位置 = playerState.位置?.描述 || '未知';
+      }
+
+      // 更新游戏时间
+      if (currentSaveData.游戏时间) {
+        const time = currentSaveData.游戏时间;
+        newSlotData.游戏内时间 = `${time.年}年${time.月}月${time.日}日`;
+      }
+
+      // 🔥 关键：保存到角色的存档列表中（不受当前激活存档影响）
+      targetSlotList[slotName] = newSlotData;
+
+      // 5. 保存到本地存储
+      await commitToStorage();
+
+      debug.log('角色商店', `✅ 已保存到存档槽位: ${slotName}`);
+    } catch (error) {
+      debug.error('角色商店', `保存到槽位 ${slotName} 失败`, error);
+      throw error;
     }
   };
 
@@ -1169,17 +1339,20 @@ export const useCharacterStore = defineStore('characterV3', () => {
         ...profile.存档列表,
         [slotId]: {
           ...profile.存档列表[slotId],
-          存档数据: { ...save.存档数据 }, // 创建新对象触发响应式
-          保存时间: new Date().toISOString()
+          存档数据: cloneDeep(save.存档数据), // 深拷贝确保响应式更新
+          最后保存时间: new Date().toISOString()
         }
       };
     } else if (profile.模式 === '联机' && profile.存档) {
       rootState.value.角色列表[charId].存档 = {
         ...profile.存档,
-        存档数据: { ...save.存档数据 }, // 创建新对象触发响应式
-        保存时间: new Date().toISOString()
+        存档数据: cloneDeep(save.存档数据), // 深拷贝确保响应式更新
+        最后保存时间: new Date().toISOString()
       };
     }
+
+    // 强制触发 rootState 的响应式更新
+    triggerRef(rootState);
 
     commitToStorage();
 
@@ -1365,12 +1538,10 @@ export const useCharacterStore = defineStore('characterV3', () => {
         if (key.startsWith('character.profile.')) {
           rootObject = profile;
           relativeKey = key.substring('character.profile.'.length);
-        } else if (key.startsWith('character.saveData.')) {
-          rootObject = saveData;
-          relativeKey = key.substring('character.saveData.'.length);
         } else {
-          errors.push(`无法解析指令key的根路径: ${key}`);
-          continue;
+          // 默认操作saveData
+          rootObject = saveData;
+          relativeKey = key;
         }
 
         if (action === 'set') {
@@ -1469,7 +1640,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       }
 
       // 5. 保存并重新加载
-      targetSlot.保存时间 = new Date().toISOString();
+      targetSlot.最后保存时间 = new Date().toISOString();
       await commitToStorage();
       
       toast.success('AI已完成存档修复！正在重新加载游戏...');
@@ -1501,10 +1672,12 @@ return {
   deleteSaveById,
   createNewSave,
   saveAsNewSlot, // 新增：另存为新存档
+  saveToSlot, // 新增：保存到指定存档槽位
   renameSave,
   loadGame,
   loadGameById,
   saveCurrentGame,
+  updateSaveDataDirectly, // 🔥 新增：直接更新SaveData（AI命令执行后）
   updateCharacterData,
   loadSaves,
   importSave,

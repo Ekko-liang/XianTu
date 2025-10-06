@@ -18,8 +18,8 @@
   --color-accent-hover: #6c3eff;
   --color-accent-light: rgba(124, 77, 255, 0.15);
   --color-text: #1a1a1a;
-  --color-text-secondary: #666666;
-  --color-text-muted: #8b8b8b; /* 新增：柔和的浅灰色文字 */
+  --color-text-secondary: #606060; /* 增强对比度 */
+  --color-text-muted: #757575; /* 增强对比度 */
   --color-white-soft: #f2f1ee; /* 新增：温润的白色，替代纯白 */
   --color-border: rgba(0, 0, 0, 0.1);
   --color-border-hover: rgba(0, 0, 0, 0.2);
@@ -74,7 +74,7 @@
   /* --- Dark Theme Colors --- */
   --color-background: rgb(30, 41, 59);
   --color-background-transparent: rgba(26, 27, 38, 0.85);
-  --color-surface: #293348;
+  --color-surface: #232e40;
   --color-surface-transparent: rgba(41, 51, 72, 0.6);
   --color-surface-light: #414868;
   /* Derived/interactive states (dark) */
@@ -89,7 +89,7 @@
   --color-accent-light: rgba(192, 202, 245, 0.15);
   --color-text: #f7f7f5; /* 柔和的暖白色，不那么刺眼 */
   --color-text-secondary: #d0d0d0;
-  --color-text-muted: #a0a0a0; /* 暗色主题下的柔和浅色文字 */
+  --color-text-muted: #b9b9b9; /* 增强对比度 */
   --color-white-soft: #f7f7f5; /* 暗色主题下的柔和白色 */
   --color-border: rgba(173, 216, 230, 0.5);
   --color-border-hover: rgba(173, 216, 230, 0.8);

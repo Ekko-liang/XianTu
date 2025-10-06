@@ -86,33 +86,6 @@
           <h4 class="section-title">🎮 游戏设置</h4>
         </div>
         <div class="settings-list">
-          <div class="setting-item">
-            <div class="setting-info">
-              <label class="setting-name">自动存档</label>
-              <span class="setting-desc">每隔一定时间自动保存游戏</span>
-            </div>
-            <div class="setting-control">
-              <label class="setting-switch">
-                <input type="checkbox" v-model="settings.autoSave">
-                <span class="switch-slider"></span>
-              </label>
-            </div>
-          </div>
-
-          <div class="setting-item" v-if="settings.autoSave">
-            <div class="setting-info">
-              <label class="setting-name">存档间隔</label>
-              <span class="setting-desc">自动存档的时间间隔</span>
-            </div>
-            <div class="setting-control">
-              <select v-model="settings.autoSaveInterval" class="setting-select">
-                <option :value="1">1分钟</option>
-                <option :value="5">5分钟</option>
-                <option :value="10">10分钟</option>
-                <option :value="15">15分钟</option>
-              </select>
-            </div>
-          </div>
 
           <div class="setting-item">
             <div class="setting-info">
@@ -292,8 +265,6 @@ const settings = reactive({
   fontSize: 'medium',
   
   // 游戏设置
-  autoSave: true,
-  autoSaveInterval: 5,
   fastAnimations: false,
   showHints: true,
   
@@ -398,12 +369,6 @@ const validateSettings = () => {
       debug.warn('设置面板', `UI缩放值已修正为: ${settings.uiScale}%`);
     }
     
-    // 验证自动存档间隔
-    const validIntervals = [1, 5, 10, 15, 30];
-    if (!validIntervals.includes(settings.autoSaveInterval)) {
-      settings.autoSaveInterval = 5;
-      debug.warn('设置面板', '自动存档间隔已重置为5分钟');
-    }
     
     debug.log('设置面板', '设置验证完成');
   } catch (error) {
@@ -497,8 +462,6 @@ const resetSettings = () => {
         theme: 'auto',
         uiScale: 100,
         fontSize: 'medium',
-        autoSave: true,
-        autoSaveInterval: 5,
         fastAnimations: false,
         showHints: true,
         debugMode: false,

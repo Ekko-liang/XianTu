@@ -85,16 +85,16 @@
             <div class="narrative-meta">
               <span class="narrative-time">{{ currentNarrative.time }}</span>
               <!-- 命令日志按钮 (居中) -->
-              <button
-                @click="showStateChanges(currentNarrative.stateChanges)"
-                class="variable-updates-toggle"
-                :class="{ disabled: currentNarrativeStateChanges.length === 0 }"
-                :disabled="currentNarrativeStateChanges.length === 0"
-                :title="currentNarrativeStateChanges.length > 0 ? '查看本次对话的变更日志' : '本次对话无变更记录'"
-              >
-                <ScrollText :size="16" />
-                <span class="update-count">{{ currentNarrativeStateChanges.length }}</span>
-              </button>
+                <button
+                  @click="showStateChanges(currentNarrative.stateChanges)"
+                  class="variable-updates-toggle"
+                  :class="{ disabled: currentNarrativeStateChanges.length === 0 }"
+                  :disabled="currentNarrativeStateChanges.length === 0"
+                  :title="currentNarrativeStateChanges.length > 0 ? '查看本次对话的变更日志' : '本次对话无变更记录'"
+                >
+                  <ScrollText :size="16" />
+                  <span class="update-count">{{ currentNarrativeStateChanges.length }}</span>
+                </button>
             </div>
             <div class="narrative-text">
               <FormattedText :text="currentNarrative.content" />
@@ -311,6 +311,8 @@
         </div>
       </div>
     </div>
+
+
   </div>
 </template>
 
@@ -320,7 +322,7 @@ import { ref, onMounted, onActivated, nextTick, computed, watch } from 'vue';
 import {
   Send, Loader2, ChevronDown, ChevronRight, Activity, ScrollText, X,
   PackagePlus, PackageMinus, ArrowUpRight, ArrowDownRight, UserPlus, UserMinus,
-  Swords, Shield, BookOpen, Heart, Bot
+  Swords, Shield, BookOpen, Heart, Bot, Clock
 } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useActionQueueStore, type GameAction } from '@/stores/actionQueueStore';
@@ -334,24 +336,13 @@ import type { GameMessage, SaveData, CharacterProfile, GameTime } from '@/types/
 import type { GM_Response } from '@/types/AIGameMaster';
 
 /**
- * 从GameTime获取分钟数（兼容新旧格式）
- */
-function getMinutes(gameTime: GameTime): number {
-  // 优先使用总分钟数计算
-  if (gameTime.总分钟数 !== undefined) {
-    return gameTime.总分钟数 % 60;
-  }
-  // 否则使用分钟字段
-  return gameTime.分钟 ?? 0;
-}
-
-/**
  * 格式化游戏时间为字符串
  */
 function formatGameTimeString(gameTime: GameTime | undefined): string {
   if (!gameTime) return '【未知时间】';
 
-  const minutes = getMinutes(gameTime);
+  const minutes = gameTime.分钟 ?? 0;
+  // 修复：确保使用正确的 `minutes` 变量，而不是 `getMinutes`
   return `【仙道${gameTime.年}年${gameTime.月}月${gameTime.日}日 ${String(gameTime.小时).padStart(2, '0')}:${String(minutes).padStart(2, '0')}】`;
 }
 
@@ -379,6 +370,7 @@ const inputText = computed({
 });
 const isInputFocused = ref(false);
 const isAIProcessing = ref(false);
+const isTimeModalOpen = ref(false);
 const inputRef = ref<HTMLTextAreaElement>();
 const contentAreaRef = ref<HTMLDivElement>();
 const memoryExpanded = ref(false);
@@ -1400,25 +1392,26 @@ const sendMessage = async () => {
 
   // 🔥 在发送消息之前，保存当前状态到"上次对话"
   try {
+    // 备份当前状态到"上次对话"存档（用于重roll）
     const currentProfile = characterStore.activeCharacterProfile;
     if (currentProfile?.模式 === '单机' && currentProfile.存档列表) {
-      const currentAutoSave = currentProfile.存档列表['自动存档'];
-      if (currentAutoSave?.存档数据) {
-        // 深拷贝当前自动存档到"上次对话"
+      const currentSlot = characterStore.activeSaveSlot;
+      if (currentSlot?.存档数据) {
+        const now = new Date().toISOString();
         currentProfile.存档列表['上次对话'] = {
           存档名: '上次对话',
-          保存时间: currentAutoSave.保存时间,
-          最后保存时间: currentAutoSave.最后保存时间,
-          游戏内时间: currentAutoSave.游戏内时间,
-          游戏时长: currentAutoSave.游戏时长,
-          角色名字: currentAutoSave.角色名字,
-          境界: currentAutoSave.境界,
-          位置: currentAutoSave.位置,
-          修为进度: currentAutoSave.修为进度,
-          世界地图: currentAutoSave.世界地图,
-          存档数据: JSON.parse(JSON.stringify(currentAutoSave.存档数据))
+          保存时间: currentProfile.存档列表['上次对话']?.保存时间 || now,
+          最后保存时间: now,
+          游戏内时间: currentSlot.游戏内时间,
+          角色名字: currentSlot.角色名字,
+          境界: currentSlot.境界,
+          位置: currentSlot.位置,
+          修为进度: currentSlot.修为进度,
+          世界地图: currentSlot.世界地图,
+          存档数据: JSON.parse(JSON.stringify(currentSlot.存档数据))
         };
-        console.log('[上次对话] 已在发送消息前备份当前状态');
+        characterStore.commitToStorage();
+        console.log('[上次对话] 已备份当前状态，时间:', now);
       }
     }
   } catch (error) {
@@ -1575,10 +1568,18 @@ const sendMessage = async () => {
         console.log('[AI响应处理] 开始处理最终文本...');
         latestMessageText.value = gmResp?.text || null;
 
+        // 统一内容格式：为AI回复添加时间前缀，确保UI、历史记录和记忆中的内容一致
+        const saveDataForTime = characterStore.activeSaveSlot?.存档数据;
+        const gameTime = saveDataForTime?.游戏时间;
+        const timePrefix = formatGameTimeString(gameTime);
+        // 检查finalText是否已意外包含前缀，避免重复添加
+        const hasExistingPrefix = finalText.startsWith('【仙道') || finalText.startsWith('【未知时间】');
+        const prefixedContent = hasExistingPrefix ? finalText : `${timePrefix}${finalText}`;
+
         // 更新UI显示
         if (currentNarrative.value) {
-          currentNarrative.value.content = finalText;
-          console.log('[AI响应处理] 已更新UI显示');
+          currentNarrative.value.content = prefixedContent;
+          console.log('[AI响应处理] 已更新UI显示（使用带前缀内容）');
         }
 
         // 添加到短期记忆，并传递中期记忆总结（如果有）
@@ -1586,8 +1587,9 @@ const sendMessage = async () => {
         const midTermSummary = gmResp?.mid_term_memory && typeof gmResp.mid_term_memory === 'string'
           ? gmResp.mid_term_memory
           : undefined;
-        await addToShortTermMemory(finalText, 'assistant', midTermSummary);
-        console.log('[AI响应处理] 最终文本已添加到短期记忆，文本长度:', finalText.length);
+        // addToShortTermMemory 会自动处理前缀检查，直接传递即可
+        await addToShortTermMemory(prefixedContent, 'assistant', midTermSummary);
+        console.log('[AI响应处理] 最终文本已添加到短期记忆，文本长度:', prefixedContent.length);
       } else {
         latestMessageText.value = null;
         console.error('[AI响应处理] 没有找到有效的文本内容，跳过记忆保存');
@@ -1597,7 +1599,7 @@ const sendMessage = async () => {
       // processGmResponse 已经执行了 tavern_commands 并同步到酒馆
       // 不需要再次 syncFromTavern，避免用酒馆旧数据覆盖本地新数据
       console.log('[数据同步] ⚠️ 跳过 syncFromTavern（命令已在processGmResponse中同步）');
-      
+
       // 只需要将记忆分片同步到酒馆（因为记忆是在MainGamePanel中更新的）
       const currentSaveData = characterStore.activeSaveSlot?.存档数据;
       if (currentSaveData?.记忆) {
@@ -1684,6 +1686,10 @@ const sendMessage = async () => {
       streamingMessageIndex.value = null;
       streamingContent.value = '';
 
+      // 清除AI处理状态
+      isAIProcessing.value = false;
+      persistAIProcessingState();
+
       // 显示失败弹窗，明确告知用户生成失败
       const errorMessage = aiError instanceof Error ? aiError.message : '未知错误';
       toast.error(`AI生成失败：${errorMessage}`, {
@@ -1730,6 +1736,12 @@ const sendMessage = async () => {
         console.error('[AI响应处理] 数据保存失败:', storageError);
         toast.error('数据保存失败，请尝试手动保存游戏');
       }
+
+      // 明确清除AI处理状态(成功路径)
+      console.log('[AI响应处理] 成功完成,清除AI处理状态');
+      isAIProcessing.value = false;
+      persistAIProcessingState();
+
     }
 
   } catch (error: unknown) {
@@ -1978,13 +1990,13 @@ const generateLongTermSummary = async (memories: string[]): Promise<string | nul
 
 // （移除逐条总结逻辑）不再对溢出的短期记忆逐条生成总结
 
+// 键盘事件处理
 // 格式化当前时间
 const formatCurrentTime = (): string => {
   const now = new Date();
   return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 };
 
-// 键盘事件处理
 const handleKeyDown = (event: KeyboardEvent) => {
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault();
@@ -2224,9 +2236,6 @@ const syncGameState = async () => {
   }
 };
 
-// [已删除] 不再需要 generateAndShowInitialMessage 函数，因为新的 initializePanelForSave 逻辑更可靠。
-
-// 移除 loadConversationHistory 和 saveConversationHistory 函数
 </script>
 
 <style scoped>

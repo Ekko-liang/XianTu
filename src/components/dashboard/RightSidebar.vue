@@ -22,10 +22,10 @@
                 <Droplet :size="12" class="vital-icon blood" />
                 <span>气血</span>
               </span>
-              <span class="vital-text">{{ playerStatus?.vitals.qiBlood.current }} / {{ playerStatus?.vitals.qiBlood.max }}</span>
+              <span class="vital-text">{{ playerStatus?.气血?.当前 }} / {{ playerStatus?.气血?.上限 }}</span>
             </div>
             <div class="progress-bar">
-              <div class="progress-fill health" :style="{ width: getVitalPercent('qiBlood') + '%' }"></div>
+              <div class="progress-fill health" :style="{ width: getVitalPercent('气血') + '%' }"></div>
             </div>
           </div>
 
@@ -35,10 +35,10 @@
                 <Sparkles :size="12" class="vital-icon mana" />
                 <span>灵气</span>
               </span>
-              <span class="vital-text">{{ playerStatus?.vitals.lingQi.current }} / {{ playerStatus?.vitals.lingQi.max }}</span>
+              <span class="vital-text">{{ playerStatus?.灵气?.当前 }} / {{ playerStatus?.灵气?.上限 }}</span>
             </div>
             <div class="progress-bar">
-              <div class="progress-fill mana" :style="{ width: getVitalPercent('lingQi') + '%' }"></div>
+              <div class="progress-fill mana" :style="{ width: getVitalPercent('灵气') + '%' }"></div>
             </div>
           </div>
 
@@ -48,10 +48,10 @@
                 <Brain :size="12" class="vital-icon spirit" />
                 <span>神识</span>
               </span>
-              <span class="vital-text">{{ playerStatus?.vitals.shenShi.current }} / {{ playerStatus?.vitals.shenShi.max }}</span>
+              <span class="vital-text">{{ playerStatus?.神识?.当前 }} / {{ playerStatus?.神识?.上限 }}</span>
             </div>
             <div class="progress-bar">
-              <div class="progress-fill spirit" :style="{ width: getVitalPercent('shenShi') + '%' }"></div>
+              <div class="progress-fill spirit" :style="{ width: getVitalPercent('神识') + '%' }"></div>
             </div>
           </div>
 
@@ -61,10 +61,10 @@
                 <Clock :size="12" class="vital-icon lifespan" />
                 <span>寿元</span>
               </span>
-              <span class="vital-text">{{ playerStatus?.lifespan.current }} / {{ playerStatus?.lifespan.max }}</span>
+              <span class="vital-text">{{ playerStatus?.寿命?.当前 }} / {{ playerStatus?.寿命?.上限 }}</span>
             </div>
             <div class="progress-bar">
-              <div class="progress-fill lifespan" :style="{ width: getVitalPercent('lifespan') + '%' }"></div>
+              <div class="progress-fill lifespan" :style="{ width: getVitalPercent('寿命') + '%' }"></div>
             </div>
           </div>
         </div>
@@ -78,11 +78,11 @@
         </h3>
         <div class="realm-display">
           <div class="realm-info">
-            <span class="realm-name">{{ formatRealmDisplay(playerStatus?.realm.name, undefined) }}</span>
-            <span v-if="playerStatus?.realm.突破描述" class="realm-breakthrough">{{ playerStatus?.realm.突破描述 }}</span>
+            <span class="realm-name">{{ formatRealmDisplay(playerStatus?.境界?.名称) }}</span>
+            <span v-if="playerStatus?.境界?.突破描述" class="realm-breakthrough">{{ playerStatus?.境界?.突破描述 }}</span>
           </div>
           <!-- 凡人境界显示等待引气入体 -->
-          <div v-if="playerStatus?.realm.name === '凡人'" class="realm-mortal">
+          <div v-if="playerStatus?.境界?.名称 === '凡人'" class="realm-mortal">
             <span class="mortal-text">等待仙缘，引气入体</span>
           </div>
           <!-- 修炼境界显示进度条 -->
@@ -90,7 +90,7 @@
             <div class="progress-bar">
               <div class="progress-fill cultivation" :style="{ width: realmProgressPercent + '%' }"></div>
             </div>
-            <span class="progress-text">{{ playerStatus?.realm.progress }} / {{ playerStatus?.realm.maxProgress }}</span>
+            <span class="progress-text">{{ playerStatus?.境界?.当前进度 }} / {{ playerStatus?.境界?.下一级所需 }}</span>
           </div>
         </div>
 
@@ -103,8 +103,7 @@
                 <span>声望</span>
               </span>
               <span class="reputation-value">
-                {{ playerStatus?.reputation?.level || playerStatus?.reputation || '籍籍无名' }}
-                <span v-if="playerStatus?.reputation?.value !== undefined" class="reputation-number">({{ playerStatus.reputation.value }})</span>
+                {{ playerStatus?.声望 || '籍籍无名' }}
               </span>
             </div>
           </div>
@@ -127,25 +126,25 @@
         </div>
         <div v-show="!talentsCollapsed" class="talents-list">
           <div
-            v-for="talent in characterInfo.talents"
-            :key="talent"
+            v-for="talent in characterInfo.天赋"
+            :key="typeof talent === 'string' ? talent : talent.名称"
             class="talent-card clickable"
-            @click="showTalentDetail(talent)"
+            @click="showTalentDetail(typeof talent === 'string' ? talent : talent.名称)"
           >
             <div class="talent-header">
-              <span class="talent-name">{{ talent }}</span>
-              <span class="talent-level">Lv.{{ getTalentLevel(talent) }}</span>
+              <span class="talent-name">{{ typeof talent === 'string' ? talent : talent.名称 }}</span>
+              <span class="talent-level">Lv.{{ getTalentLevel(typeof talent === 'string' ? talent : talent.名称) }}</span>
             </div>
             <div class="talent-progress">
               <div class="progress-bar">
-                <div class="progress-fill talent" :style="{ width: getTalentProgress(talent) + '%' }"></div>
+                <div class="progress-fill talent" :style="{ width: getTalentProgress(typeof talent === 'string' ? talent : talent.名称) + '%' }"></div>
               </div>
-              <span class="progress-text">{{ getTalentExp(talent) }} / {{ getTalentMaxExp(talent) }}</span>
+              <span class="progress-text">{{ getTalentExp(typeof talent === 'string' ? talent : talent.名称) }} / {{ getTalentMaxExp(typeof talent === 'string' ? talent : talent.名称) }}</span>
             </div>
           </div>
 
           <!-- 空状态显示 -->
-          <div v-if="!characterInfo.talents || characterInfo.talents.length === 0" class="empty-talents">
+          <div v-if="!characterInfo.天赋 || characterInfo.天赋.length === 0" class="empty-talents">
             <div class="empty-icon">✨</div>
             <div class="empty-text">暂无天赋神通</div>
           </div>
@@ -194,13 +193,7 @@
     </div>
 
     <!-- 详情模态框 -->
-    <DetailModal
-      v-model="showModal"
-      :title="modalData.title"
-      :icon="modalData.icon"
-      :iconComponent="modalData.iconComponent"
-      :content="modalData.content"
-    />
+    <DetailModal />
   </div>
 </template>
 
@@ -211,61 +204,26 @@ import { LOCAL_TALENTS } from '@/data/creationData';
 import DetailModal from '@/components/common/DetailModal.vue';
 import { useUnifiedCharacterData } from '@/composables/useCharacterData';
 import { useCharacterStore } from '@/stores/characterStore';
+import { useUIStore } from '@/stores/uiStore';
 import type { StatusEffect } from '@/types/game.d.ts';
 import { formatRealmWithStage } from '@/utils/realmUtils';
 
 
-type TextSection = {
-  title?: string;
-  type: 'text';
-  data: string;
-};
-
-type ListSection = {
-  title?: string;
-  type: 'list';
-  data: string[];
-};
-
-type TableSection = {
-  title?: string;
-  type: 'table';
-  data: { label: string; value: string | number }[];
-};
-
-const { characterData, isDataLoaded } = useUnifiedCharacterData();
+const { characterData, saveData, isDataLoaded } = useUnifiedCharacterData();
 const characterStore = useCharacterStore();
+const uiStore = useUIStore();
 
-// 角色基础信息
-const characterInfo = computed(() => characterData.value?.basicInfo);
-// 玩家状态信息
-const playerStatus = computed(() => characterData.value?.status);
-// 状态效果
-const statusEffects = computed(() => characterData.value?.statusEffects || []);
-
-// 安全地访问存档数据
-const saveData = computed(() => characterStore.activeSaveSlot?.存档数据);
-
-// 位置详情（固定格式：世界 · 大州 · 区域 · 地点）
-const daoData = computed(() => saveData.value?.三千大道);
+// 直接使用中文字段访问数据，对应酒馆变量
+const characterInfo = computed(() => characterData.value?.基础信息);
+const playerStatus = computed(() => characterData.value?.玩家角色状态);
+const statusEffects = computed(() => characterData.value?.状态效果 || []);
+const daoData = computed(() => characterData.value?.三千大道);
 
 // 收缩状态
 const talentsCollapsed = ref(false);
 const statusCollapsed = ref(false);
 
-// 模态框状态
-const showModal = ref(false);
-const modalData = ref<{
-  title: string;
-  icon: string;
-  iconComponent?: unknown;
-  content: (TextSection | ListSection | TableSection)[];
-}>({
-  title: '',
-  icon: '',
-  iconComponent: null,
-  content: []
-});
+// 模态框状态（通过 uiStore 管理，不再需要本地状态）
 
 // 时间显示格式化
 const formatTimeDisplay = (time: string | undefined): string => {
@@ -290,28 +248,29 @@ const formatTimeDisplay = (time: string | undefined): string => {
 
 // 计算百分比的工具方法
 const realmProgressPercent = computed(() => {
-  if (!playerStatus.value) return 0;
-  const { progress, maxProgress } = playerStatus.value.realm;
+  if (!playerStatus.value?.境界) return 0;
+  const progress = playerStatus.value.境界.当前进度;
+  const maxProgress = playerStatus.value.境界.下一级所需;
   return progress && maxProgress ? Math.round((progress / maxProgress) * 100) : 0;
 });
 
 // 计算生命体征百分比
-const getVitalPercent = (type: 'qiBlood' | 'lingQi' | 'shenShi' | 'lifespan') => {
+const getVitalPercent = (type: '气血' | '灵气' | '神识' | '寿命') => {
   if (!playerStatus.value) return 0;
-  if (type === 'lifespan') {
-    const lifespan = playerStatus.value.lifespan;
-    if (!lifespan?.current || !lifespan?.max) return 0;
-    // 寿元进度条应该显示已度过的年龄占总寿命的百分比
-    return Math.round((lifespan.current / lifespan.max) * 100);
-  }
-  const vitals = playerStatus.value.vitals[type as keyof typeof playerStatus.value.vitals];
-  if (!vitals?.current || !vitals?.max) return 0;
-  return Math.round((vitals.current / vitals.max) * 100);
+  const vital = playerStatus.value[type];
+  if (!vital?.当前 || !vital?.上限) return 0;
+  return Math.round((vital.当前 / vital.上限) * 100);
 };
 
 // 获取天赋数据
 const getTalentData = (talent: string) => {
-  // 首先从角色基础信息的天赋详情中查找
+  // 优先级1: 从天赋进度系统中查找（最新的专用系统）
+  const talentProgress = saveData.value?.天赋进度?.[talent];
+  if (talentProgress) {
+    return talentProgress;
+  }
+
+  // 优先级2: 从角色基础信息的天赋详情中查找
   const baseInfo = saveData.value?.角色基础信息;
   if (baseInfo?.天赋详情 && Array.isArray(baseInfo.天赋详情)) {
     const talentDetail = baseInfo.天赋详情.find((t: { name: string; 名称: string; }) => t.name === talent || t.名称 === talent);
@@ -320,7 +279,7 @@ const getTalentData = (talent: string) => {
     }
   }
 
-  // 如果没有找到，从三千大道系统中查找（向后兼容）
+  // 优先级3: 从三千大道系统中查找（向后兼容）
   const daoProgress = daoData.value?.大道进度[talent];
   return daoProgress;
 };
@@ -328,6 +287,11 @@ const getTalentData = (talent: string) => {
 // 计算天赋等级
 const getTalentLevel = (talent: string): number => {
   const talentData = getTalentData(talent);
+  // 优先从天赋进度系统读取
+  if (talentData?.等级 !== undefined) {
+    return talentData.等级;
+  }
+  // 其次从天赋详情读取
   if (talentData?.level !== undefined) {
     return talentData.level;
   }
@@ -338,16 +302,25 @@ const getTalentLevel = (talent: string): number => {
 // 计算天赋经验
 const getTalentExp = (talent: string): number => {
   const talentData = getTalentData(talent);
+  // 优先从天赋进度系统读取
+  if (talentData?.当前经验 !== undefined) {
+    return talentData.当前经验;
+  }
+  // 其次从天赋详情读取
   if (talentData?.exp !== undefined) {
     return talentData.exp;
   }
-  // 向后兼容：从大道进度获取
-  return talentData?.当前经验 || 0;
+  return 0;
 };
 
 // 计算天赋最大经验
 const getTalentMaxExp = (talent: string): number => {
   const talentData = getTalentData(talent);
+  // 优先从天赋进度系统读取
+  if (talentData?.下级所需 !== undefined) {
+    return talentData.下级所需;
+  }
+  // 其次从天赋详情读取
   if (talentData?.exp_max !== undefined) {
     return talentData.exp_max;
   }
@@ -356,7 +329,7 @@ const getTalentMaxExp = (talent: string): number => {
   const daoPath = daoData.value?.大道路径定义[talent];
   // 添加类型守卫，处理 daoPath 可能是数组或对象两种情况
   if (daoPath) {
-    // 如果 daoPath 不是数组，则假定它是一个包含“阶段列表”属性的对象
+    // 如果 daoPath 不是数组，则假定它是一个包含"阶段列表"属性的对象
     if (!Array.isArray(daoPath) && daoPath.阶段列表 && daoPath.阶段列表[currentStageIndex]) {
       return daoPath.阶段列表[currentStageIndex].突破经验 || 100;
     }
@@ -427,38 +400,14 @@ const showTalentDetail = (talent: string) => {
     return effect;
   });
 
-  modalData.value = {
+  // 构建详情内容文本
+  const effectsText = enhancedEffects.map((effect: string, index: number) => `${index + 1}. ${effect}`).join('\n');
+  const contentText = `${talentInfo.description}\n\n当前效果:\n${effectsText}\n\n感悟进度:\n- 当前等级: Lv.${level}\n- 经验进度: ${maxExp > 0 ? `${currentExp}/${maxExp} (${progress}%)` : '暂无进度数据'}\n- 最高等级: Lv.${talentInfo.maxLevel}`;
+
+  uiStore.showDetailModal({
     title: `${talent} (Lv.${level})`,
-    icon: '',
-    iconComponent: Sparkles,
-    content: [
-      {
-        type: 'text',
-        data: talentInfo.description
-      } as TextSection,
-      {
-        title: '当前效果',
-        type: 'table',
-        data: enhancedEffects.map((effect: string, index: number) => ({
-          label: `效果${index + 1}`,
-          value: effect
-        }))
-      } as TableSection,
-      {
-        title: '感悟进度',
-        type: 'table',
-        data: [
-          { label: '当前等级', value: `Lv.${level}` },
-          {
-            label: '经验进度',
-            value: maxExp > 0 ? `${currentExp}/${maxExp} (${progress}%)` : '暂无进度数据'
-          },
-          { label: '最高等级', value: `Lv.${talentInfo.maxLevel}` }
-        ]
-      } as TableSection
-    ]
-  };
-  showModal.value = true;
+    content: contentText
+  });
 };
 
 // 显示状态效果详情
@@ -515,17 +464,7 @@ const showStatusDetail = (effect: StatusEffect) => {
     });
   }
 
-  const content: (TextSection | ListSection | TableSection)[] = [];
-
-  // 添加描述
-  if (descriptionText) {
-    content.push({
-      type: 'text',
-      data: descriptionText
-    } as TextSection);
-  }
-
-  // 构建基本信息表格，显示更多信息
+  // 构建基本信息表格数据
   const tableData: { label: string; value: string | number }[] = [];
 
   // 状态类型
@@ -535,29 +474,27 @@ const showStatusDetail = (effect: StatusEffect) => {
   // 添加其他有效信息（包括已处理的时间信息）
   tableData.push(...additionalInfo);
 
-  // 只有当有数据时才添加表格
+  // 构建完整文本
+  let fullText = descriptionText;
+
   if (tableData.length > 0) {
-    content.push({
-      title: '基本信息',
-      type: 'table',
-      data: tableData
-    } as TableSection);
+    fullText += '\n\n基本信息:';
+    tableData.forEach(item => {
+      fullText += `\n- ${item.label}: ${item.value}`;
+    });
   }
 
-  modalData.value = {
+  uiStore.showDetailModal({
     title: effect.状态名称,
-    icon: '', // 不使用字符串图标
-    iconComponent: String(effect.类型).toLowerCase() === 'buff' ? Sparkles : AlertTriangle,
-    content
-  };
-  showModal.value = true;
+    content: fullText
+  });
 };
 
 // 显示境界：统一返回"境界+阶段"（初期/中期/后期/圆满），凡人不加阶段
-const formatRealmDisplay = (name?: string, _level?: number): string => {
-  const progress = playerStatus.value?.realm.progress;
-  const maxProgress = playerStatus.value?.realm.maxProgress;
-  const stage = playerStatus.value?.realm.stage;
+const formatRealmDisplay = (name?: string): string => {
+  const progress = playerStatus.value?.境界?.当前进度;
+  const maxProgress = playerStatus.value?.境界?.下一级所需;
+  const stage = playerStatus.value?.境界?.阶段;
   return formatRealmWithStage({ name, 阶段: stage, progress, maxProgress });
 };
 </script>

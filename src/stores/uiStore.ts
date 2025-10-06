@@ -10,6 +10,11 @@ interface RetryDialogConfig {
   cancelText?: string;  // 可选：自定义取消按钮文本
 }
 
+interface DetailModalConfig {
+  title: string;
+  content: string;
+}
+
 export const useUIStore = defineStore('ui', () => {
   const isLoading = ref(false);
   const loadingText = ref('');
@@ -18,6 +23,11 @@ export const useUIStore = defineStore('ui', () => {
   const retryDialogConfig = ref<RetryDialogConfig | null>(null);
   const wasLoadingBeforeDialog = ref(false); // 记录显示弹窗前的loading状态
   const showCharacterManagement = ref(false);
+
+  // --- 新增：通用详情弹窗状态 ---
+  const showDetailModalState = ref(false);
+  const detailModalTitle = ref('');
+  const detailModalContent = ref('');
 
   // --- 新增：数据验证错误弹窗状态 ---
   const showDataValidationError = ref(false);
@@ -142,6 +152,22 @@ export const useUIStore = defineStore('ui', () => {
     currentMessageStateChanges.value = null;
   }
 
+  // --- 新增：通用详情弹窗方法 ---
+  function showDetailModal(config: DetailModalConfig) {
+    detailModalTitle.value = config.title;
+    detailModalContent.value = config.content;
+    showDetailModalState.value = true;
+  }
+
+  function hideDetailModal() {
+    showDetailModalState.value = false;
+    // Optional: Reset content after hiding to prevent flash of old content
+    setTimeout(() => {
+      detailModalTitle.value = '';
+      detailModalContent.value = '';
+    }, 300); // Match transition duration
+  }
+
   return {
     isLoading,
     loadingText,
@@ -179,5 +205,12 @@ export const useUIStore = defineStore('ui', () => {
 
     // 暴露用户输入框内容
     userInputText,
+
+    // 暴露通用详情弹窗相关
+    showDetailModalState,
+    detailModalTitle,
+    detailModalContent,
+    showDetailModal,
+    hideDetailModal,
   };
 });

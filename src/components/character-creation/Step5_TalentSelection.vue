@@ -36,7 +36,7 @@
               <span class="talent-name">{{ talent.name }}</span>
               <span class="talent-cost">{{ talent.talent_cost }} 点</span>
             </div>
-            <div v-if="talent.source === 'cloud'" class="action-buttons">
+            <div v-if="talent.source === 'cloud' || talent.source === 'local'" class="action-buttons">
               <button @click.stop="openEditModal(talent)" class="edit-btn" title="编辑此项">
                 <Edit :size="14" />
               </button>

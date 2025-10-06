@@ -65,87 +65,55 @@ export function useTavernData() {
 
     if (chatVars) {
       const chat = (chatVars || {}) as Record<string, TavernVariableValue>
-      // 读取角色数据（优先从显式的 character 键，随后从 saveData.角色基础信息 回退）
-      const directCharacter = (chat['character'] ||
-                               chat['character.profile'] ||
-                               chat['character.baseInfo'] ||
-                               null) as TavernCharacterData | null
+      
+      // 强制使用分片数据结构，移除所有兼容性逻辑
+      console.log('[酒馆数据] 正在从分片变量组装存档...')
 
-      // 读取存档数据 - 支持新旧格式
-      // 优先使用分片格式，回退到旧的 character.saveData
-      let rawSaveData: SaveData | Record<string, TavernVariableValue>
+      const 属性 = chat['属性'] as any;
+      const assembledSaveData: SaveData = {
+        角色基础信息: chat['基础信息'],
+        玩家角色状态: {
+          境界: chat['境界'],
+          声望: chat['声望'] || 0, // 允许回退
+          位置: chat['位置'] || { 描述: '未知', x: 0, y: 0 },
+          气血: 属性?.气血,
+          灵气: 属性?.灵气,
+          神识: 属性?.神识,
+          寿命: 属性?.寿命,
+          状态效果: chat['状态效果'] || []
+        },
+        修炼功法: chat['修炼功法'],
+        掌握技能: chat['掌握技能'] || [],
+        装备栏: chat['装备栏'],
+        背包: {
+          灵石: chat['背包_灵石'],
+          物品: chat['背包_物品']
+        },
+        人物关系: chat['人物关系'] || {},
+        三千大道: chat['三千大道'] || { 已解锁大道: [], 大道进度: {}, 大道路径定义: {} },
+        世界信息: chat['世界信息'],
+        记忆: {
+          短期记忆: chat['记忆_短期'] || [],
+          中期记忆: chat['记忆_中期'] || [],
+          长期记忆: chat['记忆_长期'] || [],
+          隐式中期记忆: chat['记忆_隐式中期'] || []
+        },
+        游戏时间: chat['游戏时间'],
+        // 确保所有字段都被正确赋值
+      } as SaveData;
 
-      if (chat['基础信息'] || chat['境界'] || chat['属性']) {
-        // 新格式：从分片变量组装
-        console.log('[酒馆数据] 检测到分片格式存档，正在组装...')
-        rawSaveData = {
-          角色基础信息: chat['基础信息'],
-          玩家角色状态: {
-            境界: chat['境界'],
-            声望: 0,
-            位置: chat['位置'] || { 描述: '未知', x: 0, y: 0 },
-            气血: chat['属性']?.气血,
-            灵气: chat['属性']?.灵气,
-            神识: chat['属性']?.神识,
-            寿命: chat['属性']?.寿命,
-            状态效果: chat['状态效果'] || []
-          },
-          修炼功法: chat['修炼功法'],
-          掌握技能: chat['掌握技能'] || [],
-          装备栏: chat['装备栏'],
-          背包: {
-            灵石: chat['背包_灵石'],
-            物品: chat['背包_物品']
-          },
-          人物关系: chat['人物关系'] || {},
-          三千大道: chat['三千大道'] || { 已解锁大道: [], 大道进度: {}, 大道路径定义: {} },
-          世界信息: chat['世界信息'],
-          记忆: {
-            短期记忆: chat['记忆_短期'] || [],
-            中期记忆: chat['记忆_中期'] || [],
-            长期记忆: chat['记忆_长期'] || [],
-            隐式中期记忆: chat['记忆_隐式中期'] || []
-          },
-          游戏时间: chat['游戏时间'],
-          宗门系统: { availableSects: [], sectRelationships: {}, sectHistory: [] }
-        } as SaveData
+      saveData.value = assembledSaveData
+
+      // 其他数据也直接从分片或顶层变量派生
+      worldInfo.value = (chat['世界信息'] || null) as TavernWorldInfo | null
+      memoryData.value = (assembledSaveData.记忆 || null) as Memory | null
+      
+      // 角色数据直接从 `基础信息` 分片构建
+      const baseInfo = assembledSaveData.角色基础信息
+      if (baseInfo && typeof baseInfo === 'object') {
+        characterData.value = { ...baseInfo, name: baseInfo.名字 } as TavernCharacterData
       } else {
-        // 旧格式：直接读取 character.saveData
-        rawSaveData = (chat['character.saveData'] || {}) as SaveData | Record<string, TavernVariableValue>
-      }
-
-      saveData.value = rawSaveData
-
-      // 从存档解析世界与记忆
-      if (rawSaveData && typeof rawSaveData === 'object') {
-        const saveDataObj = rawSaveData as Record<string, TavernVariableValue>
-        worldInfo.value = (saveDataObj['世界信息'] ||
-                         saveDataObj['worldInfo'] ||
-                         chat['worldInfo'] ||
-                         chat['world.info'] ||
-                         null) as TavernWorldInfo | null
-
-        memoryData.value = (saveDataObj['记忆'] ||
-                          saveDataObj['memory'] ||
-                          chat['memory'] ||
-                          chat['character.memory'] ||
-                          null) as Memory | null
-      } else {
-        worldInfo.value = (chat['worldInfo'] || chat['world.info'] || null) as TavernWorldInfo | null
-        memoryData.value = (chat['memory'] || chat['character.memory'] || null) as Memory | null
-      }
-
-      // 若没有显式的 character 数据，但存档里有 角色基础信息，则回退使用它
-      if (!directCharacter && rawSaveData && typeof rawSaveData === 'object') {
-        const baseInfo = (rawSaveData as any)['角色基础信息']
-        if (baseInfo && typeof baseInfo === 'object') {
-          // 兼容显示组件：补充一个 name 字段
-          characterData.value = { ...baseInfo, name: (baseInfo.名字 ?? (baseInfo as any).name) }
-        } else {
-          characterData.value = null
-        }
-      } else {
-        characterData.value = directCharacter
+        characterData.value = null
       }
     }
   }

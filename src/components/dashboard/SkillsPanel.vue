@@ -76,201 +76,131 @@
       </div>
     </div>
 
-    <!-- 功法详情侧边栏 -->
-    <div class="skill-details-sidebar">
+    <!-- 功法详情侧边栏 - 重写 -->
+    <div class="skill-details-sidebar" :class="{ 'no-selection': !selectedSkillData }">
       <div v-if="selectedSkillData" class="skill-details-content">
-        <div class="details-header">
-          <div class="details-icon-large" :class="getSkillQualityClass(selectedSkillData)">
-            <span class="skill-type-text-large">{{ getSkillTypeIcon(selectedSkillSlot) }}</span>
+        <!-- 顶部信息卡片 -->
+        <div class="details-card" :class="getSkillQualityClass(selectedSkillData)">
+          <div class="card-bg-glow"></div>
+          <div class="card-header">
+            <div class="details-icon-large" :class="getSkillQualityClass(selectedSkillData)">
+              <span class="skill-type-text-large">{{ getSkillTypeIcon(selectedSkillSlot) }}</span>
+            </div>
+            <div class="details-title-area">
+              <h3 :class="getSkillQualityClass(selectedSkillData, 'text')">{{ (selectedSkillData as { 名称: string }).名称 }}</h3>
+              <div class="details-meta">
+                <span class="meta-tag type-tag">{{ selectedSkillSlot }}</span>
+                <span class="meta-tag quality-tag" :class="getSkillQualityClass(selectedSkillData, 'text')">
+                  {{ ((selectedSkillData as { 品质?: { quality?: string } }).品质?.quality || '凡') }}品{{ ((selectedSkillData as { 品质?: { grade?: number } }).品质?.grade || 0) }}级
+                </span>
+              </div>
+            </div>
           </div>
-          <div class="details-title-area">
-            <h3 :class="getSkillQualityClass(selectedSkillData, 'text')">{{ (selectedSkillData as { 名称: string }).名称 }}</h3>
-            <div class="details-meta">{{ selectedSkillSlot }} / {{ ((selectedSkillData as { 品质?: { quality?: string } }).品质?.quality || '凡品') }}</div>
-          </div>
+          <p class="details-description">{{ (selectedSkillData as { 描述?: string }).描述 }}</p>
         </div>
 
+        <!-- 标签页导航 -->
+        <div class="details-tabs">
+          <button class="tab-btn" :class="{ active: activeTab === 'effects' }" @click="activeTab = 'effects'">功法效果</button>
+          <button class="tab-btn" :class="{ active: activeTab === 'skills' }" @click="activeTab = 'skills'">功法技能</button>
+          <button v-if="selectedSkillSlot === '功法'" class="tab-btn" :class="{ active: activeTab === 'overview' }" @click="activeTab = 'overview'">修炼概览</button>
+        </div>
+
+        <!-- 标签页内容 -->
         <div class="details-body">
-          <p class="details-description">{{ (selectedSkillData as { 描述?: string }).描述 }}</p>
-
-          <!-- 修炼概览 -->
-          <div v-if="selectedSkillSlot === '功法'" class="overview-section">
-            <h4>修炼概览:</h4>
-            <div class="overview-grid">
-              <div class="overview-item">
-                <span class="label">熟练度</span>
-                <div class="value with-bar">
-                  <ProgressBar v-bind="{ value: Math.min(100, Math.max(0, cultivationSkills.熟练度 || 0)), max: 100, size: 'sm', showLabel: false }" />
-                  <span class="num">{{ Math.min(100, Math.max(0, cultivationSkills.熟练度 || 0)).toFixed(0) }}%</span>
-                </div>
-              </div>
-              <div class="overview-item">
-                <span class="label">修炼时间</span>
-                <span class="value">{{ formatHoursToReadable(cultivationSkills.修炼时间 || 0) }}</span>
-              </div>
-              <div class="overview-item">
-                <span class="label">突破次数</span>
-                <span class="value">{{ cultivationSkills.突破次数 || 0 }}</span>
-              </div>
-              <div class="overview-item" v-if="(selectedSkillData as { 功法技能?: Record<string, unknown> }).功法技能">
-                <span class="label">技能掌握</span>
-                <span class="value">{{ (cultivationSkills.已解锁技能?.length || 0) }} / {{ Object.keys(((selectedSkillData as { 功法技能?: Record<string, unknown> }).功法技能 || {})).length }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- 功法等级 -->
-          <div class="technique-level-section">
-            <h4>功法品质:</h4>
-            <div class="quality-display" :class="getSkillQualityClass(selectedSkillData, 'text')">
-              {{ ((selectedSkillData as { 品质?: { quality?: string } }).品质?.quality || '凡') }}品{{ ((selectedSkillData as { 品质?: { grade?: number } }).品质?.grade || 0) }}级
-            </div>
-          </div>
-
-          <!-- 修炼进度 -->
-          <div v-if="selectedSkillSlot === '功法' && cultivationSkills.功法" class="cultivation-progress-section">
-            <h4>修炼进度:</h4>
-            <div class="progress-container">
-              <ProgressBar
-              v-bind="{
-                value: Math.min(100, Math.max(0, (selectedSkillData as { 熟练度?: number }).熟练度 || cultivationSkills.熟练度 || 0)),
-                max: 100,
-                size: 'lg',
-                showLabel: true
-              }"
-              />
-            </div>
-          </div>
-
           <!-- 功法效果 -->
-          <div v-if="(selectedSkillData as { 功法效果?: unknown }).功法效果" class="skill-effects-section">
-            <h4>功法效果:</h4>
-            <div class="effect-details">
-              <div v-if="((selectedSkillData as { 功法效果?: { 修炼速度加成?: number } }).功法效果 as { 修炼速度加成?: number })?.修炼速度加成" class="effect-item">
-                <span class="effect-label">修炼速度:</span>
-                <span class="effect-value">+{{ (((selectedSkillData as { 功法效果?: { 修炼速度加成?: number } }).功法效果 as { 修炼速度加成?: number })?.修炼速度加成! * 100).toFixed(0) }}%</span>
-              </div>
-              <div v-if="((selectedSkillData as { 功法效果?: { 属性加成?: unknown } }).功法效果 as { 属性加成?: unknown })?.属性加成" class="effect-item">
-                <span class="effect-label">属性加成:</span>
-                <span class="effect-value">{{ formatAttributeBonus(((selectedSkillData as { 功法效果?: { 属性加成?: unknown } }).功法效果 as { 属性加成?: unknown })?.属性加成) }}</span>
-              </div>
-              <div v-if="((selectedSkillData as { 功法效果?: { 特殊能力?: string[] } }).功法效果 as { 特殊能力?: string[] })?.特殊能力?.length" class="effect-item">
-                <span class="effect-label">特殊能力:</span>
-                <div class="special-abilities">
-                  <span v-for="ability in ((selectedSkillData as { 功法效果?: { 特殊能力?: string[] } }).功法效果 as { 特殊能力?: string[] })?.特殊能力" :key="ability" class="ability-tag">
-                    {{ ability }}
-                  </span>
+          <div v-if="activeTab === 'effects'" class="tab-content">
+            <div v-if="(selectedSkillData as { 功法效果?: unknown }).功法效果" class="skill-effects-section">
+              <div class="effect-details">
+                <div v-if="((selectedSkillData as { 功法效果?: { 修炼速度加成?: number } }).功法效果 as { 修炼速度加成?: number })?.修炼速度加成" class="effect-item">
+                  <span class="effect-label">修炼速度</span>
+                  <span class="effect-value">+{{ (((selectedSkillData as { 功法效果?: { 修炼速度加成?: number } }).功法效果 as { 修炼速度加成?: number })?.修炼速度加成! * 100).toFixed(0) }}%</span>
+                </div>
+                <div v-if="((selectedSkillData as { 功法效果?: { 属性加成?: unknown } }).功法效果 as { 属性加成?: unknown })?.属性加成" class="effect-item">
+                  <span class="effect-label">属性加成</span>
+                  <span class="effect-value">{{ formatAttributeBonus(((selectedSkillData as { 功法效果?: { 属性加成?: unknown } }).功法效果 as { 属性加成?: unknown })?.属性加成) }}</span>
+                </div>
+                <div v-if="((selectedSkillData as { 功法效果?: { 特殊能力?: string[] } }).功法效果 as { 特殊能力?: string[] })?.特殊能力?.length" class="effect-item">
+                  <span class="effect-label">特殊能力</span>
+                  <div class="special-abilities">
+                    <span v-for="ability in ((selectedSkillData as { 功法效果?: { 特殊能力?: string[] } }).功法效果 as { 特殊能力?: string[] })?.特殊能力" :key="ability" class="ability-tag">
+                      {{ ability }}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
+            <div v-else class="empty-tab">此功法无特殊效果</div>
           </div>
 
           <!-- 功法技能 -->
-          <div v-if="(selectedSkillData as { 功法技能?: Record<string, unknown> }).功法技能 && Object.keys((selectedSkillData as { 功法技能?: Record<string, unknown> }).功法技能!).length > 0" class="technique-skills-section">
-            <h4>功法技能:</h4>
-            <div class="skills-list">
-              <div v-for="(skill, skillName) in (selectedSkillData as { 功法技能?: Record<string, unknown> }).功法技能" :key="skillName" class="skill-item">
-                <div class="skill-header">
-                  <span class="skill-name">{{ (skill as TechniqueSkill).技能名称 || skillName }}</span>
-                  <span class="skill-type type-功法技能">功法技能</span>
+          <div v-if="activeTab === 'skills'" class="tab-content">
+            <div v-if="(selectedSkillData as { 功法技能?: Record<string, unknown> }).功法技能 && Object.keys((selectedSkillData as { 功法技能?: Record<string, unknown> }).功法技能!).length > 0" class="technique-skills-section">
+              <div class="skills-list">
+                <div v-for="(skill, skillName) in (selectedSkillData as { 功法技能?: Record<string, unknown> }).功法技能" :key="skillName" class="skill-item">
+                  <div class="skill-header">
+                    <span class="skill-name">{{ (skill as TechniqueSkill).技能名称 || skillName }}</span>
+                    <div v-if="unlockedSkillsMap.has(String(skillName))" class="skill-status unlocked">已掌握</div>
+                    <div v-else class="skill-status locked">未掌握</div>
+                  </div>
+                  <div class="skill-description">{{ (skill as TechniqueSkill).技能描述 }}</div>
                 </div>
-                <div class="skill-description">{{ (skill as TechniqueSkill).技能描述 }}</div>
-                <div v-if="unlockedSkillsMap.has(String(skillName))" class="skill-status unlocked">已解锁</div>
-                <div v-else class="skill-status locked">未解锁</div>
+              </div>
+            </div>
+            <div v-else class="empty-tab">此功法无附加技能</div>
+          </div>
+
+          <!-- 修炼概览 -->
+          <div v-if="activeTab === 'overview' && selectedSkillSlot === '功法'" class="tab-content">
+            <div class="overview-section">
+              <div class="overview-grid">
+                <div class="overview-item">
+                  <span class="label">修炼进度</span>
+                  <div class="value with-bar">
+                    <ProgressBar v-bind="{ value: Math.min(100, Math.max(0, (cultivationSkills.功法 as { 修炼进度?: number }).修炼进度 || 0)), max: 100, size: 'sm', showLabel: false }" />
+                    <span class="num">{{ Math.min(100, Math.max(0, (cultivationSkills.功法 as { 修炼进度?: number }).修炼进度 || 0)).toFixed(0) }}%</span>
+                  </div>
+                </div>
+                <div class="overview-item">
+                  <span class="label">已修炼</span>
+                  <span class="value">{{ formatHoursToReadable(cultivationSkills.修炼时间 || 0) }}</span>
+                </div>
               </div>
             </div>
           </div>
-
-          <!-- 已解锁技能 -->
-          <div v-if="selectedSkillSlot === '功法' && cultivationSkills.已解锁技能?.length" class="unlocked-skills-section">
-            <h4>已掌握技能:</h4>
-            <div class="unlocked-skills">
-              <span v-for="skill in cultivationSkills.已解锁技能" :key="skill" class="unlocked-skill-tag">
-                {{ skill }}
-              </span>
-            </div>
-          </div>
         </div>
 
+        <!-- 底部操作按钮 -->
         <div class="details-actions">
           <button v-if="selectedSkillSlot === '功法'" class="action-btn cultivate-btn" @click="showCultivationDialog">深度修炼</button>
-          <button v-if="selectedSkillSlot === '功法'" class="action-btn unequip-btn" @click="unequipSkill">卸下功法</button>
-          <button v-if="selectedSkillSlot === '背包功法'" class="action-btn equip-btn" @click="equipTechnique">装备修炼</button>
+          <button v-if="selectedSkillSlot === '功法'" class="action-btn unequip-btn" @click="unequipSkill">卸下</button>
+          <button v-if="selectedSkillSlot === '背包功法'" class="action-btn equip-btn" @click="equipTechnique">装备</button>
         </div>
       </div>
       <div v-else class="details-placeholder">
-        <div class="placeholder-icon">🧘</div>
-        <p>选择功法查看详情</p>
-        <span class="placeholder-tip">点击功法卡片查看详细信息</span>
+        <div class="placeholder-icon">📜</div>
+        <p>选择一部功法</p>
+        <span class="placeholder-tip">点击左侧功法以查看其玄妙</span>
       </div>
     </div>
 
     <!-- 深度修炼对话框 -->
-    <div v-if="showDialog" class="dialog-overlay" @click="closeDialog">
-      <div class="cultivation-dialog" @click.stop>
-        <div class="dialog-header">
-          <h3>深度修炼 - {{ (selectedSkillData as { 名称: string })?.名称 }}</h3>
-          <button class="dialog-close" @click="closeDialog">×</button>
-        </div>
-
-        <div class="dialog-content">
-          <div class="cultivation-time-input">
-            <h4>修炼时长:</h4>
-            <div class="time-input-group">
-              <div class="input-row">
-                <label>年：</label>
-                <input
-                  type="number"
-                  v-model.number="inputYears"
-                  min="0"
-                  max="100"
-                  class="time-input"
-                />
-                <label>天：</label>
-                <input
-                  type="number"
-                  v-model.number="inputDays"
-                  min="0"
-                  max="365"
-                  class="time-input"
-                />
-              </div>
-              <div class="time-total">
-                总计：{{ getTotalDays() }} 天
-              </div>
-            </div>
-          </div>
-
-          <div class="cultivation-preview" v-if="getTotalDays() > 0">
-            <h4>预期收益</h4>
-            <div class="preview-stats">
-              <div class="stat-item">
-                <span class="stat-label">修炼进度增长：</span>
-                <span class="stat-value">+{{ calculateProgressGain(getTotalDays()) }}%</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">熟练度提升：</span>
-                <span class="stat-value">+{{ calculateProficiencyGain(getTotalDays()) }}%</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="dialog-actions">
-          <button class="dialog-btn cancel-btn" @click="closeDialog">取消</button>
-          <button class="dialog-btn confirm-btn" @click="startCultivation" :disabled="getTotalDays() <= 0">
-            开始修炼
-          </button>
-        </div>
-      </div>
-    </div>
+    <DeepCultivationModal
+      :visible="showDialog"
+      :technique="selectedSkillData as TechniqueItem"
+      :current-progress="getCultivationProgress()"
+      @close="closeDialog"
+      @confirm="handleCultivationConfirm"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { useCharacterStore } from '@/stores/characterStore';
+import { useUnifiedCharacterData } from '@/composables/useCharacterData';
 import { useUIStore } from '@/stores/uiStore';
 import ProgressBar from '@/components/common/ProgressBar.vue';
+import DeepCultivationModal from '@/components/common/DeepCultivationModal.vue';
 import type { Item, TechniqueItem } from '@/types/game';
 
 // 定义功法技能接口（简化版本：只包含名称和描述）
@@ -279,25 +209,26 @@ interface TechniqueSkill {
   技能描述: string;
 }
 
-const characterStore = useCharacterStore();
+const { characterData, saveData } = useUnifiedCharacterData();
 const uiStore = useUIStore();
 const selectedSkillData = ref<unknown | null>(null);
 const selectedSkillSlot = ref<string>('');
+const activeTab = ref('effects'); // 新增：控制标签页显示
 
 // 深度修炼对话框状态
 const showDialog = ref(false);
-const inputYears = ref(0);
-const inputDays = ref(0);
 
-// 计算总天数
-const getTotalDays = (): number => {
-  return (inputYears.value || 0) * 365 + (inputDays.value || 0);
+// 获取当前修炼进度
+const getCultivationProgress = (): number => {
+  const currentSaveData = saveData.value;
+  if (!currentSaveData?.修炼功法) return 0;
+  return currentSaveData.修炼功法.修炼进度 || 0;
 };
 
 // 初始化修炼功法数据的辅助函数
-const initializeCultivationSkills = async (saveData: { 修炼功法?: unknown }) => {
-  if (!saveData.修炼功法) {
-    saveData.修炼功法 = {
+const initializeCultivationSkills = async (currentSaveData: { 修炼功法?: unknown }) => {
+  if (!currentSaveData.修炼功法) {
+    currentSaveData.修炼功法 = {
       功法: null,
       熟练度: 0,
       已解锁技能: [],
@@ -308,6 +239,8 @@ const initializeCultivationSkills = async (saveData: { 修炼功法?: unknown })
     };
     try {
       // 异步保存，不阻塞界面
+      const { useCharacterStore } = await import('@/stores/characterStore');
+      const characterStore = useCharacterStore();
       await characterStore.syncToTavernAndSave();
     } catch (err) {
       console.error('[技能面板] 初始化修炼功法数据失败:', err);
@@ -317,9 +250,9 @@ const initializeCultivationSkills = async (saveData: { 修炼功法?: unknown })
 
 // 修炼功法数据
 const cultivationSkills = computed(() => {
-  const saveData = characterStore.activeSaveSlot?.存档数据;
+  const currentSaveData = saveData.value;
 
-  if (!saveData) {
+  if (!currentSaveData) {
     return {
       功法: null,
       熟练度: 0,
@@ -335,9 +268,9 @@ const cultivationSkills = computed(() => {
   // 注意：这个调用是异步的，但我们不希望在这里 await 它，
   // 因为它的目的是在后台更新数据，而不是阻塞UI渲染。
   // Pinia 的响应性会处理UI更新。
-  initializeCultivationSkills(saveData);
+  initializeCultivationSkills(currentSaveData);
 
-  return saveData.修炼功法 || {
+  return currentSaveData.修炼功法 || {
     功法: null,
     熟练度: 0,
     已解锁技能: [],
@@ -350,8 +283,7 @@ const cultivationSkills = computed(() => {
 
 // 背包中的功法物品
 const inventoryTechniques = computed(() => {
-  const saveData = characterStore.activeSaveSlot?.存档数据;
-  const inventory = saveData?.背包?.物品;
+  const inventory = characterData.value?.背包_物品;
 
   if (!inventory) return [];
 
@@ -425,16 +357,23 @@ const showCultivationDialog = () => {
   if (!selectedSkillData.value || !selectedSkillSlot.value) {
     return;
   }
-  inputYears.value = 0;
-  inputDays.value = 0;
   showDialog.value = true;
 };
 
 // 关闭对话框
 const closeDialog = () => {
   showDialog.value = false;
-  inputYears.value = 0;
-  inputDays.value = 0;
+};
+
+// 处理深度修炼确认
+const handleCultivationConfirm = async (totalDays: number) => {
+  showDialog.value = false;
+
+  if (!selectedSkillData.value) {
+    return;
+  }
+
+  await startCultivation(totalDays);
 };
 
 // 计算修炼进度增长
@@ -475,8 +414,7 @@ const formatHoursToReadable = (hours: number): string => {
 };
 
 // 开始修炼
-const startCultivation = async () => {
-  const totalDays = getTotalDays();
+const startCultivation = async (totalDays: number) => {
   if (totalDays <= 0 || !selectedSkillData.value) {
     return;
   }
@@ -489,8 +427,9 @@ const startCultivation = async () => {
     console.log(`[技能面板] 开始${totalDays}天深度修炼:`, skillData.名称);
 
     // 更新存档数据
-    if (characterStore.activeSaveSlot?.存档数据?.修炼功法) {
-      const skillSlots = characterStore.activeSaveSlot.存档数据.修炼功法;
+    const currentSaveData = saveData.value;
+    if (currentSaveData?.修炼功法) {
+      const skillSlots = currentSaveData.修炼功法;
       if (skillSlots.功法) {
         // 更新功法修炼进度（修炼进度在 CultivationTechniqueData 上，不在功法对象上）
         const currentProgress = skillSlots.修炼进度 || 0;
@@ -524,10 +463,8 @@ const startCultivation = async () => {
         }
 
         // 更新游戏时间
-        const saveData = characterStore.activeSaveSlot.存档数据;
-        if (saveData?.游戏时间) {
-          const currentTime = saveData.游戏时间;
-
+        const currentTime = characterData.value?.游戏时间;
+        if (currentTime) {
           // 添加天数到游戏时间
           currentTime.日 += totalDays;
 
@@ -542,6 +479,9 @@ const startCultivation = async () => {
           }
         }
 
+        // 使用动态导入保存数据
+        const { useCharacterStore } = await import('@/stores/characterStore');
+        const characterStore = useCharacterStore();
         await characterStore.syncToTavernAndSave();
         console.log(`[技能面板] ${totalDays}天修炼完成，进度提升${progressGain}%，熟练度提升${proficiencyGain}%`);
       }
@@ -574,15 +514,15 @@ const equipTechnique = async () => {
 
   try {
     // 检查存档数据是否存在
-    const saveData = characterStore.activeSaveSlot?.存档数据;
-    if (!saveData) {
+    const currentSaveData = saveData.value;
+    if (!currentSaveData) {
       console.error('[技能面板] 存档数据不存在');
       return;
     }
 
     // 确保修炼功法数据结构存在
-    if (!saveData.修炼功法) {
-      saveData.修炼功法 = {
+    if (!currentSaveData.修炼功法) {
+      currentSaveData.修炼功法 = {
         功法: null,
         熟练度: 0,
         已解锁技能: [],
@@ -593,7 +533,7 @@ const equipTechnique = async () => {
       };
     }
 
-    const skillSlots = saveData.修炼功法;
+    const skillSlots = currentSaveData.修炼功法;
 
     // 检查是否已经在修炼其他功法
     if (skillSlots.功法 && (skillSlots.功法 as { 物品ID?: string }).物品ID !== technique.物品ID) {
@@ -613,8 +553,8 @@ const equipTechnique = async () => {
             功法效果?: unknown;
             功法技能?: unknown;
           };
-          if (prev?.物品ID && saveData.背包?.物品) {
-            saveData.背包.物品[prev.物品ID] = {
+          if (prev?.物品ID && currentSaveData.背包?.物品) {
+            currentSaveData.背包.物品[prev.物品ID] = {
               物品ID: prev.物品ID,
               名称: prev.名称,
               类型: '功法' as const,
@@ -658,9 +598,9 @@ const unequipSkill = async () => {
     cancelText: '取消',
     onConfirm: async () => {
       try {
-        const saveData = characterStore.activeSaveSlot?.存档数据;
-        if (saveData?.修炼功法) {
-          const skillSlots = saveData.修炼功法;
+        const currentSaveData = saveData.value;
+        if (currentSaveData?.修炼功法) {
+          const skillSlots = currentSaveData.修炼功法;
           const currentSkill = skillSlots.功法 as {
             物品ID?: string;
             名称: string;
@@ -670,14 +610,14 @@ const unequipSkill = async () => {
             功法效果?: unknown;
             功法技能?: unknown;
           };
-          
+
           // 将功法放回背包
-          if (currentSkill && saveData.背包) {
-            if (!saveData.背包.物品) {
-              saveData.背包.物品 = {};
+          if (currentSkill && currentSaveData.背包) {
+            if (!currentSaveData.背包.物品) {
+              currentSaveData.背包.物品 = {};
             }
             const itemId = currentSkill.物品ID || `功法_${currentSkill.名称}`;
-            saveData.背包.物品[itemId] = {
+            currentSaveData.背包.物品[itemId] = {
               物品ID: itemId,
               名称: currentSkill.名称,
               类型: '功法' as const,
@@ -689,12 +629,16 @@ const unequipSkill = async () => {
             } as TechniqueItem;
             console.log('[技能面板] 功法已放回背包:', currentSkill.名称);
           }
-          
+
           // 清空功法槽位
           skillSlots.功法 = null;
+
+          // 使用动态导入保存数据
+          const { useCharacterStore } = await import('@/stores/characterStore');
+          const characterStore = useCharacterStore();
           await characterStore.syncToTavernAndSave();
           console.log('[技能面板] 功法卸下成功');
-          
+
           // 清空选择状态
           selectedSkillData.value = null;
           selectedSkillSlot.value = '';
@@ -718,9 +662,9 @@ const finalizeEquipTechnique = async (technique: {
   功法效果?: unknown;
   功法技能?: unknown;
 }) => {
-  const saveData = characterStore.activeSaveSlot?.存档数据;
-  if (!saveData?.修炼功法) return;
-  const skillSlots = saveData.修炼功法;
+  const currentSaveData = saveData.value;
+  if (!currentSaveData?.修炼功法) return;
+  const skillSlots = currentSaveData.修炼功法;
 
   // 功法字段只保存引用信息
   skillSlots.功法 = {
@@ -738,10 +682,13 @@ const finalizeEquipTechnique = async (technique: {
   if (!skillSlots.熟练度) skillSlots.熟练度 = 0;
   if (!skillSlots.已解锁技能) skillSlots.已解锁技能 = [];
 
-  if (saveData.背包?.物品 && technique.物品ID) {
-    delete saveData.背包.物品[technique.物品ID];
+  if (currentSaveData.背包?.物品 && technique.物品ID) {
+    delete currentSaveData.背包.物品[technique.物品ID];
   }
 
+  // 使用动态导入保存数据
+  const { useCharacterStore } = await import('@/stores/characterStore');
+  const characterStore = useCharacterStore();
   await characterStore.syncToTavernAndSave();
   console.log('[技能面板] 功法装备成功:', technique.名称);
   selectedSkillData.value = skillSlots.功法;
@@ -752,6 +699,9 @@ onMounted(async () => {
   console.log('[技能面板] 组件挂载，同步酒馆数据...');
 
   try {
+    // 使用动态导入同步数据
+    const { useCharacterStore } = await import('@/stores/characterStore');
+    const characterStore = useCharacterStore();
     await characterStore.syncFromTavern();
   } catch (error) {
     console.error('[技能面板] 同步数据失败:', error);
@@ -939,25 +889,62 @@ onMounted(async () => {
 
 /* 详情侧边栏 */
 .skill-details-sidebar {
-  width: 320px;
+  width: 380px; /* 增加宽度以容纳新设计 */
   border-left: 1px solid var(--color-border);
-  background: var(--color-surface);
+  background: var(--color-background); /* 改为背景色 */
   display: flex;
   flex-direction: column;
+  transition: all 0.3s ease;
+}
+
+.skill-details-sidebar.no-selection {
+  background: var(--color-surface);
 }
 
 .skill-details-content {
   height: 100%;
   display: flex;
   flex-direction: column;
+  padding: 20px; /* 统一内边距 */
+  gap: 16px; /* 模块间距 */
 }
 
-.details-header {
-  padding: 20px;
-  border-bottom: 1px solid var(--color-border);
+/* 新增：顶部信息卡片 */
+.details-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.card-bg-glow {
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(var(--color-primary-rgb), 0.1) 0%, transparent 40%);
+  animation: rotate-glow 10s linear infinite;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.details-card:hover .card-bg-glow {
+  opacity: 1;
+}
+
+@keyframes rotate-glow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.card-header {
   display: flex;
   align-items: center;
   gap: 16px;
+  margin-bottom: 12px;
 }
 
 .details-icon-large {
@@ -980,26 +967,101 @@ onMounted(async () => {
 
 .details-title-area h3 {
   margin: 0;
-  font-size: 1.1rem;
-  font-weight: 600;
+  font-size: 1.2rem; /* 增大字体 */
+  font-weight: 700; /* 加粗 */
 }
 
 .details-meta {
-  font-size: 0.85rem;
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.meta-tag {
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 12px;
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
+}
+
+.meta-tag.quality-tag {
+  background: rgba(var(--quality-color-rgb), 0.1);
+  border-color: rgba(var(--quality-color-rgb), 0.3);
+  color: var(--quality-color);
+}
+
+.text-quality-神 { --quality-color-rgb: 239, 68, 68; --quality-color: #ef4444; }
+.text-quality-仙 { --quality-color-rgb: 245, 158, 11; --quality-color: #f59e0b; }
+.text-quality-天 { --quality-color-rgb: 139, 92, 246; --quality-color: #8b5cf6; }
+.text-quality-地 { --quality-color-rgb: 59, 130, 246; --quality-color: #3b82f6; }
+.text-quality-人 { --quality-color-rgb: 16, 185, 129; --quality-color: #10b981; }
+.text-quality-凡 { --quality-color-rgb: 107, 114, 128; --quality-color: #6b7280; }
+
+
+.details-description {
   color: var(--color-text-secondary);
-  margin-top: 4px;
+  line-height: 1.6;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+/* 新增：标签页系统 */
+.details-tabs {
+  display: flex;
+  background: var(--color-surface);
+  border-radius: 8px;
+  padding: 4px;
+  border: 1px solid var(--color-border);
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  transition: all 0.2s ease;
+}
+
+.tab-btn.active {
+  background: var(--color-primary);
+  color: white;
+  box-shadow: 0 2px 8px rgba(var(--color-primary-rgb), 0.3);
+}
+
+.tab-btn:not(.active):hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
 }
 
 .details-body {
   flex: 1;
-  padding: 20px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 16px;
   overflow-y: auto;
 }
 
-.details-description {
-  color: var(--color-text);
-  line-height: 1.6;
-  margin-bottom: 20px;
+.tab-content {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.empty-tab {
+  text-align: center;
+  color: var(--color-text-secondary);
+  padding: 24px;
+  font-style: italic;
 }
 
 /* 修炼概览 */

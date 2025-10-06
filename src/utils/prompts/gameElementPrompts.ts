@@ -29,7 +29,13 @@ export const TALENT_TIER_ITEM_GENERATION_PROMPT = `${ROLE_PLAY_INSTRUCTION}
 
 ## JSON输出格式
 \`\`\`json
-{"name":"天资名称","description":"描述...","total_points":数字,"rarity":数字,"color":"#颜色"}
+{
+  "name": "天资名称",         // 名称: 体现层次感, 如“凡夫俗子”、“天生灵秀”
+  "description": "描述...",      // 描述: 对该天资等级的详细说明
+  "total_points": "数字",      // 总点数: 10-50, 用于分配给先天六司和购买天赋
+  "rarity": "数字",            // 稀有度: 1-5, 1最常见, 5为传说级
+  "color": "#颜色"             // 颜色: 用于UI显示的十六进制颜色代码
+}
 \`\`\`
 `;
 
@@ -39,11 +45,24 @@ export const ORIGIN_ITEM_GENERATION_PROMPT = `${ROLE_PLAY_INSTRUCTION}
 ## 要求：
 1. 名称：修仙世界特色（如：书香门第、江湖游侠）
 2. 描述：详细背景故事
-3. 效果：具体游戏效果
+3. 天道点消耗 (talent_cost): 0-10点，背景越强消耗越高
+4. 稀有度 (rarity): 1-5 (1常见, 5传说)
+5. 属性加成 (attribute_modifiers): 为先天六司（根骨、灵性、悟性、气运、魅力、心性）提供加成，总加成值不超过5点。
+6. 背景效果 (effects): 1-2个独特的背景效果描述。
 
 ## JSON输出格式
 \`\`\`json
-{"name":"出身名称","description":"详细描述...","effects":["效果1","效果2"]}
+{
+  "name": "出身名称",         // 名称: 具有修仙世界特色, 如“书香门第”
+  "description": "详细描述...",  // 描述: 详细的背景故事
+  "talent_cost": "数字",       // 天道点消耗: 0-10点, 背景越强消耗越高
+  "rarity": "数字",            // 稀有度: 1-5, 1最常见, 5为传说级
+  "attribute_modifiers": {   // 属性加成: 为先天六司提供数值加成, 总和不超过5
+    "根骨": 1,
+    "气运": 1
+  },
+  "effects": ["效果1", "效果2"] // 背景效果: 1-2个独特的文本效果描述
+}
 \`\`\`
 `;
 
@@ -58,7 +77,16 @@ export const SPIRIT_ROOT_ITEM_GENERATION_PROMPT = `${ROLE_PLAY_INSTRUCTION}
 
 ## JSON输出格式
 \`\`\`json
-{"name":"灵根名称","tier":"等级","description":"描述...","cultivation_speed":"1.6x","special_effects":["效果1"],"base_multiplier":数字,"talent_cost":数字,"rarity":数字}
+{
+  "name": "灵根名称",           // 名称: 灵根的具体名称, 如“雷灵根”
+  "tier": "等级",              // 等级: 如“上品”、“极品”、“神品”
+  "description": "描述...",    // 描述: 对该灵根的详细说明
+  "cultivation_speed": "1.6x", // 修炼速度: 以字符串 "x" 结尾的倍率
+  "special_effects": ["效果1"],// 特殊效果: 文本描述的特殊能力
+  "base_multiplier": "数字",   // 基础倍率: 用于计算的纯数字倍率
+  "talent_cost": "数字",       // 天道点消耗: 3-30点, 品级越高消耗越大
+  "rarity": "数字"             // 稀有度: 1-5, 1最常见, 5为传说级
+}
 \`\`\`
 `;
 
@@ -68,11 +96,19 @@ export const TALENT_ITEM_GENERATION_PROMPT = `${ROLE_PLAY_INSTRUCTION}
 ## 要求：
 1. 名称：霸气神秘（如：过目不忘、天生神力）
 2. 类型：战斗类/辅助类/特殊类
-3. **稀有度原则**：“仙品”、“神品”等级的天赋应极为罕见，其效果强大但不能完全破坏平衡。绝大多数天赋应符合常规修仙世界观。
+3. 天道点：1-10点，效果越强点数越高
+4. 稀有度：1-5（1常见，5传说）
+5. **稀有度原则**：“仙品”、“神品”等级的天赋应极为罕见，其效果强大但不能完全破坏平衡。绝大多数天赋应符合常规修仙世界观。
 
 ## JSON输出格式
 \`\`\`json
-{"name":"天赋名称","description":"详细描述...","type":"天赋类型"}
+{
+  "name": "天赋名称",           // 名称: 霸气或神秘的名称, 如“天生神力”
+  "description": "详细描述...",  // 描述: 对天赋效果的详细说明
+  "type": "天赋类型",          // 类型: “战斗类”、“辅助类”或“特殊类”
+  "talent_cost": "数字",       // 天道点: 1-10点, 效果越强点数越高
+  "rarity": "数字"             // 稀有度: 1-5, 1最常见, 5为传说级
+}
 \`\`\`
 `;
 

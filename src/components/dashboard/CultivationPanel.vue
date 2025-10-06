@@ -68,6 +68,37 @@
                 </div>
               </div>
 
+              <!-- 功法详情 -->
+              <div class="technique-details">
+                <!-- 功法描述 -->
+                <div class="detail-block">
+                  <h5 class="detail-block-title">功法描述</h5>
+                  <p class="detail-block-content description-text">{{ currentTechnique.描述 || '暂无描述' }}</p>
+                </div>
+
+                <!-- 功法效果 -->
+                <div v-if="techniqueEffects" class="detail-block">
+                  <h5 class="detail-block-title">功法效果</h5>
+                  <ul class="effects-list">
+                    <li v-if="techniqueEffects.修炼速度加成">
+                      <span class="effect-icon">🚀</span>
+                      <strong>修炼速度:</strong> +{{ ((techniqueEffects.修炼速度加成 || 1) * 100 - 100).toFixed(0) }}%
+                    </li>
+                    <li v-if="attributeBonuses.length > 0">
+                      <span class="effect-icon">💪</span>
+                      <strong>属性加成:</strong>
+                      <span v-for="(bonus, index) in attributeBonuses" :key="index" class="attribute-bonus">
+                        {{ bonus.key }} +{{ bonus.value }}
+                      </span>
+                    </li>
+                    <li v-for="(ability, index) in (techniqueEffects.特殊能力 || [])" :key="index">
+                      <span class="effect-icon">✨</span>
+                      <strong>特殊能力:</strong> {{ ability }}
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
               <!-- 已学技能列表 -->
               <div v-if="learnedSkills.length > 0" class="skills-section">
                 <div class="skills-header">
@@ -207,18 +238,10 @@
     </div>
 
     <!-- 深度修炼弹窗 -->
-    <NumberInputModal
+    <DeepCultivationModal
       :visible="showDeepCultivationModal"
-      title="深度修炼"
-      description="选择深度修炼的天数，AI将生成修炼过程和结果"
-      label="修炼天数"
-      hint="建议：短期修炼1-7天，中期修炼30-90天，长期闭关180-365天"
-      :min="1"
-      :max="365"
-      :default-value="30"
-      :step="1"
-      :presets="[1, 7, 30, 90, 180, 365]"
-      confirm-text="开始修炼"
+      :technique="currentTechnique"
+      :current-progress="currentTechnique?.修炼进度 || 0"
       @close="showDeepCultivationModal = false"
       @confirm="confirmDeepCultivation"
     />
@@ -228,23 +251,32 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { RefreshCw } from 'lucide-vue-next';
-import { useCharacterCultivationData, useCharacterBasicData } from '@/composables/useCharacterData';
-import { useCharacterStore } from '@/stores/characterStore';
+import { useCharacterCultivationData, useCharacterBasicData, useUnifiedCharacterData } from '@/composables/useCharacterData';
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
 import { getTavernHelper } from '@/utils/tavern';
-import NumberInputModal from '@/components/common/NumberInputModal.vue';
+import DeepCultivationModal from '@/components/common/DeepCultivationModal.vue';
 import type { TechniqueItem, CultivationTechniqueData, TechniqueSkill, DaoPath } from '@/types/game';
 
 // 组合式函数
-const cultivationData = useCharacterCultivationData();
-const basicData = useCharacterBasicData();
-const characterStore = useCharacterStore();
+const { saveData: cultivationSaveData, realm, techniques, daoSystem } = useCharacterCultivationData();
+const { basicInfo, status } = useCharacterBasicData();
+const { characterData, saveData } = useUnifiedCharacterData();
 
 // 深度修炼弹窗状态
 const showDeepCultivationModal = ref(false);
 
-const loading = computed(() => !cultivationData.value && !basicData.value);
+const loading = computed(() => !cultivationSaveData.value && !basicInfo.value);
+
+const techniqueEffects = computed(() => {
+  return currentTechnique.value?.功法效果;
+});
+
+const attributeBonuses = computed(() => {
+  const bonuses = techniqueEffects.value?.属性加成;
+  if (!bonuses) return [];
+  return Object.entries(bonuses).map(([key, value]) => ({ key, value }));
+});
 
 // 类型定义
 type LearnedSkillDisplay = {
@@ -258,7 +290,7 @@ type LearnedSkillDisplay = {
 
 // 获取当前修炼功法 - 从背包中查找已装备的功法
 const currentTechnique = computed((): TechniqueItem | null => {
-  const inventory = characterStore.activeSaveSlot?.存档数据?.背包?.物品;
+  const inventory = characterData.value?.背包_物品;
 
   if (!inventory) return null;
 
@@ -268,7 +300,7 @@ const currentTechnique = computed((): TechniqueItem | null => {
   );
 
   if (cultivatingTechnique) {
-    const cultivationInfo = characterStore.activeSaveSlot?.存档数据?.修炼功法;
+    const cultivationInfo = characterData.value?.修炼功法;
     const techniqueItem = cultivatingTechnique as TechniqueItem;
     return {
       ...techniqueItem,
@@ -282,7 +314,7 @@ const currentTechnique = computed((): TechniqueItem | null => {
 // 获取已学技能列表
 const learnedSkills = computed((): LearnedSkillDisplay[] => {
   const technique = currentTechnique.value;
-  const cultivationInfo = characterStore.activeSaveSlot?.存档数据?.修炼功法;
+  const cultivationInfo = characterData.value?.修炼功法;
 
   if (!technique && !cultivationInfo?.已解锁技能?.length) return [];
 
@@ -340,6 +372,7 @@ const getPersistentProficiency = (skillName: string, source: string): number => 
 };
 
 // 检查技能是否已解锁（简化版：默认全部解锁）
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const checkSkillUnlocked = (skillName: string, technique: TechniqueItem, cultivationInfo: CultivationTechniqueData | undefined): boolean => {
   if (!technique.功法技能?.[skillName]) return false;
 
@@ -440,9 +473,9 @@ const getSkillEffectDescription = (skill: LearnedSkillDisplay): string => {
   }
 };
 
-const daoSystemData = computed(() => cultivationData.value.daoSystem);
-const equipmentData = computed(() => cultivationData.value.equipment);
-const characterTalents = computed(() => basicData.value?.talents || []);
+const daoSystemData = computed(() => daoSystem.value);
+const equipmentData = computed(() => characterData.value?.装备栏);
+const characterTalents = computed(() => basicInfo.value?.天赋 || []);
 
 // 计算属性
 const unlockedDaoList = computed(() => daoSystemData.value?.已解锁大道 || []);
@@ -543,37 +576,39 @@ const stopCultivation = async () => {
 
   try {
     // 检查存档数据
-    if (!characterStore.activeSaveSlot?.存档数据) {
+    if (!saveData.value) {
       toast.error('存档数据不存在');
       return;
     }
 
-    const saveData = characterStore.activeSaveSlot.存档数据;
+    const currentSaveData = saveData.value;
 
     // 将功法移回背包（如果背包中不存在）
-    if (!saveData.背包) {
-      saveData.背包 = { 物品: {}, 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 } };
+    if (!currentSaveData.背包) {
+      currentSaveData.背包 = { 物品: {}, 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 } };
     }
-    if (!saveData.背包.物品) {
-      saveData.背包.物品 = {};
+    if (!currentSaveData.背包.物品) {
+      currentSaveData.背包.物品 = {};
     }
 
-    const existingItem = Object.values(saveData.背包.物品).find(i => i.物品ID === techniqueToStop.物品ID);
+    const existingItem = Object.values(currentSaveData.背包.物品).find(i => i.物品ID === techniqueToStop.物品ID);
 
     // 如果背包中不存在这个功法，添加进去
     if (!existingItem) {
       const itemToAdd = { ...techniqueToStop, 已装备: false };
-      saveData.背包.物品[itemToAdd.物品ID] = itemToAdd;
+      currentSaveData.背包.物品[itemToAdd.物品ID] = itemToAdd;
     } else {
       // 如果存在，清除已装备标记
       existingItem.已装备 = false;
     }
 
     // 清空修炼槽位
-    saveData.修炼功法.功法 = null;
-    saveData.修炼功法.正在修炼 = false;
+    currentSaveData.修炼功法.功法 = null;
+    currentSaveData.修炼功法.正在修炼 = false;
 
-    // 保存数据
+    // 保存数据 - 需要导入 characterStore
+    const { useCharacterStore } = await import('@/stores/characterStore');
+    const characterStore = useCharacterStore();
     await characterStore.syncToTavernAndSave();
 
     toast.success(`已停止修炼《${techniqueToStop.名称}》`);
@@ -776,6 +811,60 @@ const confirmDeepCultivation = async (totalDays: number) => {
 .technique-info {
   flex: 1;
   min-width: 0;
+}
+
+.technique-details {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.detail-block-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-accent);
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.description-text {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.effects-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.effects-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.effect-icon {
+  font-size: 1rem;
+}
+
+.attribute-bonus {
+  background: rgba(var(--color-primary-rgb), 0.1);
+  color: var(--color-primary);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  margin-left: 0.25rem;
 }
 
 .technique-name {

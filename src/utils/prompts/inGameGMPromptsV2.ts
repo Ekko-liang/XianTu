@@ -13,8 +13,8 @@ export const buildInGameMessagePrompt = (shortTermMemories?: string[]): string =
   // 只取最新一条短期记忆作为"上一幕剧情"，避免AI因过多历史记忆而剧情串套
   let previousStory = '游戏刚刚开始，你正站在命运的起点。';
   if (shortTermMemories && shortTermMemories.length > 0) {
-    // 短期记忆数组使用 push() 添加，所以最新的在最后
-    previousStory = shortTermMemories[shortTermMemories.length - 1];
+    // 短期记忆数组：最新的在前面（index 0）
+    previousStory = shortTermMemories[0];
   }
 
   const storyContext = `
@@ -51,19 +51,6 @@ ${previousStory}
     '   - ❌ 错误示例: 不要传递累计的总分钟数（如111445）',
     '   - 换算参考: 1小时=60, 1天=1440, 1月=43200, 1年=518400',
     '',
-    '# 叙事格式规则',
-    '',
-    '⚠️ **重要：不要在叙事文本开头添加时间标记**',
-    '- ❌ 错误示例：`【仙道1年3月15日 09:00】陈朝阳睁开双眼...`',
-    '- ✅ 正确示例：`陈朝阳睁开双眼...`',
-    '- 系统会自动为每条记忆添加时间前缀，你只需要写纯粹的叙事内容',
-    '',
-    '**判定结果格式**：',
-    '- 使用`〖〗`标记判定结果以获得特殊样式',
-    '- 格式：`〖判定类型:结果,骰点:数值,属性:数值,难度:数值〗`',
-    '- 示例：`〖修炼判定:成功,骰点:23,灵性:8,难度:15〗`',
-    '- 结果类型：成功/大成功/失败/大失败',
-    '',
     DATA_STRUCTURE_DEFINITIONS,
     '',
     generateJudgmentPrompt(),
@@ -78,6 +65,7 @@ ${previousStory}
     '   - **获得/失去物品**: 角色背包中增加或减少丹药、法宝、材料等。',
     '   - **战斗/受伤**: 角色或NPC的气血、灵力、状态发生变化。',
     '   - **情感/关系变化**: 角色与NPC的好感度、关系状态改变。',
+    '   - **新人物登场**: 故事中出现新的重要人物时，**必须**为其创建完整数据，包括为其设定符合背景的初始背包（含1-3件物品和少量灵石）。',
     '3. **无变更则不生成**: 如果剧情确实没有导致任何状态变更，则`state_changes`和`tavern_commands`可以为空数组。',
   ].join('\n');
 };

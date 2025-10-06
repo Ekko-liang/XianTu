@@ -1,7 +1,7 @@
 import type { DADCustomData } from '../types';
 import { toast } from './toast';
 import { useUIStore } from '@/stores/uiStore';
-import type { TavernHelper } from './tavernCore';
+import type { TavernHelper } from '@/types';
 
 
 /**

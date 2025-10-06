@@ -1,303 +1,135 @@
 /**
- * @fileoverview 统一的角色数据组合函数
- * 解决各个面板数据不一致的问题，提供统一的数据接口
+ * 统一角色数据访问组合式API
+ * 直接对应酒馆变量，确保数据双向同步
+ *
+ * 数据结构完全对应酒馆分片变量：
+ * - 基础信息 (角色基础信息)
+ * - 境界 (玩家角色状态.境界)
+ * - 属性 (玩家角色状态.气血/灵气/神识/寿命)
+ * - 位置 (玩家角色状态.位置)
+ * - 修炼功法
+ * - 掌握技能
+ * - 装备栏
+ * - 背包_灵石 (背包.灵石)
+ * - 背包_物品 (背包.物品)
+ * - 人物关系
+ * - 三千大道
+ * - 世界信息
+ * - 游戏时间
+ * - 状态效果 (玩家角色状态.状态效果)
+ * - 记忆_短期/中期/长期 (记忆.短期/中期/长期)
  */
 
-import { computed, ComputedRef } from 'vue';
+import { computed } from 'vue';
 import { useCharacterStore } from '@/stores/characterStore';
-import type { ThousandDaoSystem, Equipment, StatusEffect } from '@/types/game';
 
-/**
- * 角色基础信息接口
- */
-export interface CharacterBasicInfo {
-  name: string;
-  gender: string;
-  world: string;
-  talent: string;
-  birth: string;
-  spiritualRoots: string;
-  talents: string[];
-}
-
-/**
- * 角色状态信息接口
- */
-export interface CharacterStatus {
-  realm: {
-    name: string;
-    stage: string;
-    progress: number;
-    maxProgress: number;
-    progressPercent: number;
-    突破描述?: string;
-  };
-  lifespan: {
-    current: number;
-    max: number;
-    remaining: number;
-  };
-  reputation: {
-    level: string;
-    value: number;
-  };
-  vitals: {
-    qiBlood: { current: number; max: number; percent: number };
-    lingQi: { current: number; max: number; percent: number };
-    shenShi: { current: number; max: number; percent: number };
-  };
-}
-
-/**
- * 角色属性信息接口
- */
-export interface CharacterAttributes {
-  [key: string]: {
-    name: string;
-    value: number;
-    quality: string;
-    color: string;
-  };
-}
-
-/**
- * 角色位置信息接口
- */
-export interface CharacterLocation {
-  name: string;
-  description: string;
-  activity: string;
-  // 移除坐标系统，文字游戏不需要坐标
-}
-
-/**
- * 角色修炼信息接口
- */
-export interface CharacterCultivation {
-  daoSystem: ThousandDaoSystem | null;
-  equipment: Equipment | null;
-}
-
-/**
- * 完整角色数据接口
- */
-export interface UnifiedCharacterData {
-  basicInfo: CharacterBasicInfo;
-  status: CharacterStatus;
-  attributes: CharacterAttributes;
-  location: CharacterLocation;
-  statusEffects: StatusEffect[];
-  cultivation: CharacterCultivation;
-}
-
-/**
- * 统一的角色数据组合函数
- */
-export function useUnifiedCharacterData(): {
-  characterData: ComputedRef<UnifiedCharacterData | null>;
-  isDataLoaded: ComputedRef<boolean>;
-  refreshData: () => void;
-} {
+export function useUnifiedCharacterData() {
   const characterStore = useCharacterStore();
 
-  const characterData = computed<UnifiedCharacterData | null>(() => {
-    const profile = characterStore.activeCharacterProfile;
-    const save = characterStore.activeSaveSlot;
+  const saveData = computed(() => characterStore.activeSaveSlot?.存档数据);
+  const isDataLoaded = computed(() => !!saveData.value);
 
-    if (!profile || !save?.存档数据) {
-      return null;
-    }
+  // 直接映射酒馆变量结构
+  const characterData = computed(() => {
+    if (!saveData.value) return null;
 
-    const baseInfo = profile.角色基础信息;
-    const playerStatus = save.存档数据.玩家角色状态;
-
-    // 统一基础信息
-    const basicInfo: CharacterBasicInfo = {
-      name: baseInfo?.名字 || '未知',
-      gender: baseInfo?.性别 || '未知',
-      world: baseInfo?.世界 || '未知世界',
-      talent: baseInfo?.天资 || '凡人资质',
-      birth: (typeof baseInfo?.出生 === 'object' && baseInfo.出生 ? baseInfo.出生.名称 : baseInfo?.出生) || '寻常出身',
-      spiritualRoots: (typeof baseInfo?.灵根 === 'object' && baseInfo.灵根 ? baseInfo.灵根.名称 : baseInfo?.灵根) || '五行杂灵根',
-      talents: (baseInfo?.天赋 || []).map((t: string | { 名称: string; 描述: string; }) => (typeof t === 'object' && t ? t.名称 : t))
-    };
-
-    // 统一状态信息
-    const realmData = playerStatus?.境界;
-    const status: CharacterStatus = {
-      realm: {
-        name: realmData?.名称 || '凡人',
-        stage: realmData?.阶段 || '第0层',
-        progress: typeof realmData?.当前进度 === 'number' ? realmData.当前进度 : 0,
-        maxProgress: typeof realmData?.下一级所需 === 'number' ? realmData.下一级所需 : 0,
-        progressPercent: (() => {
-          const cur = typeof realmData?.当前进度 === 'number' ? realmData.当前进度 : 0;
-          const max = typeof realmData?.下一级所需 === 'number' ? realmData.下一级所需 : 0;
-          return max > 0 ? Math.floor((cur / max) * 100) : 0;
-        })(),
-        突破描述: realmData?.突破描述
-      },
-      lifespan: {
-        current: typeof playerStatus?.寿命?.当前 === 'number' ? playerStatus.寿命.当前 : 0,
-        max: typeof playerStatus?.寿命?.最大 === 'number' ? playerStatus.寿命.最大 : 0,
-        remaining: (() => {
-          const currentAge = typeof playerStatus?.寿命?.当前 === 'number' ? playerStatus.寿命.当前 : 0;
-          const maxLifespan = typeof playerStatus?.寿命?.最大 === 'number' ? playerStatus.寿命.最大 : 0;
-          return Math.max(0, maxLifespan - currentAge);
-        })()
-      },
-      reputation: {
-        level: getReputationLevel(playerStatus?.声望 || 0),
-        value: playerStatus?.声望 || 0
-      },
-      vitals: {
-        qiBlood: formatVital(playerStatus?.气血),
-        lingQi: formatVital(playerStatus?.灵气),
-        shenShi: formatVital(playerStatus?.神识)
-      }
-    };
-
-    // 统一属性信息
-    const attributes: CharacterAttributes = {};
-    const rawAttributes = baseInfo?.先天六司;
-    if (rawAttributes) {
-      const attributeMap = {
-        '根骨': { name: '根骨', icon: '🦴' },
-        '灵性': { name: '灵性', icon: '✨' },
-        '悟性': { name: '悟性', icon: '🧠' },
-        '气运': { name: '气运', icon: '🍀' },
-        '魅力': { name: '魅力', icon: '🌺' },
-        '心性': { name: '心性', icon: '💎' }
-      };
-
-      Object.entries(rawAttributes).forEach(([key, value]) => {
-        const info = attributeMap[key as keyof typeof attributeMap];
-        if (info && typeof value === 'number') {
-          attributes[key] = {
-            name: info.name,
-            value: value,
-            quality: getAttributeQuality(value),
-            color: getAttributeColor(value)
-          };
-        }
-      });
-    }
-
-    // 统一位置信息
-    const location: CharacterLocation = {
-      name: playerStatus?.位置?.描述 || '初始地',
-      description: playerStatus?.位置?.描述 || '修行地',
-      activity: '修行中'
-      // 移除坐标系统，文字游戏不需要坐标
-    };
-
-    // 统一修炼信息
-    const cultivation: CharacterCultivation = {
-      daoSystem: save.存档数据.三千大道 || null,
-      equipment: save.存档数据.装备栏 || null
-    };
+    const data = saveData.value;
+    const playerStatus = data.玩家角色状态;
 
     return {
-      basicInfo,
-      status,
-      attributes,
-      location,
-      statusEffects: playerStatus?.状态效果 || [],
-      cultivation
+      // 基础信息 - 对应酒馆变量 {{get_chat_variable::基础信息}}
+      基础信息: data.角色基础信息,
+
+      // 境界 - 对应酒馆变量 {{get_chat_variable::境界}}
+      境界: playerStatus?.境界,
+
+      // 属性 - 对应酒馆变量 {{get_chat_variable::属性}}
+      属性: {
+        气血: playerStatus?.气血,
+        灵气: playerStatus?.灵气,
+        神识: playerStatus?.神识,
+        寿命: playerStatus?.寿命
+      },
+
+      // 位置 - 对应酒馆变量 {{get_chat_variable::位置}}
+      位置: playerStatus?.位置,
+
+      // 修炼功法 - 对应酒馆变量 {{get_chat_variable::修炼功法}}
+      修炼功法: data.修炼功法,
+
+      // 掌握技能 - 对应酒馆变量 {{get_chat_variable::掌握技能}}
+      掌握技能: data.掌握技能,
+
+      // 装备栏 - 对应酒馆变量 {{get_chat_variable::装备栏}}
+      装备栏: data.装备栏,
+
+      // 背包_灵石 - 对应酒馆变量 {{get_chat_variable::背包_灵石}}
+      背包_灵石: data.背包?.灵石,
+
+      // 背包_物品 - 对应酒馆变量 {{get_chat_variable::背包_物品}}
+      背包_物品: data.背包?.物品,
+
+      // 人物关系 - 对应酒馆变量 {{get_chat_variable::人物关系}}
+      人物关系: data.人物关系,
+
+      // 三千大道 - 对应酒馆变量 {{get_chat_variable::三千大道}}
+      三千大道: data.三千大道,
+
+      // 世界信息 - 对应酒馆变量 {{get_chat_variable::世界信息}}
+      世界信息: data.世界信息,
+
+      // 游戏时间 - 对应酒馆变量 {{get_chat_variable::游戏时间}}
+      游戏时间: data.游戏时间,
+
+      // 状态效果 - 对应酒馆变量 {{get_chat_variable::状态效果}}
+      状态效果: playerStatus?.状态效果 || [],
+
+      // 记忆 - 对应酒馆变量 {{get_chat_variable::记忆_短期/中期/长期}}
+      记忆: data.记忆,
+
+      // 完整玩家状态（包含所有属性）
+      玩家角色状态: playerStatus
     };
   });
 
-  const isDataLoaded = computed(() => characterData.value !== null);
-
-  const refreshData = () => {
-    // 触发数据重新计算
-    // 注意：characterStore 当前没有 refreshActiveData 方法
-    // characterStore.refreshActiveData?.();
-  };
-
   return {
     characterData,
-    isDataLoaded,
-    refreshData
+    saveData,
+    isDataLoaded
   };
 }
 
 /**
- * 辅助函数：格式化生命值数据
- */
-type Vital = { '当前'?: number; '最大'?: number } | null | undefined;
-function formatVital(vital: Vital): { current: number; max: number; percent: number } {
-  if (!vital || typeof vital !== 'object') {
-    return { current: 0, max: 0, percent: 0 };
-  }
-  const current = typeof vital.当前 === 'number' ? vital.当前 : 0;
-  const max = typeof vital.最大 === 'number' ? vital.最大 : 0;
-  const percent = max > 0 ? Math.min(100, Math.floor((current / max) * 100)) : 0;
-  return { current, max, percent };
-}
-
-/**
- * 辅助函数：获取声望等级
- */
-function getReputationLevel(value: number): string {
-  if (value >= 10000) return '声名远扬';
-  if (value >= 5000) return '小有名气';
-  if (value >= 1000) return '略有声望';
-  if (value >= 100) return '初露头角';
-  return '籍籍无名';
-}
-
-/**
- * 辅助函数：获取属性品质
- */
-function getAttributeQuality(value: number): string {
-  if (value >= 15) return '极品';
-  if (value >= 12) return '上品';
-  if (value >= 9) return '中品';
-  if (value >= 6) return '下品';
-  return '废品';
-}
-
-/**
- * 辅助函数：获取属性颜色
- */
-function getAttributeColor(value: number): string {
-  if (value >= 15) return 'purple'; // 极品 - 紫色
-  if (value >= 12) return 'orange'; // 上品 - 橙色
-  if (value >= 9) return 'blue';    // 中品 - 蓝色
-  if (value >= 6) return 'green';   // 下品 - 绿色
-  return 'gray';                    // 废品 - 灰色
-}
-
-/**
- * 特定面板的数据组合函数
+ * 获取基础信息和状态
+ * 兼容旧版本组件
  */
 export function useCharacterBasicData() {
   const { characterData } = useUnifiedCharacterData();
-  
-  return computed(() => characterData.value?.basicInfo || null);
+
+  const basicInfo = computed(() => characterData.value?.基础信息);
+  const status = computed(() => characterData.value?.玩家角色状态);
+
+  return {
+    basicInfo,
+    status
+  };
 }
 
-export function useCharacterStatusData() {
-  const { characterData } = useUnifiedCharacterData();
-  
-  return computed(() => characterData.value?.status || null);
-}
-
-export function useCharacterAttributesData() {
-  const { characterData } = useUnifiedCharacterData();
-  
-  return computed(() => characterData.value?.attributes || {});
-}
-
-export function useCharacterLocationData() {
-  const { characterData } = useUnifiedCharacterData();
-  
-  return computed(() => characterData.value?.location || null);
-}
-
+/**
+ * 获取修炼相关数据
+ * 兼容旧版本组件
+ */
 export function useCharacterCultivationData() {
-  const { characterData } = useUnifiedCharacterData();
+  const { characterData, saveData } = useUnifiedCharacterData();
 
-  return computed(() => characterData.value?.cultivation || { daoSystem: null, equipment: null });
+  const realm = computed(() => characterData.value?.境界);
+  const techniques = computed(() => characterData.value?.修炼功法 || []);
+  const daoSystem = computed(() => characterData.value?.三千大道);
+
+  return {
+    saveData,
+    realm,
+    techniques,
+    daoSystem
+  };
 }

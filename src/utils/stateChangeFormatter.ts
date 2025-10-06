@@ -180,11 +180,23 @@ function parsePlayerStatusChange(change: StateChange): FormattedChange | null {
 
   // 🔥 处理位置变更（支持两种路径格式）
   if (key === '位置.描述' || key.endsWith('.位置.描述') || key === '玩家角色状态.位置.描述') {
+    // 提取描述字符串（处理对象和字符串两种情况）
+    const extractLocation = (val: unknown): string => {
+      if (!val) return '未知';
+      if (typeof val === 'string') return val;
+      if (typeof val === 'object' && val !== null) {
+        const obj = val as Record<string, unknown>;
+        if (typeof obj.描述 === 'string') return obj.描述;
+        if (typeof obj.description === 'string') return obj.description;
+      }
+      return String(val);
+    };
+
     return {
       icon: 'update',
       color: 'blue',
       title: '位置变更',
-      description: `${oldValue || '未知'} → ${newValue}`,
+      description: `${extractLocation(oldValue)} → ${extractLocation(newValue)}`,
     };
   }
 

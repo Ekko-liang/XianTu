@@ -31,26 +31,26 @@ export function applyEquipmentBonus(saveData: SaveData, equipmentItemId: string)
 
     // 应用气血上限加成
     if (bonus.气血上限 && typeof bonus.气血上限 === 'number') {
-      const current气血 = get(saveData, '玩家角色状态.气血', { 当前: 100, 最大: 100 });
-      const new最大 = current气血.最大 + bonus.气血上限;
-      set(saveData, '玩家角色状态.气血.最大', new最大);
-      console.log(`[装备增幅] 气血最大值: ${current气血.最大} -> ${new最大} (+${bonus.气血上限})`);
+      const current气血 = get(saveData, '玩家角色状态.气血', { 当前: 100, 上限: 100 });
+      const new上限 = current气血.上限 + bonus.气血上限;
+      set(saveData, '玩家角色状态.气血.上限', new上限);
+      console.log(`[装备增幅] 气血上限: ${current气血.上限} -> ${new上限} (+${bonus.气血上限})`);
     }
 
     // 应用灵气上限加成
     if (bonus.灵气上限 && typeof bonus.灵气上限 === 'number') {
-      const current灵气 = get(saveData, '玩家角色状态.灵气', { 当前: 100, 最大: 100 });
-      const new最大 = current灵气.最大 + bonus.灵气上限;
-      set(saveData, '玩家角色状态.灵气.最大', new最大);
-      console.log(`[装备增幅] 灵气最大值: ${current灵气.最大} -> ${new最大} (+${bonus.灵气上限})`);
+      const current灵气 = get(saveData, '玩家角色状态.灵气', { 当前: 100, 上限: 100 });
+      const new上限 = current灵气.上限 + bonus.灵气上限;
+      set(saveData, '玩家角色状态.灵气.上限', new上限);
+      console.log(`[装备增幅] 灵气上限: ${current灵气.上限} -> ${new上限} (+${bonus.灵气上限})`);
     }
 
     // 应用神识上限加成
     if (bonus.神识上限 && typeof bonus.神识上限 === 'number') {
-      const current神识 = get(saveData, '玩家角色状态.神识', { 当前: 100, 最大: 100 });
-      const new最大 = current神识.最大 + bonus.神识上限;
-      set(saveData, '玩家角色状态.神识.最大', new最大);
-      console.log(`[装备增幅] 神识最大值: ${current神识.最大} -> ${new最大} (+${bonus.神识上限})`);
+      const current神识 = get(saveData, '玩家角色状态.神识', { 当前: 100, 上限: 100 });
+      const new上限 = current神识.上限 + bonus.神识上限;
+      set(saveData, '玩家角色状态.神识.上限', new上限);
+      console.log(`[装备增幅] 神识上限: ${current神识.上限} -> ${new上限} (+${bonus.神识上限})`);
     }
 
     // 后天六司加成已由 attributeCalculation.ts 的 calculateEquipmentBonuses 处理
@@ -89,45 +89,45 @@ export function removeEquipmentBonus(saveData: SaveData, equipmentItemId: string
 
     // 移除气血上限加成
     if (bonus.气血上限 && typeof bonus.气血上限 === 'number') {
-      const current气血 = get(saveData, '玩家角色状态.气血', { 当前: 100, 最大: 100 });
-      const new最大 = Math.max(1, current气血.最大 - bonus.气血上限); // 最小为1
-      set(saveData, '玩家角色状态.气血.最大', new最大);
+      const current气血 = get(saveData, '玩家角色状态.气血', { 当前: 100, 上限: 100 });
+      const new上限 = Math.max(1, current气血.上限 - bonus.气血上限); // 最小为1
+      set(saveData, '玩家角色状态.气血.上限', new上限);
 
-      // 如果当前值超过新的最大值，调整当前值
-      if (current气血.当前 > new最大) {
-        set(saveData, '玩家角色状态.气血.当前', new最大);
-        console.log(`[装备增幅] 气血当前值超过新最大值，已调整: ${current气血.当前} -> ${new最大}`);
+      // 如果当前值超过新的上限，调整当前值
+      if (current气血.当前 > new上限) {
+        set(saveData, '玩家角色状态.气血.当前', new上限);
+        console.log(`[装备增幅] 气血当前值超过新上限，已调整: ${current气血.当前} -> ${new上限}`);
       }
 
-      console.log(`[装备增幅] 气血最大值: ${current气血.最大} -> ${new最大} (-${bonus.气血上限})`);
+      console.log(`[装备增幅] 气血上限: ${current气血.上限} -> ${new上限} (-${bonus.气血上限})`);
     }
 
     // 移除灵气上限加成
     if (bonus.灵气上限 && typeof bonus.灵气上限 === 'number') {
-      const current灵气 = get(saveData, '玩家角色状态.灵气', { 当前: 100, 最大: 100 });
-      const new最大 = Math.max(1, current灵气.最大 - bonus.灵气上限);
-      set(saveData, '玩家角色状态.灵气.最大', new最大);
+      const current灵气 = get(saveData, '玩家角色状态.灵气', { 当前: 100, 上限: 100 });
+      const new上限 = Math.max(1, current灵气.上限 - bonus.灵气上限);
+      set(saveData, '玩家角色状态.灵气.上限', new上限);
 
-      if (current灵气.当前 > new最大) {
-        set(saveData, '玩家角色状态.灵气.当前', new最大);
-        console.log(`[装备增幅] 灵气当前值超过新最大值，已调整: ${current灵气.当前} -> ${new最大}`);
+      if (current灵气.当前 > new上限) {
+        set(saveData, '玩家角色状态.灵气.当前', new上限);
+        console.log(`[装备增幅] 灵气当前值超过新上限，已调整: ${current灵气.当前} -> ${new上限}`);
       }
 
-      console.log(`[装备增幅] 灵气最大值: ${current灵气.最大} -> ${new最大} (-${bonus.灵气上限})`);
+      console.log(`[装备增幅] 灵气上限: ${current灵气.上限} -> ${new上限} (-${bonus.灵气上限})`);
     }
 
     // 移除神识上限加成
     if (bonus.神识上限 && typeof bonus.神识上限 === 'number') {
-      const current神识 = get(saveData, '玩家角色状态.神识', { 当前: 100, 最大: 100 });
-      const new最大 = Math.max(1, current神识.最大 - bonus.神识上限);
-      set(saveData, '玩家角色状态.神识.最大', new最大);
+      const current神识 = get(saveData, '玩家角色状态.神识', { 当前: 100, 上限: 100 });
+      const new上限 = Math.max(1, current神识.上限 - bonus.神识上限);
+      set(saveData, '玩家角色状态.神识.上限', new上限);
 
-      if (current神识.当前 > new最大) {
-        set(saveData, '玩家角色状态.神识.当前', new最大);
-        console.log(`[装备增幅] 神识当前值超过新最大值，已调整: ${current神识.当前} -> ${new最大}`);
+      if (current神识.当前 > new上限) {
+        set(saveData, '玩家角色状态.神识.当前', new上限);
+        console.log(`[装备增幅] 神识当前值超过新上限，已调整: ${current神识.当前} -> ${new上限}`);
       }
 
-      console.log(`[装备增幅] 神识最大值: ${current神识.最大} -> ${new最大} (-${bonus.神识上限})`);
+      console.log(`[装备增幅] 神识上限: ${current神识.上限} -> ${new上限} (-${bonus.神识上限})`);
     }
 
     console.log(`[装备增幅] ✅ 成功移除装备 ${item.名称} 的属性加成`);

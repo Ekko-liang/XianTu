@@ -6,7 +6,10 @@
       <!-- 当前存档状态 -->
       <div class="current-save-section" v-if="currentSave">
         <div class="section-header">
-          <h4 class="section-title">📍 当前进度</h4>
+          <h4 class="section-title">
+            <History v-if="currentSave.存档名 === '上次对话'" :size="16" class="last-save-icon" />
+            📍 当前进度 - {{ currentSave.存档名 }}
+          </h4>
         </div>
         <div class="current-save-card">
           <div class="save-preview">
@@ -18,12 +21,16 @@
                 <span class="detail-separator">·</span>
                 <span class="detail-item">{{ currentSave.位置 || '未知' }}</span>
               </div>
+              <!-- 特殊存档说明 -->
+              <div v-if="currentSave.存档名 === '上次对话'" class="current-save-hint last">
+                🔄 每次对话前自动备份，可用于回退到上次对话前的状态
+              </div>
             </div>
           </div>
           <div class="save-stats">
             <div class="stat-item">
-              <span class="stat-label">游戏时间</span>
-              <span class="stat-value">{{ formatPlayTime(currentSave.游戏时长 || 0) }}</span>
+              <span class="stat-label">创建时间</span>
+              <span class="stat-value">{{ formatTime(currentSave.保存时间 || '') }}</span>
             </div>
             <div class="stat-item">
               <span class="stat-label">最后保存</span>
@@ -37,7 +44,12 @@
       <div class="saves-section">
         <div class="section-header">
           <h4 class="section-title">💿 存档列表</h4>
-          <div class="saves-count">{{ savesList.length }}/10</div>
+          <div class="header-actions">
+            <button class="new-save-btn" @click="createNewSave" :disabled="loading" title="新建存档">
+              <Plus :size="16" />
+            </button>
+            <div class="saves-count">{{ savesList.length }}/10</div>
+          </div>
         </div>
 
         <div v-if="loading" class="loading-state">
@@ -64,11 +76,11 @@
                 <div class="preview-avatar small">{{ save.角色名字?.[0] || '道' }}</div>
                 <div class="preview-info">
                   <div class="save-name">
-                    <span v-if="save.存档名 === '自动存档'" class="auto-save-badge">🔄</span>
-                    <span v-else-if="save.存档名 === '上次对话'" class="last-save-badge">⏮️</span>
+                    <History v-if="save.存档名 === '上次对话'" :size="14" class="last-save-icon" />
                     {{ save.存档名 || `存档${index + 1}` }}
                   </div>
                   <div class="character-name-small">{{ save.角色名字 || '无名道友' }}</div>
+                  <!-- 显示最后保存时间 -->
                   <div class="save-time">{{ formatTime(save.最后保存时间 || save.保存时间 || '') }}</div>
                 </div>
               </div>
@@ -77,15 +89,34 @@
                   class="card-btn"
                   @click.stop="loadSave(save)"
                   :disabled="loading"
-                  v-if="save.id !== currentSave?.id"
+                  v-if="save.id !== currentSave?.id && save.存档名 !== '上次对话'"
+                  title="读取存档"
                 >
                   <Play :size="14" />
                 </button>
                 <button
+                  class="card-btn warning"
+                  @click.stop="rollbackFromLastConversation(save)"
+                  :disabled="loading || !currentSave"
+                  v-if="save.存档名 === '上次对话'"
+                  title="用上次对话的数据覆盖当前存档（回滚）"
+                >
+                  <RefreshCw :size="14" />
+                </button>
+                <button
+                  class="card-btn primary"
+                  @click.stop="overwriteSave(save)"
+                  :disabled="loading || !currentSave"
+                  title="用当前进度覆盖此存档"
+                  v-if="save.存档名 !== '上次对话'"
+                >
+                  <Save :size="14" />
+                </button>
+                <button
                   class="card-btn danger"
                   @click.stop="deleteSave(save)"
-                  :disabled="loading || save.存档名 === '自动存档'"
-                  :title="save.存档名 === '自动存档' ? '自动存档不可删除' : '删除存档'"
+                  :disabled="loading || save.存档名 === '上次对话'"
+                  :title="save.存档名 === '上次对话' ? '上次对话存档不可删除' : '删除存档'"
                 >
                   <Trash2 :size="14" />
                 </button>
@@ -103,8 +134,8 @@
                   <span class="detail-value">{{ save.位置 || '未知' }}</span>
                 </div>
                 <div class="detail-row">
-                  <span class="detail-label">时长:</span>
-                  <span class="detail-value">{{ formatPlayTime(save.游戏时长 || 0) }}</span>
+                  <span class="detail-label">修改:</span>
+                  <span class="detail-value">{{ formatTime(save.最后保存时间 || save.保存时间 || '') }}</span>
                 </div>
               </div>
             </div>
@@ -118,14 +149,6 @@
           <h4 class="section-title">🛠️ 存档操作</h4>
         </div>
         <div class="operations-list">
-          <button class="operation-btn primary" @click="saveAsNew" :disabled="loading || !canSave">
-            <Save :size="16" />
-            <div class="btn-content">
-              <span class="btn-title">另存为新存档</span>
-              <span class="btn-desc">将当前进度保存到新存档</span>
-            </div>
-          </button>
-
           <button class="operation-btn" @click="exportSaves" :disabled="loading || savesList.length === 0">
             <Download :size="16" />
             <div class="btn-content">
@@ -161,13 +184,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { panelBus } from '@/utils/panelBus';
-import { RefreshCw, Save, Play, Trash2, Download, Upload } from 'lucide-vue-next';
+import { RefreshCw, Save, Play, Trash2, Download, Upload, History, Plus } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
+import { useUnifiedCharacterData } from '@/composables/useCharacterData';
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
 import type { SaveSlot } from '@/types/game';
 
 const characterStore = useCharacterStore();
+const { characterData, saveData } = useUnifiedCharacterData();
 const loading = ref(false);
 const fileInput = ref<HTMLInputElement>();
 
@@ -220,8 +245,8 @@ const quickSave = async () => {
   }
 };
 
-// 另存为新存档
-const saveAsNew = async () => {
+// 新建存档
+const createNewSave = async () => {
   if (!canSave.value) {
     toast.warning('当前没有可存档的游戏状态');
     return;
@@ -231,7 +256,7 @@ const saveAsNew = async () => {
   const saveName = window.prompt('请输入新存档的名称：', `存档_${new Date().toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' })}`);
 
   if (!saveName || saveName.trim() === '') {
-    toast.info('已取消另存为');
+    toast.info('已取消新建存档');
     return;
   }
 
@@ -248,11 +273,105 @@ const saveAsNew = async () => {
       await refreshSaves();
     }
   } catch (error) {
-    debug.error('存档面板', '另存为失败', error);
-    toast.error('另存为新存档失败');
+    debug.error('存档面板', '新建存档失败', error);
+    toast.error('新建存档失败');
   } finally {
     loading.value = false;
   }
+};
+
+// 覆盖存档
+const overwriteSave = async (save: SaveSlot) => {
+  if (!canSave.value) {
+    toast.warning('当前没有可存档的游戏状态');
+    return;
+  }
+
+  uiStore.showRetryDialog({
+    title: '覆盖存档',
+    message: `确定要用当前游戏进度覆盖存档"${save.存档名}"吗？原存档数据将丢失。`,
+    confirmText: '确认覆盖',
+    cancelText: '取消',
+    onConfirm: async () => {
+      loading.value = true;
+      try {
+        // 先保存当前数据到酒馆
+        await characterStore.syncToTavernAndSave();
+
+        // 覆盖指定存档
+        await characterStore.saveToSlot(save.存档名);
+
+        toast.success(`已覆盖存档: ${save.存档名}`);
+
+        // 刷新存档列表
+        await refreshSaves();
+      } catch (error) {
+        debug.error('存档面板', '覆盖存档失败', error);
+        toast.error('覆盖存档失败');
+      } finally {
+        loading.value = false;
+      }
+    },
+    onCancel: () => {}
+  });
+};
+
+// 从上次对话回滚
+const rollbackFromLastConversation = async (save: SaveSlot) => {
+  if (!currentSave.value) {
+    toast.warning('没有当前激活的存档');
+    return;
+  }
+
+  const { useUIStore } = await import('@/stores/uiStore');
+  const uiStore = useUIStore();
+
+  uiStore.showRetryDialog({
+    title: '回滚到上次对话',
+    message: `确定要将"${save.存档名}"的数据覆盖到当前存档"${currentSave.value.存档名}"吗？当前进度将被替换为上次对话前的状态。`,
+    confirmText: '确认回滚',
+    cancelText: '取消',
+    onConfirm: async () => {
+      loading.value = true;
+      try {
+        const profile = characterStore.activeCharacterProfile;
+        const active = characterStore.rootState.当前激活存档;
+
+        if (!profile || !active || profile.模式 !== '单机') {
+          throw new Error('无法执行回滚操作');
+        }
+
+        const lastConversationData = save.存档数据;
+        if (!lastConversationData) {
+          throw new Error('上次对话存档数据为空');
+        }
+
+        // 用"上次对话"的数据覆盖当前激活存档
+        profile.存档列表[active.存档槽位] = {
+          ...profile.存档列表[active.存档槽位],
+          存档数据: JSON.parse(JSON.stringify(lastConversationData)),
+          最后保存时间: new Date().toISOString()
+        };
+
+        // 保存到localStorage
+        characterStore.commitToStorage();
+
+        // 同步到酒馆
+        await characterStore.setActiveCharacterInTavern(active.角色ID);
+
+        toast.success('已回滚到上次对话前的状态');
+
+        // 刷新存档列表
+        await refreshSaves();
+      } catch (error) {
+        debug.error('存档面板', '回滚失败', error);
+        toast.error('回滚失败');
+      } finally {
+        loading.value = false;
+      }
+    },
+    onCancel: () => {}
+  });
 };
 
 // 选择存档
@@ -423,11 +542,11 @@ const formatTime = (timestamp: number | string | null | undefined): string => {
 
 // 格式化游戏时长
 const formatPlayTime = (minutes: number | undefined): string => {
-  if (!minutes || minutes < 1) return '少于1分钟';
-  
+  if (!minutes || minutes < 1) return '--';
+
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
-  
+
   if (hours > 0) {
     return `${hours}小时${mins}分钟`;
   }
@@ -595,6 +714,12 @@ onMounted(() => {
   border-bottom: 1px solid #bae6fd;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 .section-title {
   margin: 0;
   font-size: 1rem;
@@ -689,6 +814,51 @@ onMounted(() => {
 .save-time {
   font-size: 0.875rem;
   color: #64748b;
+}
+
+/* 特殊存档说明提示 */
+.save-hint {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  margin-top: 0.25rem;
+  display: inline-block;
+  font-weight: 500;
+}
+
+.save-hint.auto {
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.save-hint.last {
+  background: rgba(59, 130, 246, 0.1);
+  color: #2563eb;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+/* 当前进度的特殊存档说明 */
+.current-save-hint {
+  font-size: 0.875rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  margin-top: 0.75rem;
+  display: block;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.current-save-hint.auto {
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+  border-left: 3px solid #10b981;
+}
+
+.current-save-hint.last {
+  background: rgba(59, 130, 246, 0.1);
+  color: #2563eb;
+  border-left: 3px solid #3b82f6;
 }
 
 .save-stats {
@@ -802,6 +972,21 @@ onMounted(() => {
   border-color: #0284c7;
 }
 
+.card-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.card-btn.primary {
+  color: #10b981;
+  border-color: #d1fae5;
+}
+
+.card-btn.primary:hover {
+  background: #f0fdf4;
+  border-color: #10b981;
+}
+
 .card-btn.danger {
   color: #ef4444;
   border-color: #fecaca;
@@ -810,6 +995,42 @@ onMounted(() => {
 .card-btn.danger:hover {
   background: #fef2f2;
   border-color: #ef4444;
+}
+
+.card-btn.warning {
+  color: #f59e0b;
+  border-color: #fef3c7;
+}
+
+.card-btn.warning:hover {
+  background: #fffbeb;
+  border-color: #f59e0b;
+}
+
+/* 新建存档按钮 */
+.new-save-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid #10b981;
+  border-radius: 0.375rem;
+  background: white;
+  color: #10b981;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.new-save-btn:hover {
+  background: #f0fdf4;
+  border-color: #059669;
+  color: #059669;
+}
+
+.new-save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .card-content {
@@ -948,25 +1169,20 @@ onMounted(() => {
   border-color: #475569;
 }
 
-/* 存档名徽章样式 */
-.auto-save-badge,
-.last-save-badge {
+/* 存档名图标样式 */
+.auto-save-icon,
+.last-save-icon {
   display: inline-block;
   margin-right: 0.25rem;
-  font-size: 1rem;
+  vertical-align: middle;
 }
 
-.auto-save-badge {
-  animation: rotate 2s linear infinite;
+.auto-save-icon {
+  color: #10b981;
 }
 
-@keyframes rotate {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.last-save-icon {
+  color: #3b82f6;
 }
 
 [data-theme="dark"] .section-header {
@@ -1000,6 +1216,35 @@ onMounted(() => {
 [data-theme="dark"] .action-btn:hover,
 [data-theme="dark"] .card-btn:hover {
   background: #4b5563;
+}
+
+[data-theme="dark"] .card-btn.primary {
+  color: #10b981;
+  border-color: #065f46;
+}
+
+[data-theme="dark"] .card-btn.primary:hover {
+  background: #065f46;
+}
+
+[data-theme="dark"] .card-btn.warning {
+  color: #f59e0b;
+  border-color: #78350f;
+}
+
+[data-theme="dark"] .card-btn.warning:hover {
+  background: #78350f;
+}
+
+[data-theme="dark"] .new-save-btn {
+  background: #374151;
+  border-color: #10b981;
+  color: #10b981;
+}
+
+[data-theme="dark"] .new-save-btn:hover {
+  background: #065f46;
+  border-color: #059669;
 }
 
 [data-theme="dark"] .save-card {

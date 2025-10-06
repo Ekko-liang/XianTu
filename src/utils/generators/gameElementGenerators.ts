@@ -1,9 +1,15 @@
 import { generateItemWithTavernAI } from '../tavernCore';
-import { WORLD_ITEM_GENERATION_PROMPT, TALENT_TIER_ITEM_GENERATION_PROMPT,
-         ORIGIN_ITEM_GENERATION_PROMPT, SPIRIT_ROOT_ITEM_GENERATION_PROMPT,
-         TALENT_ITEM_GENERATION_PROMPT, MAP_GENERATION_PROMPT } from '../prompts/gameElementPrompts';
+import {
+  WORLD_ITEM_GENERATION_PROMPT,
+  TALENT_TIER_ITEM_GENERATION_PROMPT,
+  ORIGIN_ITEM_GENERATION_PROMPT,
+  SPIRIT_ROOT_ITEM_GENERATION_PROMPT,
+  TALENT_ITEM_GENERATION_PROMPT,
+  MAP_GENERATION_PROMPT,
+} from '../prompts/gameElementPrompts';
+import { TECHNIQUE_ITEM_GENERATION_PROMPT } from '../prompts/dataStructureDefinitions'; // 从新位置导入
 import type { GM_Response } from '../../types/AIGameMaster';
-import type { World, TalentTier, Origin, SpiritRoot, Talent } from '../../types';
+import type { World, TalentTier, Origin, SpiritRoot, Talent, TechniqueItem } from '../../types'; // 导入功法类型
 
 /**
  * AI生成世界设定
@@ -12,13 +18,6 @@ export async function generateWorld(): Promise<World | null> {
   return await generateItemWithTavernAI<World>(WORLD_ITEM_GENERATION_PROMPT, '世界设定');
 }
 
-/**
- * AI生成世界设定（带用户提示词）
- */
-export async function generateWorldWithPrompt(userPrompt: string): Promise<World | null> {
-  const enhancedPrompt = `${WORLD_ITEM_GENERATION_PROMPT}\n\n用户特殊要求：${userPrompt}\n\n请结合用户要求生成相应的世界设定。`;
-  return await generateItemWithTavernAI<World>(enhancedPrompt, '世界设定');
-}
 
 /**
  * AI生成天资等级
@@ -27,13 +26,6 @@ export async function generateTalentTier(): Promise<TalentTier | null> {
   return await generateItemWithTavernAI<TalentTier>(TALENT_TIER_ITEM_GENERATION_PROMPT, '天资等级');
 }
 
-/**
- * AI生成天资等级（带用户提示词）
- */
-export async function generateTalentTierWithPrompt(userPrompt: string): Promise<TalentTier | null> {
-  const enhancedPrompt = `${TALENT_TIER_ITEM_GENERATION_PROMPT}\n\n用户特殊要求：${userPrompt}\n\n请结合用户要求生成相应的天资等级。`;
-  return await generateItemWithTavernAI<TalentTier>(enhancedPrompt, '天资等级');
-}
 
 /**
  * AI生成出身背景
@@ -42,13 +34,6 @@ export async function generateOrigin(): Promise<Origin | null> {
   return await generateItemWithTavernAI<Origin>(ORIGIN_ITEM_GENERATION_PROMPT, '出身背景');
 }
 
-/**
- * AI生成出身背景（带用户提示词）
- */
-export async function generateOriginWithPrompt(userPrompt: string): Promise<Origin | null> {
-  const enhancedPrompt = `${ORIGIN_ITEM_GENERATION_PROMPT}\n\n用户特殊要求：${userPrompt}\n\n请结合用户要求生成相应的出身背景。`;
-  return await generateItemWithTavernAI<Origin>(enhancedPrompt, '出身背景');
-}
 
 /**
  * AI生成灵根类型
@@ -57,13 +42,6 @@ export async function generateSpiritRoot(): Promise<SpiritRoot | null> {
   return await generateItemWithTavernAI<SpiritRoot>(SPIRIT_ROOT_ITEM_GENERATION_PROMPT, '灵根类型');
 }
 
-/**
- * AI生成灵根类型（带用户提示词）
- */
-export async function generateSpiritRootWithPrompt(userPrompt: string): Promise<SpiritRoot | null> {
-  const enhancedPrompt = `${SPIRIT_ROOT_ITEM_GENERATION_PROMPT}\n\n用户特殊要求：${userPrompt}\n\n请结合用户要求生成相应的灵根类型。`;
-  return await generateItemWithTavernAI<SpiritRoot>(enhancedPrompt, '灵根类型');
-}
 
 /**
  * AI生成天赋技能
@@ -72,13 +50,14 @@ export async function generateTalent(): Promise<Talent | null> {
   return await generateItemWithTavernAI<Talent>(TALENT_ITEM_GENERATION_PROMPT, '天赋技能');
 }
 
+
 /**
- * AI生成天赋技能（带用户提示词）
+ * AI生成功法
  */
-export async function generateTalentWithPrompt(userPrompt: string): Promise<Talent | null> {
-  const enhancedPrompt = `${TALENT_ITEM_GENERATION_PROMPT}\n\n用户特殊要求：${userPrompt}\n\n请结合用户要求生成相应的天赋技能。`;
-  return await generateItemWithTavernAI<Talent>(enhancedPrompt, '天赋技能');
+export async function generateTechnique(): Promise<TechniqueItem | null> {
+  return await generateItemWithTavernAI<TechniqueItem>(TECHNIQUE_ITEM_GENERATION_PROMPT, '功法');
 }
+
 
 /**
  * 根据世界背景，调用AI生成地图信息，并返回包含指令的GM_Response

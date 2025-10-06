@@ -306,14 +306,15 @@ const handleBackToMenu = () => {
       }
 
       try {
-        // 2. 清理酒馆上下文
+        // 2. 清理酒馆上下文（清除所有分片）
         const helper = getTavernHelper();
         if (helper) {
-          await helper.insertOrAssignVariables({ 'character.saveData': null }, { type: 'chat' });
-          console.log('[返回道途] 已从酒馆聊天上下文中清理 character.saveData。');
+          const { clearAllShards } = await import('@/utils/storageSharding');
+          await clearAllShards(helper);
+          console.log('[返回道途] 已从酒馆聊天上下文中清理所有分片数据。');
         }
       } catch (error) {
-        console.error('[返回道途] 清理酒馆 character.saveData 失败:', error);
+        console.error('[返回道途] 清理酒馆数据失败:', error);
         toast.warning('清理会话上下文失败，可能会影响下次游戏。');
       }
         

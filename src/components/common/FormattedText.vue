@@ -29,7 +29,16 @@
         <div class="card-content">
           <div class="card-header">
             <span class="judgement-title">{{ part.content.title }}</span>
-            <span class="judgement-badge">{{ part.content.result }}</span>
+            <div class="header-right">
+              <span class="judgement-badge">{{ part.content.result }}</span>
+              <button class="help-btn" @click.stop="showJudgementHelp" title="查看判定规则">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+              </button>
+            </div>
           </div>
           <div class="card-body">
             <div class="stat-item">
@@ -39,11 +48,37 @@
                 <span class="stat-value">{{ part.content.dice }}</span>
               </div>
             </div>
-            <div class="stat-item">
+            <div class="stat-item" v-if="part.content.attribute && part.content.attribute !== '未知属性'">
               <span class="stat-icon">⚡</span>
               <div class="stat-info">
                 <span class="stat-label">属性</span>
                 <span class="stat-value">{{ part.content.attribute }}</span>
+              </div>
+            </div>
+            <div class="stat-item" v-if="part.content.bonus">
+              <span class="stat-icon">➕</span>
+              <div class="stat-info">
+                <span class="stat-label">加成</span>
+                <span class="stat-value">{{ part.content.bonus }}</span>
+              </div>
+            </div>
+            <div class="stat-item" v-if="part.content.finalValue">
+              <span class="stat-icon">✨</span>
+              <div class="stat-info">
+                <span class="stat-label">最终值</span>
+                <span class="stat-value">{{ part.content.finalValue }}</span>
+              </div>
+            </div>
+            <div class="stat-item" v-if="part.content.difficulty">
+              <span class="stat-icon">🎯</span>
+              <div class="stat-info">
+                <span class="stat-label">难度</span>
+                <span class="stat-value">{{ part.content.difficulty }}</span>
+              </div>
+            </div>
+            <div class="details-list" v-if="part.content.details && part.content.details.length > 0">
+              <div class="detail-item" v-for="(detail, idx) in part.content.details" :key="idx">
+                {{ detail }}
               </div>
             </div>
           </div>
@@ -51,20 +86,177 @@
       </div>
     </template>
   </div>
+
+  <!-- 判定规则帮助弹窗 -->
+  <Teleport to="body">
+    <div v-if="showHelpModal" class="help-modal-overlay" @click="closeHelpModal">
+      <div class="help-modal" @click.stop>
+        <div class="help-modal-header">
+          <h3>🎲 判定规则说明</h3>
+          <button class="close-btn" @click="closeHelpModal">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="help-modal-content">
+          <div class="help-section">
+            <h4>📊 判定计算公式</h4>
+            <div class="formula-box">
+              <strong>判定值</strong> = (先天六司×100% + 后天六司×20%) + 修行状态 + 境界加成 + 装备 + 功法 + 状态效果
+            </div>
+            <ol>
+              <li><strong>先天六司</strong>：天生资质，权重100%（固定无法改变）</li>
+              <li><strong>后天六司</strong>：修炼提升，权重仅20%（避免过度强化）</li>
+              <li><strong>修行状态</strong>：气血/灵气/神识当前值影响判定</li>
+              <li><strong>境界加成</strong>：练气+10%，筑基+20%，金丹+30%...</li>
+              <li><strong>装备/功法</strong>：法器和功法熟练度提供额外加成</li>
+              <li><strong>状态效果</strong>：buff增强判定，debuff削弱判定</li>
+            </ol>
+          </div>
+
+          <div class="help-section">
+            <h4>🎯 判定结果</h4>
+            <div class="formula-note">
+              <strong>计算公式</strong>: 最终值 = 骰点(1d20) + 属性值 + 加成
+            </div>
+            <div class="result-list">
+              <div class="result-item perfect">
+                <span class="result-label">完美</span>
+                <span class="result-desc">骰点19-20，必定成功且额外奖励</span>
+              </div>
+              <div class="result-item great-success">
+                <span class="result-label">大成功</span>
+                <span class="result-desc">最终值 ≥ 难度+20，显著成果</span>
+              </div>
+              <div class="result-item success">
+                <span class="result-label">成功</span>
+                <span class="result-desc">最终值 ≥ 难度，达成目标</span>
+              </div>
+              <div class="result-item failure">
+                <span class="result-label">失败</span>
+                <span class="result-desc">最终值 &lt; 难度，未达成</span>
+              </div>
+              <div class="result-item critical-failure">
+                <span class="result-label">大失败</span>
+                <span class="result-desc">骰点1-2，必定失败且负面后果</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="help-section">
+            <h4>⚔️ 判定类型与属性</h4>
+            <div class="judgement-types">
+              <div class="type-item">
+                <span class="type-name">战斗判定</span>
+                <span class="type-attrs">根骨30% + 灵性40% + 悟性10% + 心性10% + 气运10%</span>
+              </div>
+              <div class="type-item">
+                <span class="type-name">修炼判定</span>
+                <span class="type-attrs">灵性20% + 悟性50% + 根骨10% + 心性10% + 气运10%</span>
+              </div>
+              <div class="type-item">
+                <span class="type-name">交际判定</span>
+                <span class="type-attrs">魅力20% + 悟性30% + 灵性20% + 心性20% + 气运10%</span>
+              </div>
+              <div class="type-item">
+                <span class="type-name">探索判定</span>
+                <span class="type-attrs">气运30% + 灵性30% + 悟性20% + 根骨10% + 心性10%</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="help-section">
+            <h4>📖 六司属性说明</h4>
+            <div class="attributes-desc">
+              <div class="attr-card">
+                <div class="attr-header">
+                  <span class="attr-icon">💪</span>
+                  <span class="attr-name">根骨</span>
+                </div>
+                <p>决定气血上限、恢复速度、寿命上限。影响炼体修行、抗打击能力。</p>
+              </div>
+              <div class="attr-card">
+                <div class="attr-header">
+                  <span class="attr-icon">✨</span>
+                  <span class="attr-name">灵性</span>
+                </div>
+                <p>决定灵气上限、吸收效率。影响修炼速度、法术威力。</p>
+              </div>
+              <div class="attr-card">
+                <div class="attr-header">
+                  <span class="attr-icon">🧠</span>
+                  <span class="attr-name">悟性</span>
+                </div>
+                <p>决定神识上限、学习效率。影响功法领悟、技能掌握速度。</p>
+              </div>
+              <div class="attr-card">
+                <div class="attr-header">
+                  <span class="attr-icon">🍀</span>
+                  <span class="attr-name">气运</span>
+                </div>
+                <p>决定各种概率、物品掉落品质。影响天材地宝获取、贵人相助。</p>
+              </div>
+              <div class="attr-card">
+                <div class="attr-header">
+                  <span class="attr-icon">🌺</span>
+                  <span class="attr-name">魅力</span>
+                </div>
+                <p>决定初始好感度、社交加成。影响NPC互动、门派声望获取。</p>
+              </div>
+              <div class="attr-card">
+                <div class="attr-header">
+                  <span class="attr-icon">💎</span>
+                  <span class="attr-name">心性</span>
+                </div>
+                <p>决定心魔抗性、意志力。影响走火入魔抵抗、关键抉择。</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="help-section">
+            <h4>💡 提升判定成功率</h4>
+            <ul class="tips-list">
+              <li>提升对应属性：不同判定侧重不同的六司属性</li>
+              <li>提升境界：境界越高，判定基础加成越大</li>
+              <li>学习功法：相关功法可提供专项判定加成</li>
+              <li>装备法器：合适的装备能大幅提升判定值</li>
+              <li>天赋效果：某些天赋在特定判定中发挥奇效</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+
+const showHelpModal = ref(false)
+
+const showJudgementHelp = () => {
+  showHelpModal.value = true
+}
+
+const closeHelpModal = () => {
+  showHelpModal.value = false
+}
 
 interface JudgementData {
   title: string
-  result: '成功' | '失败' | string
+  result: '成功' | '失败' | '完美' | '大成功' | '大失败' | string
   dice: string
   attribute: string
+  difficulty?: string
+  bonus?: string
+  finalValue?: string
+  details?: string[]
 }
 
 interface TextPart {
-  type: 'environment' | 'psychology' | 'dialogue' | 'judgement-card' | 'normal'
+  type: 'environment' | 'psychology' | 'dialogue' | 'judgement-card' | 'normal' | 'quote'
   content: string | JudgementData
 }
 
@@ -79,7 +271,7 @@ const props = defineProps<{
 const parsedText = computed(() => {
   const parts: TextPart[] = []
   const text = props.text || ''
-  
+
   if (!text.trim()) {
     return [{ type: 'normal', content: text }]
   }
@@ -90,79 +282,72 @@ const parsedText = computed(() => {
   const processedText = text
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
-    // 将各种左引号统一为中文左引号 "
-    .replace(/["""‟„]/g, '"')
-    // 将各种右引号统一为中文右引号 "
-    .replace(/["""‟„]/g, '"')
-    // 压缩重复引号
-    .replace(/"{2,}/g, '"')
-    .replace(/"{2,}/g, '"')
 
   while (currentIndex < processedText.length) {
     // 查找标记的顺序：先找最近的开始标记
     const markers = []
-    
+
     // 环境描写 【】
     const envStart = processedText.indexOf('【', currentIndex)
     if (envStart !== -1) {
       const envEnd = processedText.indexOf('】', envStart + 1)
       if (envEnd !== -1) {
-        markers.push({ 
-          start: envStart, 
-          end: envEnd + 1, 
-          type: 'environment' as const, 
+        markers.push({
+          start: envStart,
+          end: envEnd + 1,
+          type: 'environment' as const,
           contentStart: envStart + 1,
           contentEnd: envEnd
         })
       }
     }
-    
+
     // 心理描写 ``
     const psyStart = processedText.indexOf('`', currentIndex)
     if (psyStart !== -1) {
       const psyEnd = processedText.indexOf('`', psyStart + 1)
       if (psyEnd !== -1) {
-        markers.push({ 
-          start: psyStart, 
-          end: psyEnd + 1, 
+        markers.push({
+          start: psyStart,
+          end: psyEnd + 1,
           type: 'psychology' as const,
           contentStart: psyStart + 1,
           contentEnd: psyEnd
         })
       }
     }
-    
-    // 对话：支持半角双引号 "" 与中文引号 “ ”
-    // 半角引号
+
+    // 对话：半角双引号 ""
     const dialogStart = processedText.indexOf('"', currentIndex)
     if (dialogStart !== -1) {
       const dialogEnd = processedText.indexOf('"', dialogStart + 1)
       if (dialogEnd !== -1) {
-        markers.push({ 
-          start: dialogStart, 
-          end: dialogEnd + 1, 
+        markers.push({
+          start: dialogStart,
+          end: dialogEnd + 1,
           type: 'dialogue' as const,
           contentStart: dialogStart + 1,
           contentEnd: dialogEnd
         })
       }
     }
-    // 中文引号
-    const zhDialogStart = processedText.indexOf('"', currentIndex)
-    if (zhDialogStart !== -1) {
-      const zhDialogEnd = processedText.indexOf('"', zhDialogStart + 1)
-      if (zhDialogEnd !== -1) {
+
+    // 引用/独白：中文引号 “ ”
+    const quoteStart = processedText.indexOf('“', currentIndex)
+    if (quoteStart !== -1) {
+      const quoteEnd = processedText.indexOf('”', quoteStart + 1)
+      if (quoteEnd !== -1) {
         markers.push({
-          start: zhDialogStart,
-          end: zhDialogEnd + 1,
-          type: 'dialogue' as const,
+          start: quoteStart,
+          end: quoteEnd + 1,
+          type: 'quote' as const,
           // 包含引号本身
-          contentStart: zhDialogStart,
-          contentEnd: zhDialogEnd + 1
+          contentStart: quoteStart,
+          contentEnd: quoteEnd + 1
         })
       }
     }
-    
+
     // 🔥 新增：书名号「」也解析为对话
     const bookQuoteStart = processedText.indexOf('「', currentIndex)
     if (bookQuoteStart !== -1) {
@@ -178,15 +363,15 @@ const parsedText = computed(() => {
         })
       }
     }
-    
+
     // 判定结果 〖〗
     const judgementStart = processedText.indexOf('〖', currentIndex)
     if (judgementStart !== -1) {
       const judgementEnd = processedText.indexOf('〗', judgementStart + 1)
       if (judgementEnd !== -1) {
-        markers.push({ 
-          start: judgementStart, 
-          end: judgementEnd + 1, 
+        markers.push({
+          start: judgementStart,
+          end: judgementEnd + 1,
           type: 'judgement' as const,
           contentStart: judgementStart + 1,
           contentEnd: judgementEnd
@@ -227,24 +412,53 @@ const parsedText = computed(() => {
     const markedContent = processedText.slice(nextMarker.contentStart, nextMarker.contentEnd)
     if (markedContent.trim()) {
       if (nextMarker.type === 'judgement') {
-        // 使用简单的分隔符解析判定内容
-        // 格式: "感悟判定:失败,骰点:98,悟性:5"
+        // 增强的判定解析
+        // 支持格式: "修炼判定:完美,骰点:45,灵性:8,加成:12,最终值:65,难度:50"
         const contentParts = markedContent.split(',').map(p => p.trim())
-        
-        if (contentParts.length >= 2) {
+
+        if (contentParts.length >= 1) {
           const titleResult = contentParts[0].split(':')
-          const diceInfo = contentParts.find(p => p.includes('骰点'))
-          const attrInfo = contentParts.find(p => !p.includes('骰点') && p !== contentParts[0])
-          
+
           if (titleResult.length === 2) {
+            const judgement: any = {
+              title: titleResult[0].trim(),
+              result: titleResult[1].trim(),
+              dice: '未知',
+              attribute: '',
+              details: []
+            }
+
+            // 解析所有其他字段
+            for (let i = 1; i < contentParts.length; i++) {
+              const part = contentParts[i]
+              const [key, value] = part.split(':').map(s => s.trim())
+
+              if (!key || !value) continue
+
+              if (key.includes('骰点') || key.includes('骰子')) {
+                judgement.dice = value
+              } else if (key.includes('难度')) {
+                judgement.difficulty = value
+              } else if (key.includes('加成')) {
+                judgement.bonus = value
+              } else if (key.includes('最终值') || key.includes('总值')) {
+                judgement.finalValue = value
+              } else if (key.match(/^[^\d\s]+$/)) {
+                // 属性名(如"灵性"、"悟性"等)
+                if (!judgement.attribute) {
+                  judgement.attribute = `${key}:${value}`
+                } else {
+                  judgement.details.push(`${key}:${value}`)
+                }
+              } else {
+                // 其他信息放入详情
+                judgement.details.push(part)
+              }
+            }
+
             parts.push({
               type: 'judgement-card',
-              content: {
-                title: titleResult[0].trim(),
-                result: titleResult[1].trim(),
-                dice: diceInfo ? diceInfo.split(':')[1]?.trim() || '未知' : '未知',
-                attribute: attrInfo || '未知属性'
-              }
+              content: judgement
             })
           } else {
             // 解析失败，作为普通文本处理
@@ -273,6 +487,7 @@ const getPartClass = (type: string) => {
     'text-environment': type === 'environment',
     'text-psychology': type === 'psychology',
     'text-dialogue': type === 'dialogue',
+    'text-quote': type === 'quote',
     'text-normal': type === 'normal'
   }
 }
@@ -323,6 +538,12 @@ const isFailureResult = (result: string) => {
   border-left: 3px solid rgba(234, 88, 12, 0.4);
   box-shadow: 0 1px 3px rgba(234, 88, 12, 0.1);
   display: inline-block;
+}
+
+/* 引用/独白 - 橙色斜体 */
+.text-quote {
+  color: rgb(254 125 0);
+  font-style: italic;
 }
 
 /* 普通文本 */
@@ -442,6 +663,8 @@ const isFailureResult = (result: string) => {
   font-weight: 700;
   color: #1e293b;
   letter-spacing: -0.01em;
+  text-shadow: none;
+  opacity: 1;
 }
 
 .judgement-badge {
@@ -455,23 +678,47 @@ const isFailureResult = (result: string) => {
   font-weight: 600;
   letter-spacing: 0.02em;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  opacity: 1;
 }
 
 /* 统计信息行 */
 .card-body {
   display: flex;
-  gap: 1.25rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
 
 .stat-item {
   display: flex;
   align-items: center;
-  gap: 0.625rem;
-  padding: 0.625rem 1rem;
+  gap: 0.5rem;
+  padding: 0.5rem 0.875rem;
   background: white;
   border-radius: 10px;
   border: 1px solid #e2e8f0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  min-width: fit-content;
+}
+
+.details-list {
+  width: 100%;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.detail-item {
+  font-size: 0.875rem;
+  color: #64748b;
+  padding: 0.25rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.detail-item::before {
+  content: '•';
+  color: #94a3b8;
 }
 
 .stat-icon {
@@ -560,6 +807,10 @@ const isFailureResult = (result: string) => {
   box-shadow: 0 1px 3px rgba(234, 88, 12, 0.2);
 }
 
+[data-theme="dark"] .text-quote {
+  color: rgb(254 125 0);
+}
+
 [data-theme="dark"] .judgement-card {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, var(--color-background, rgb(30, 41, 59)) 100%);
   border-color: var(--color-border, rgba(173, 216, 230, 0.5));
@@ -584,5 +835,455 @@ const isFailureResult = (result: string) => {
 [data-theme="dark"] .dice-roll .value,
 [data-theme="dark"] .attribute-check .value {
   color: var(--color-text, #f7f7f5);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.help-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid #e2e8f0;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #64748b;
+}
+
+.help-btn:hover {
+  background: white;
+  border-color: var(--card-color, #6366f1);
+  color: var(--card-color, #6366f1);
+  transform: scale(1.1);
+}
+
+.help-btn:active {
+  transform: scale(0.95);
+}
+
+/* 帮助弹窗 */
+.help-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.help-modal {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow: hidden;
+  animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.help-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+.help-modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #64748b;
+}
+
+.close-btn:hover {
+  background: #fee2e2;
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.help-modal-content {
+  padding: 1.5rem;
+  overflow-y: auto;
+  max-height: calc(80vh - 80px);
+}
+
+.help-section {
+  margin-bottom: 1.5rem;
+}
+
+.help-section:last-child {
+  margin-bottom: 0;
+}
+
+.help-section h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.help-section ol {
+  margin: 0;
+  padding-left: 1.5rem;
+  color: var(--color-text-secondary);
+  line-height: 1.8;
+}
+
+.help-section ol li {
+  margin-bottom: 0.5rem;
+}
+
+.help-section ol li strong {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.formula-box {
+  padding: 1rem;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border-left: 4px solid #f59e0b;
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: #78350f;
+}
+
+.formula-box strong {
+  color: #92400e;
+  font-weight: 700;
+}
+
+.result-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.result-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  border: 1px solid;
+  gap: 1rem;
+}
+
+.result-item.perfect {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border-color: #fbbf24;
+}
+
+.result-item.great-success {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border-color: #86efac;
+}
+
+.result-item.success {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border-color: #93c5fd;
+}
+
+.result-item.failure {
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  border-color: #fca5a5;
+}
+
+.result-item.critical-failure {
+  background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
+  border-color: #c084fc;
+}
+
+.result-label {
+  font-weight: 700;
+  font-size: 0.875rem;
+  min-width: 60px;
+  opacity: 1;
+}
+
+.result-desc {
+  font-size: 0.875rem;
+  flex: 1;
+  opacity: 1;
+}
+
+/* -- 为不同结果类型设置文字颜色 -- */
+
+/* 完美 */
+.result-item.perfect .result-label,
+.result-item.perfect .result-desc {
+  color: #92400e;
+}
+
+/* 大成功 */
+.result-item.great-success .result-label,
+.result-item.great-success .result-desc {
+  color: #14532d;
+}
+
+/* 成功 */
+.result-item.success .result-label,
+.result-item.success .result-desc {
+  color: #1e40af;
+}
+
+/* 失败 */
+.result-item.failure .result-label,
+.result-item.failure .result-desc {
+  color: #991b1b;
+}
+
+/* 大失败 */
+.result-item.critical-failure .result-label,
+.result-item.critical-failure .result-desc {
+  color: #581c87;
+}
+
+.formula-note {
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border-left: 4px solid #3b82f6;
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: #1e40af;
+}
+
+.formula-note strong {
+  color: #1e3a8a;
+  font-weight: 700;
+}
+
+.tips-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: #475569;
+  line-height: 1.8;
+}
+
+.tips-list li {
+  margin-bottom: 0.5rem;
+}
+
+.judgement-types {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.type-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.type-name {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #1e293b;
+}
+
+.type-attrs {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.attributes-desc {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 0.75rem;
+}
+
+.attr-card {
+  padding: 0.75rem;
+  background: linear-gradient(135deg, #fefefe 0%, #f8fafc 100%);
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.attr-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.attr-icon {
+  font-size: 1.25rem;
+}
+
+.attr-name {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #1e293b;
+}
+
+.attr-card p {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+/* 深色主题适配 */
+[data-theme="dark"] .help-modal {
+  background: var(--color-surface, #1e293b);
+  color: var(--color-text, #f7f7f5);
+}
+
+[data-theme="dark"] .help-modal-header {
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom-color: var(--color-border, rgba(255, 255, 255, 0.1));
+}
+
+[data-theme="dark"] .help-modal-header h3,
+[data-theme="dark"] .help-section h4 {
+  color: var(--color-text, #f7f7f5);
+}
+
+[data-theme="dark"] .help-section ol,
+[data-theme="dark"] .tips-list {
+  color: var(--color-text-secondary, #94a3b8);
+}
+
+/* -- 深色主题下的结果文字颜色 -- */
+[data-theme="dark"] .result-item.perfect .result-label,
+[data-theme="dark"] .result-item.perfect .result-desc {
+  color: #fcd34d;
+}
+
+[data-theme="dark"] .result-item.great-success .result-label,
+[data-theme="dark"] .result-item.great-success .result-desc {
+  color: #86efac;
+}
+
+[data-theme="dark"] .result-item.success .result-label,
+[data-theme="dark"] .result-item.success .result-desc {
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .result-item.failure .result-label,
+[data-theme="dark"] .result-item.failure .result-desc {
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .result-item.critical-failure .result-label,
+[data-theme="dark"] .result-item.critical-failure .result-desc {
+  color: #d8b4fe;
+}
+
+[data-theme="dark"] .close-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--color-border, rgba(255, 255, 255, 0.1));
+  color: var(--color-text-secondary, #94a3b8);
+}
+
+[data-theme="dark"] .close-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+}
+
+[data-theme="dark"] .help-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--color-border, rgba(255, 255, 255, 0.1));
+  color: var(--color-text-secondary, #94a3b8);
+}
+
+[data-theme="dark"] .help-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--card-color, #6366f1);
+  color: var(--card-color, #6366f1);
+}
+
+[data-theme="dark"] .type-item {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: var(--color-border, rgba(255, 255, 255, 0.1));
+}
+
+[data-theme="dark"] .type-name {
+  color: var(--color-text, #f7f7f5);
+}
+
+[data-theme="dark"] .type-attrs {
+  color: var(--color-text-secondary, #94a3b8);
+}
+
+[data-theme="dark"] .attr-card {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: var(--color-border, rgba(255, 255, 255, 0.1));
+}
+
+[data-theme="dark"] .attr-name {
+  color: var(--color-text, #f7f7f5);
+}
+
+[data-theme="dark"] .attr-card p {
+  color: var(--color-text-secondary, #94a3b8);
+}
+
+[data-theme="dark"] .formula-box {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.15) 0%, rgba(245, 158, 11, 0.1) 100%);
+  border-left-color: #f59e0b;
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .formula-box strong {
+  color: #fcd34d;
 }
 </style>

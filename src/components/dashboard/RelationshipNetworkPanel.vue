@@ -133,7 +133,7 @@
                 <div class="detail-section" v-if="selectedPerson.人物记忆?.length">
                   <h5 class="section-title">最近记忆</h5>
                   <div class="memory-list">
-                    <div v-for="(memory, index) in selectedPerson.人物记忆.slice(0, 3)" :key="index" class="memory-item">
+                    <div v-for="(memory, index) in selectedPerson.人物记忆.slice(-3).reverse()" :key="index" class="memory-item">
                        <div class="memory-content">
                         <div class="memory-time">{{ getMemoryTime(memory) }}</div>
                         <div class="memory-event">{{ getMemoryEvent(memory) }}</div>
@@ -166,7 +166,13 @@
                     </div>
                     <div class="info-item">
                       <span class="info-label">出生</span>
-                      <span class="info-value">{{ selectedPerson.角色基础信息.出生 || '未知' }}</span>
+                      <span
+                        class="info-value clickable"
+                        @click="showOriginDetails(selectedPerson.角色基础信息.出生)"
+                        :title="typeof selectedPerson.角色基础信息.出生 === 'object' ? '点击查看详情' : ''"
+                      >
+                        {{ formatOrigin(selectedPerson.角色基础信息.出生) }}
+                      </span>
                     </div>
                     <div class="info-item" v-if="selectedPerson.角色基础信息.世界">
                       <span class="info-label">所在世界</span>
@@ -198,7 +204,18 @@
                 <div class="detail-section" v-if="selectedPerson.人物记忆?.length">
                   <div class="memory-header">
                     <h5 class="section-title">人物记忆</h5>
-                    <div class="memory-count" v-if="totalMemoryPages > 1">{{ selectedPerson.人物记忆.length }} 条记忆</div>
+                    <div class="memory-actions-header">
+                      <div class="memory-count" v-if="totalMemoryPages > 1">{{ selectedPerson.人物记忆.length }} 条记忆</div>
+                      <button
+                        v-if="selectedPerson.人物记忆.length >= 10"
+                        class="summarize-btn"
+                        @click="summarizeMemories"
+                        :disabled="isSummarizing"
+                        title="将记忆总结为精简版本"
+                      >
+                        {{ isSummarizing ? '总结中...' : '📝 总结记忆' }}
+                      </button>
+                    </div>
                   </div>
                   <div class="memory-list">
                     <div v-for="(memory, index) in paginatedMemory" :key="index" class="memory-item">
@@ -218,7 +235,19 @@
                     <button class="pagination-btn" :disabled="currentMemoryPage >= totalMemoryPages" @click="goToMemoryPage(currentMemoryPage + 1)">下一页</button>
                   </div>
                 </div>
-                 <div v-else class="empty-state-small">此人暂无记忆</div>
+
+                <!-- 记忆总结显示 -->
+                <div class="detail-section" v-if="selectedPerson.记忆总结?.length">
+                  <h5 class="section-title">记忆总结</h5>
+                  <div class="memory-summary-list">
+                    <div v-for="(summary, index) in selectedPerson.记忆总结" :key="index" class="memory-summary-item">
+                      <div class="summary-icon">📜</div>
+                      <div class="summary-text">{{ summary }}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div v-if="!selectedPerson.人物记忆?.length" class="empty-state-small">此人暂无记忆</div>
               </div>
 
               <!-- 背包 Tab -->
@@ -307,7 +336,7 @@
 <script setup lang="ts">
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { ref, computed, onMounted, watch } from 'vue';
-import { useCharacterStore } from '@/stores/characterStore';
+import { useUnifiedCharacterData } from '@/composables/useCharacterData';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
 import type { NpcProfile, Item } from '@/types/game';
 import {
@@ -317,7 +346,7 @@ import {
 import { toast } from '@/utils/toast';
 import { getTavernHelper } from '@/utils/tavern';
 
-const characterStore = useCharacterStore();
+const { characterData, saveData } = useUnifiedCharacterData();
 const actionQueue = useActionQueueStore();
 const isLoading = ref(false);
 const selectedPerson = ref<NpcProfile | null>(null);
@@ -326,6 +355,9 @@ const activeTab = ref('summary'); // 'summary', 'profile', 'memory', 'inventory'
 
 // 酒馆变量状态
 const tavernVariables = ref<Record<string, unknown>>({});
+
+// 记忆总结状态
+const isSummarizing = ref(false);
 
 // 记忆分页相关
 const memoryPageSize = ref(5); // 每页显示的记忆数量
@@ -381,6 +413,7 @@ const getMemoryEvent = (memory: unknown): string => {
 };
 
 // 解析NPC境界为结构化字段（境界: 数字, 阶段: 字符串）
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const getNpcRealmParsed = (npc: NpcProfile): { 境界: number | null; 阶段: string | null } => {
   const sources = [
     (npc as any)?.玩家角色状态,
@@ -524,10 +557,9 @@ const isNpcProfile = (val: unknown): val is NpcProfile => {
 };
 
 const relationships = computed<NpcProfile[]>(() => {
-  const saveData = characterStore.activeSaveSlot?.存档数据;
-  if (!saveData?.人物关系) return [];
+  if (!characterData.value?.人物关系) return [];
   // 仅保留有效NPC：键不以下划线开头，值是对象且包含角色基础信息
-  return Object.values(saveData.人物关系)
+  return Object.values(characterData.value.人物关系)
     .filter((val) => !String(val).startsWith('_'))
     .filter(isNpcProfile);
 });
@@ -592,7 +624,7 @@ onMounted(async () => {
   console.log('[人脉系统] 江湖人脉面板已载入，开始同步数据');
   isLoading.value = true;
   try {
-    await characterStore.syncFromTavern();
+    // 数据已由 useUnifiedCharacterData 自动同步
 
     // 初始化酒馆变量状态
     const helper = getTavernHelper();
@@ -619,9 +651,8 @@ onMounted(async () => {
 });
 // -- 记忆编辑与删除 --
 const findRelationshipKeyByName = (name: string): string | null => {
-  const saveData = characterStore.activeSaveSlot?.存档数据;
-  if (!saveData?.人物关系) return null;
-  return Object.keys(saveData.人物关系).find(key => saveData.人物关系[key]?.角色基础信息?.名字 === name) || null;
+  if (!characterData.value?.人物关系) return null;
+  return Object.keys(characterData.value.人物关系).find(key => characterData.value!.人物关系[key]?.角色基础信息?.名字 === name) || null;
 };
 
 const editMemory = async (index: number) => {
@@ -629,10 +660,9 @@ const editMemory = async (index: number) => {
   const name = selectedPerson.value.角色基础信息.名字;
   const key = findRelationshipKeyByName(name);
   if (!key) return;
-  const saveData = characterStore.activeSaveSlot?.存档数据;
-  if (!saveData?.人物关系?.[key]?.人物记忆) return;
+  if (!characterData.value?.人物关系?.[key]?.人物记忆) return;
 
-  const current = saveData.人物关系[key].人物记忆[index];
+  const current = characterData.value.人物关系[key].人物记忆[index];
 
   // 支持旧格式（字符串）和新格式（对象）
   let currentTime = '';
@@ -652,18 +682,46 @@ const editMemory = async (index: number) => {
   const newEvent = window.prompt('编辑记忆事件', currentEvent);
   if (newEvent === null) return;
 
-  saveData.人物关系[key].人物记忆[index] = {
+  characterData.value.人物关系[key].人物记忆[index] = {
     时间: newTime.trim(),
     事件: newEvent.trim()
     // 注意：不再保存指令数据，只保留时间和事件
   };
 
-  selectedPerson.value = { ...saveData.人物关系[key] };
-  await characterStore.syncToTavernAndSave();
+  selectedPerson.value = { ...characterData.value.人物关系[key] };
+
+  // 保存到酒馆
+  const { useCharacterStore } = await import('@/stores/characterStore');
+  const characterStore = useCharacterStore();
+  await characterStore.saveCurrentGame();
 };
 
 import { useUIStore } from '@/stores/uiStore';
+
+// Helper to format origin display
+const formatOrigin = (origin: unknown): string => {
+  if (!origin) return '未知';
+  if (typeof origin === 'string') return origin;
+  if (typeof origin === 'object' && origin !== null && '名称' in origin) {
+    return (origin as { 名称: string }).名称 || '未知';
+  }
+  return '格式错误';
+};
+
 const uiStore = useUIStore();
+
+// Show origin details in a modal
+const showOriginDetails = (origin: unknown) => {
+  if (origin && typeof origin === 'object' && origin !== null && '名称' in origin && '描述' in origin) {
+    const originObj = origin as { 名称: string; 描述: string };
+    // Assuming uiStore has a method to show a generic detail modal
+    uiStore.showDetailModal({
+      title: `出身背景: ${originObj.名称}`,
+      content: originObj.描述,
+    });
+  }
+};
+
 const deleteMemory = async (index: number) => {
   if (!selectedPerson.value) return;
   uiStore.showRetryDialog({
@@ -675,11 +733,14 @@ const deleteMemory = async (index: number) => {
       const name = selectedPerson.value!.角色基础信息.名字;
       const key = findRelationshipKeyByName(name);
       if (!key) return;
-      const saveData = characterStore.activeSaveSlot?.存档数据;
-      if (!saveData?.人物关系?.[key]?.人物记忆) return;
-      saveData.人物关系[key].人物记忆.splice(index, 1);
-      selectedPerson.value = { ...saveData.人物关系[key] };
-      await characterStore.syncToTavernAndSave();
+      if (!characterData.value?.人物关系?.[key]?.人物记忆) return;
+      characterData.value.人物关系[key].人物记忆.splice(index, 1);
+      selectedPerson.value = { ...characterData.value.人物关系[key] };
+
+      // 保存到酒馆
+      const { useCharacterStore } = await import('@/stores/characterStore');
+      const characterStore = useCharacterStore();
+      await characterStore.saveCurrentGame();
     },
     onCancel: () => {}
   });
@@ -751,15 +812,14 @@ const toggleAttention = async (person: NpcProfile) => {
   const npcName = person.角色基础信息.名字;
   console.log('[关注切换] 开始切换关注状态:', npcName);
 
-  const saveData = characterStore.activeSaveSlot?.存档数据;
-  if (!saveData?.人物关系) {
+  if (!characterData.value?.人物关系) {
     toast.error('人物关系数据不存在');
     return;
   }
 
   // 找到人物关系中的对应条目
-  const npcKey = Object.keys(saveData.人物关系).find(
-    key => saveData.人物关系[key]?.角色基础信息?.名字 === npcName
+  const npcKey = Object.keys(characterData.value.人物关系).find(
+    key => characterData.value!.人物关系[key]?.角色基础信息?.名字 === npcName
   );
 
   if (!npcKey) {
@@ -769,20 +829,22 @@ const toggleAttention = async (person: NpcProfile) => {
 
   try {
     // 切换实时关注状态
-    const currentState = saveData.人物关系[npcKey].实时关注 || false;
+    const currentState = characterData.value.人物关系[npcKey].实时关注 || false;
     const newState = !currentState;
-    saveData.人物关系[npcKey].实时关注 = newState;
+    characterData.value.人物关系[npcKey].实时关注 = newState;
 
     console.log(`[关注切换] 准备同步数据: ${npcName} -> ${newState}`);
 
     // 同步到酒馆并保存到本地
     try {
-      await characterStore.syncToTavernAndSave();
+      const { useCharacterStore } = await import('@/stores/characterStore');
+      const characterStore = useCharacterStore();
+      await characterStore.saveCurrentGame();
       console.log(`[关注切换] 数据同步成功`);
     } catch (syncError) {
       console.error('[关注切换] 同步数据失败:', syncError);
       // 回滚状态
-      saveData.人物关系[npcKey].实时关注 = currentState;
+      characterData.value.人物关系[npcKey].实时关注 = currentState;
       throw new Error('数据同步失败: ' + (syncError as Error).message);
     }
 
@@ -796,7 +858,7 @@ const toggleAttention = async (person: NpcProfile) => {
 
     // 手动触发响应式更新（确保界面刷新）
     if (selectedPerson.value?.角色基础信息?.名字 === npcName) {
-      selectedPerson.value = { ...saveData.人物关系[npcKey] };
+      selectedPerson.value = { ...characterData.value.人物关系[npcKey] };
     }
 
   } catch (error) {
@@ -829,6 +891,104 @@ const attemptStealFromNpc = (npc: NpcProfile, item: Item) => {
 
   toast.success(`已将偷窃 ${npc.角色基础信息.名字} 物品的计划加入动作队列`);
   console.log('已排队NPC偷窃:', { npc: npc.角色基础信息.名字, item: item.名称, type: 'steal' });
+};
+
+// 总结NPC记忆
+const summarizeMemories = async () => {
+  if (!selectedPerson.value) return;
+  const npcName = selectedPerson.value.角色基础信息.名字;
+
+  isSummarizing.value = true;
+
+  try {
+    const helper = getTavernHelper();
+    if (!helper) {
+      toast.error('无法连接到酒馆助手');
+      return;
+    }
+
+    // 获取所有记忆
+    const memories = selectedPerson.value.人物记忆 || [];
+    if (memories.length === 0) {
+      toast.error('没有记忆可以总结');
+      return;
+    }
+
+    // 构建总结提示词
+    const memoriesText = memories.map((m, i) => {
+      const time = typeof m === 'object' ? m.时间 : '未知时间';
+      const event = typeof m === 'object' ? m.事件 : String(m);
+      return `${i + 1}. [${time}] ${event}`;
+    }).join('\n');
+
+    const prompt = `请将以下NPC「${npcName}」的记忆总结为2-3句精简的概括，保留最重要的信息：
+
+${memoriesText}
+
+要求：
+1. 总结要简洁明了，每句话不超过30字
+2. 保留关键事件、人物关系变化、重要时间节点
+3. 用第三人称描述
+4. 只返回总结文本，不要其他内容
+
+总结：`;
+
+    console.log('[记忆总结] 发送提示词:', prompt);
+
+    // 调用AI生成总结
+    const response = await helper.generateRaw({ prompt });
+    console.log('[记忆总结] AI响应:', response);
+
+    if (!response || typeof response !== 'string') {
+      throw new Error('AI响应格式错误');
+    }
+
+    // 清理响应文本
+    const summary = response.trim();
+
+    if (!summary) {
+      throw new Error('总结内容为空');
+    }
+
+    // 找到NPC数据并更新
+    if (!characterData.value?.人物关系) {
+      throw new Error('存档数据不存在');
+    }
+
+    const npcKey = Object.keys(characterData.value.人物关系).find(
+      key => characterData.value!.人物关系[key]?.角色基础信息?.名字 === npcName
+    );
+
+    if (!npcKey) {
+      throw new Error(`找不到NPC: ${npcName}`);
+    }
+
+    // 初始化记忆总结数组
+    if (!characterData.value.人物关系[npcKey].记忆总结) {
+      characterData.value.人物关系[npcKey].记忆总结 = [];
+    }
+
+    // 添加总结
+    characterData.value.人物关系[npcKey].记忆总结!.push(summary);
+
+    // 同步到酒馆并保存
+    const { useCharacterStore } = await import('@/stores/characterStore');
+    const characterStore = useCharacterStore();
+    await characterStore.saveCurrentGame();
+
+    // 更新选中的人物
+    selectedPerson.value = { ...characterData.value.人物关系[npcKey] };
+
+    toast.success(`已为 ${npcName} 生成记忆总结`);
+    console.log('[记忆总结] 总结完成:', summary);
+
+  } catch (error) {
+    console.error('[记忆总结] 总结失败:', error);
+    const errorMsg = error instanceof Error ? error.message : '未知错误';
+    toast.error(`记忆总结失败: ${errorMsg}`);
+  } finally {
+    isSummarizing.value = false;
+  }
 };
 
 </script>
@@ -1324,12 +1484,19 @@ const attemptStealFromNpc = (npc: NpcProfile, item: Item) => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
+  gap: 1rem;
 }
 
 .memory-header .section-title {
   margin: 0;
   padding-bottom: 0;
   border-bottom: none;
+}
+
+.memory-actions-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .memory-count {
@@ -1339,6 +1506,61 @@ const attemptStealFromNpc = (npc: NpcProfile, item: Item) => {
   padding: 0.25rem 0.5rem;
   border-radius: 12px;
   font-weight: 500;
+}
+
+.summarize-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  color: white;
+  border: none;
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.summarize-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+}
+
+.summarize-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.memory-summary-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.memory-summary-item {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.05), rgba(124, 58, 237, 0.05));
+  border-radius: 8px;
+  border-left: 3px solid #8b5cf6;
+}
+
+.summary-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.summary-text {
+  flex: 1;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--color-text);
 }
 
 .memory-pagination {
@@ -2126,5 +2348,19 @@ const attemptStealFromNpc = (npc: NpcProfile, item: Item) => {
 
 [data-theme="dark"] .attention-toggle:hover .attention-icon.active {
   color: #16a34a;
+}
+
+.info-value.clickable {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dashed;
+  text-underline-offset: 3px;
+  color: var(--color-primary);
+  transition: color 0.2s, text-decoration-color 0.2s;
+}
+
+.info-value.clickable:hover {
+  text-decoration-style: solid;
+  color: var(--color-primary-hover);
 }
 </style>

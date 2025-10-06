@@ -5,20 +5,11 @@
  */
 
 import type { SaveData, Equipment, Item, Inventory, NpcProfile, CharacterProfile } from '@/types/game.d';
-import type { TavernHelper } from './tavernCore';
+import type { TavernHelper } from '@/types';
 import { debug } from './debug';
 
-// 定义一个更具体的 Tavern 变量类型，避免过多的 any
-type TavernChatVariables = Record<string, unknown> & {
-  'character.saveData'?: SaveData;
-  // 注意：以下字段已废弃，数据应统一存储在 character.saveData 中
-  // '背包'?: Inventory;
-  // '装备栏'?: Equipment;
-  // '修炼功法'?: SaveData['修炼功法'];
-  // '人物关系'?: Record<string, NpcProfile>;
-  // '宗门系统'?: SaveData['宗门系统'];
-  // '玩家角色状态'?: SaveData['玩家角色状态'];
-};
+// 定义 Tavern 变量类型（现已使用分片存储）
+type TavernChatVariables = Record<string, unknown>;
 
 // 识别明显的地名/建筑名（避免误被当作NPC）
 function isLikelyPlaceName(name: string): boolean {
@@ -30,41 +21,11 @@ function isLikelyPlaceName(name: string): boolean {
 }
 
 /**
- * 检查并修复数据重复问题
- * @param chatVariables - 从酒馆获取的聊天变量
- * @returns 清理后的SaveData
+ * @deprecated 此函数已废弃，现使用分片存储，不再需要清理重复数据
  */
-export function cleanDuplicateData(chatVariables: TavernChatVariables): SaveData | null {
-  console.log('[数据清理] 开始检查重复数据...');
-
-  const characterSaveData = chatVariables['character.saveData'];
-
-  if (!characterSaveData) {
-    console.warn('[数据清理] 未找到character.saveData');
-    return null;
-  }
-
-  // 创建一个深拷贝以避免直接修改原始对象
-  const cleanedData: SaveData = JSON.parse(JSON.stringify(characterSaveData));
-
-  // 检查是否存在废弃的重复数据字段
-  const deprecatedFields = ['背包', '装备栏', '修炼功法', '人物关系', '宗门系统', '玩家角色状态'];
-  let hasDeprecatedData = false;
-
-  for (const field of deprecatedFields) {
-    if (chatVariables[field]) {
-      console.warn(`[数据清理] 检测到废弃的重复数据字段: ${field}，数据应统一存储在 character.saveData 中`);
-      hasDeprecatedData = true;
-    }
-  }
-
-  if (hasDeprecatedData) {
-    console.log('[数据清理] 发现废弃的重复数据字段，建议清理。');
-  } else {
-    console.log('[数据清理] 未发现重复数据，数据结构符合规范。');
-  }
-
-  return validateAndFixSaveData(cleanedData);
+export function cleanDuplicateData(_chatVariables: TavernChatVariables): SaveData | null {
+  console.warn('[数据清理] cleanDuplicateData 已废弃，现使用分片存储');
+  return null;
 }
 
 
