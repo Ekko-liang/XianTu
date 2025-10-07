@@ -18,6 +18,7 @@ export interface StorageShards {
   '基础信息': {
     名字: string;
     性别: '男' | '女' | '其他';
+    出生日期?: { 年: number; 月: number; 日: number; 小时?: number; 分钟?: number }; // 出生日期（用于计算年龄，年龄由系统自动计算不需存储）
     世界: string;
     天资: string;
     出生: CharacterBaseInfo['出生'];
@@ -117,6 +118,7 @@ export function shardSaveData(saveData: SaveData): StorageShards {
     '基础信息': {
       名字: baseInfo.名字,
       性别: baseInfo.性别 || '其他',
+      出生日期: baseInfo.出生日期, // 添加出生日期（年龄由系统自动计算）
       世界: baseInfo.世界,
       天资: baseInfo.天资,
       出生: baseInfo.出生,
@@ -177,6 +179,7 @@ export function assembleSaveData(shards: Partial<StorageShards>): SaveData {
     角色基础信息: {
       名字: baseInfo.名字,
       性别: baseInfo.性别 || '其他', // 添加缺失的必填字段，默认为'其他'
+      出生日期: baseInfo.出生日期, // 添加出生日期字段（用于计算年龄）
       世界: baseInfo.世界,
       天资: baseInfo.天资,
       出生: baseInfo.出生,

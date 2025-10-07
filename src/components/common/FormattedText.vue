@@ -661,9 +661,9 @@ const isFailureResult = (result: string) => {
 .judgement-title {
   font-size: 1.125rem;
   font-weight: 700;
-  color: #1e293b;
+  color: #0f172a;
   letter-spacing: -0.01em;
-  text-shadow: none;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
   opacity: 1;
 }
 

@@ -12,59 +12,100 @@ import { debug } from './debug';
  * 深度清理对象，移除所有不可被 structuredClone 克隆的值
  * 这包括：函数、Proxy、循环引用等
  * 用于修复酒馆助手3.6.11的structuredClone兼容性问题
+ *
+ * 策略：先用JSON.stringify测试，如果能序列化就直接用，否则递归清理
  */
-export function deepCleanForClone<T>(value: T, seen = new WeakSet()): T {
+export function deepCleanForClone<T>(value: T): T {
   // 处理基本类型
   if (value === null || value === undefined) return value;
   if (typeof value !== 'object') {
-    // 检查是否为函数
     if (typeof value === 'function') {
       return undefined as any;
     }
     return value;
   }
 
-  // 检测循环引用
-  if (seen.has(value as any)) {
-    console.warn('[数据清理] 检测到循环引用，已跳过');
-    return undefined as any;
-  }
-  seen.add(value as any);
-
-  // 处理数组
-  if (Array.isArray(value)) {
-    return value.map(item => deepCleanForClone(item, seen)).filter(item => item !== undefined) as any;
-  }
-
-  // 处理 Date
-  if (value instanceof Date) {
-    return value;
-  }
-
-  // 处理 Proxy 或其他特殊对象
+  // 先尝试用JSON.stringify，这是最快且最安全的方法
   try {
-    // 尝试检测 Proxy（虽然不完美，但可以捕获一些常见情况）
-    const constructor = Object.getPrototypeOf(value)?.constructor;
-    if (constructor && constructor.name !== 'Object' && constructor.name !== 'Array') {
-      // 如果不是普通对象或数组，尝试转换为普通对象
-      console.warn(`[数据清理] 检测到特殊对象类型: ${constructor.name}，尝试转换为普通对象`);
-    }
+    // 如果能成功序列化，说明没有循环引用、函数、Proxy等问题
+    const jsonStr = JSON.stringify(value);
+    return JSON.parse(jsonStr) as T;
   } catch (e) {
-    console.warn('[数据清理] 检测对象类型失败，可能是 Proxy');
+    // JSON序列化失败，需要手动清理
+    console.warn('[数据清理] JSON序列化失败，进行深度清理:', e);
   }
 
-  // 处理普通对象
-  const cleaned: any = {};
-  for (const key in value) {
-    if (Object.prototype.hasOwnProperty.call(value, key)) {
-      const cleanedValue = deepCleanForClone((value as any)[key], seen);
-      if (cleanedValue !== undefined) {
-        cleaned[key] = cleanedValue;
+  // 手动深度清理（用于处理JSON无法序列化的情况）
+  const seen = new WeakMap<any, any>(); // 用于追踪已处理的对象，避免循环引用
+
+  function deepClean(val: any): any {
+    // 基本类型
+    if (val === null || val === undefined) return val;
+    if (typeof val !== 'object') {
+      if (typeof val === 'function') return undefined;
+      return val;
+    }
+
+    // 检测循环引用
+    if (seen.has(val)) {
+      console.warn('[数据清理] 检测到循环引用');
+      return undefined;
+    }
+
+    // 处理Date
+    if (val instanceof Date) {
+      return new Date(val.getTime());
+    }
+
+    // 处理数组
+    if (Array.isArray(val)) {
+      const result: any[] = [];
+      seen.set(val, result); // 标记为已处理
+
+      for (let i = 0; i < val.length; i++) {
+        const cleaned = deepClean(val[i]);
+        if (cleaned !== undefined) {
+          result.push(cleaned);
+        }
+      }
+
+      return result;
+    }
+
+    // 处理普通对象
+    const result: any = {};
+    seen.set(val, result); // 标记为已处理
+
+    // 检查是否为特殊对象（Proxy等）
+    try {
+      const proto = Object.getPrototypeOf(val);
+      const constructor = proto?.constructor;
+
+      if (constructor && constructor.name !== 'Object') {
+        console.warn(`[数据清理] 检测到特殊对象类型: ${constructor.name}，尝试提取属性`);
+      }
+    } catch (e) {
+      console.warn('[数据清理] 无法获取对象原型，可能是Proxy');
+    }
+
+    // 提取所有可枚举属性
+    for (const key in val) {
+      try {
+        if (Object.prototype.hasOwnProperty.call(val, key)) {
+          const cleaned = deepClean(val[key]);
+          if (cleaned !== undefined) {
+            result[key] = cleaned;
+          }
+        }
+      } catch (e) {
+        console.warn(`[数据清理] 提取属性 "${key}" 失败:`, e);
       }
     }
+
+    return result;
   }
 
-  return cleaned as T;
+  return deepClean(value) as T;
 }
 
 // 定义 Tavern 变量类型（现已使用分片存储）
