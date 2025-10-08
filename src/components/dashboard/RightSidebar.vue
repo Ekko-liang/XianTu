@@ -90,7 +90,7 @@
             <div class="progress-bar">
               <div class="progress-fill cultivation" :style="{ width: realmProgressPercent + '%' }"></div>
             </div>
-            <span class="progress-text">{{ playerStatus?.境界?.当前进度 }} / {{ playerStatus?.境界?.下一级所需 }}</span>
+            <span class="progress-text">{{ realmProgressPercent }}%</span>
           </div>
         </div>
 
@@ -139,7 +139,7 @@
               <div class="progress-bar">
                 <div class="progress-fill talent" :style="{ width: getTalentProgress(typeof talent === 'string' ? talent : talent.名称) + '%' }"></div>
               </div>
-              <span class="progress-text">{{ getTalentExp(typeof talent === 'string' ? talent : talent.名称) }} / {{ getTalentMaxExp(typeof talent === 'string' ? talent : talent.名称) }}</span>
+              <span class="progress-text">{{ getTalentProgress(typeof talent === 'string' ? talent : talent.名称) }}%</span>
             </div>
           </div>
 

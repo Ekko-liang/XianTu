@@ -322,6 +322,36 @@ function parseRelationshipChange(change: StateChange): FormattedChange | null {
         description: `${oldValue || '初识'} → ${newValue}`,
       };
     }
+
+    // 通用关系属性变更，处理深层嵌套路径
+    const subPathParts = parts.slice(2);
+    if (subPathParts.length > 0) {
+      const subPath = subPathParts.join('.');
+      // 将 a.b.0.c 格式化为 a.b[0].c，支持数字索引
+      const readablePath = subPath.replace(/\.([0-9]+)(?=\.|$)/g, '[$1]');
+
+      let description = `'${readablePath}' 已更新`;
+      // 对于简单值的变更，直接在描述中显示
+      if (
+        (typeof newValue !== 'object' || newValue === null) &&
+        (typeof oldValue !== 'object' || oldValue === null)
+      ) {
+        description = `'${readablePath}' 从 ${JSON.stringify(oldValue)} 变为 ${JSON.stringify(newValue)}`;
+      }
+
+      return {
+        icon: 'update',
+        color: 'blue',
+        title: `【${npcName}】信息更新`,
+        description: description,
+        // 对于复杂值的变更，在详情中显示
+        details:
+          (typeof newValue === 'object' && newValue !== null) ||
+          (typeof oldValue === 'object' && oldValue !== null)
+            ? [`旧值: ${JSON.stringify(oldValue)}`, `新值: ${JSON.stringify(newValue)}`]
+            : undefined,
+      };
+    }
   }
 
   return null;

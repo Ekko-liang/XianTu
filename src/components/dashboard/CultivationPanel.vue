@@ -39,7 +39,7 @@
           </div>
 
           <div v-else class="cultivation-info">
-            <div class="technique-item">
+            <div v-if="currentTechnique" class="technique-item">
               <div class="technique-icon" :class="getTechniqueQualityClass(currentTechnique)">📖</div>
               <div class="technique-info">
                 <div class="technique-name" :class="getTechniqueQualityClass(currentTechnique, 'text')">
@@ -69,7 +69,7 @@
               </div>
 
               <!-- 功法详情 -->
-              <div class="technique-details">
+              <div v-if="currentTechnique" class="technique-details">
                 <!-- 功法描述 -->
                 <div class="detail-block">
                   <h5 class="detail-block-title">功法描述</h5>
@@ -100,7 +100,7 @@
               </div>
 
               <!-- 已学技能列表 -->
-              <div v-if="learnedSkills.length > 0" class="skills-section">
+              <div v-if="currentTechnique && learnedSkills.length > 0" class="skills-section">
                 <div class="skills-header">
                   <h5 class="skills-title">已掌握技能</h5>
                 <div class="skills-count">({{ learnedSkills.length }}个)</div>
@@ -141,99 +141,6 @@
           </div>
         </div>
 
-        <!-- 三千大道卡片 -->
-        <div class="detail-section dao-card">
-          <div class="detail-header">
-            <div class="header-icon">🌌</div>
-            <h4 class="detail-title">三千大道</h4>
-            <div class="dao-count">{{ unlockedDaoCount }}条已解锁</div>
-          </div>
-
-          <div v-if="unlockedDaoList.length === 0" class="empty-state">
-            <div class="empty-icon">📿</div>
-            <div class="empty-text"></div>
-            <div class="empty-hint"></div>
-          </div>
-
-          <div v-else class="dao-list">
-            <div
-              v-for="daoName in unlockedDaoList.slice(0, 5)"
-              :key="daoName"
-              class="dao-item"
-            >
-              <div class="dao-icon">{{ getDaoIcon(daoName) }}</div>
-              <div class="dao-info">
-                <div class="dao-name">{{ daoName }}</div>
-                <div class="dao-stage">{{ getCurrentStageName(daoName) }}</div>
-                <div class="dao-progress">
-                  <div class="progress-bar">
-                    <div
-                      class="progress-fill"
-                      :style="{ width: Math.min(100, Math.max(0, getProgressPercent(daoName))) + '%' }"
-                    ></div>
-                  </div>
-                  <span class="progress-text">{{ Math.min(100, Math.max(0, getProgressPercent(daoName))).toFixed(0) }}%</span>
-                </div>
-              </div>
-            </div>
-            <div v-if="unlockedDaoList.length > 5" class="more-dao">
-              还有{{ unlockedDaoList.length - 5 }}条大道...
-            </div>
-          </div>
-        </div>
-
-        <!-- 装备系统卡片 -->
-        <div class="detail-section equipment-card">
-          <div class="detail-header">
-            <div class="header-icon">⚔️</div>
-            <h4 class="detail-title">装备法宝</h4>
-            <div class="equipment-count">{{ equippedCount }}/6</div>
-          </div>
-
-          <div class="equipment-slots">
-            <div
-              v-for="(equipName, slotName) in equipmentSlots"
-              :key="slotName"
-              class="equipment-slot"
-              :class="{ equipped: equipName }"
-            >
-              <div class="slot-icon">{{ getEquipmentIcon(slotName) }}</div>
-              <div class="slot-info">
-                <div class="slot-name">{{ slotName }}</div>
-                <div class="slot-equipment">{{ equipName || '' }}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 天赋显示卡片 -->
-        <div class="detail-section talents-card">
-          <div class="detail-header">
-            <div class="header-icon">🌟</div>
-            <h4 class="detail-title">先天天赋</h4>
-            <div class="talent-count">{{ talentsCount }}项天赋</div>
-          </div>
-
-          <div v-if="characterTalents.length === 0" class="empty-state">
-            <div class="empty-icon">⭐</div>
-            <div class="empty-text"></div>
-            <div class="empty-hint"></div>
-          </div>
-
-          <div v-else class="talents-list">
-            <div
-              v-for="talent in characterTalents"
-              :key="talent"
-              class="talent-item"
-            >
-              <div class="talent-icon">🌟</div>
-              <div class="talent-info">
-                <div class="talent-name">{{ talent }}</div>
-                <div class="talent-description">先天天赋，无法修炼提升</div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -252,6 +159,7 @@
 import { computed, ref } from 'vue';
 import { RefreshCw } from 'lucide-vue-next';
 import { useCharacterCultivationData, useCharacterBasicData, useUnifiedCharacterData } from '@/composables/useCharacterData';
+import { useCharacterStore } from '@/stores/characterStore';
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
 import { getTavernHelper } from '@/utils/tavern';
@@ -262,6 +170,7 @@ import type { TechniqueItem, CultivationTechniqueData, TechniqueSkill, DaoData }
 const { saveData: cultivationSaveData, realm, techniques, daoSystem } = useCharacterCultivationData();
 const { basicInfo, status } = useCharacterBasicData();
 const { characterData, saveData } = useUnifiedCharacterData();
+const characterStore = useCharacterStore();
 
 // 深度修炼弹窗状态
 const showDeepCultivationModal = ref(false);
@@ -473,79 +382,6 @@ const getSkillEffectDescription = (skill: LearnedSkillDisplay): string => {
   }
 };
 
-const daoSystemData = computed(() => daoSystem.value);
-const equipmentData = computed(() => characterData.value?.装备栏);
-const characterTalents = computed(() => basicInfo.value?.天赋 || []);
-
-// 计算属性
-const unlockedDaoList = computed(() => {
-  const ds = daoSystemData.value;
-  if (!ds?.大道列表) return [];
-  // 从大道列表中筛选已解锁的大道
-  return Object.entries(ds.大道列表)
-    .filter(([, daoData]) => daoData.是否解锁)
-    .map(([daoName]) => daoName);
-});
-const unlockedDaoCount = computed(() => unlockedDaoList.value.length);
-
-const equipmentSlots = computed(() => ({
-  '装备1': equipmentData.value?.装备1,
-  '装备2': equipmentData.value?.装备2,
-  '装备3': equipmentData.value?.装备3,
-  '装备4': equipmentData.value?.装备4,
-  '装备5': equipmentData.value?.装备5,
-  '装备6': equipmentData.value?.装备6
-}));
-
-const equippedCount = computed(() => {
-  return Object.values(equipmentSlots.value).filter(Boolean).length;
-});
-
-const talentsCount = computed(() => characterTalents.value.length);
-
-// 获取大道图标
-const getDaoIcon = (daoName: string): string => {
-  const iconMap: Record<string, string> = {
-    '丹道': '💊', '器道': '⚔️', '符道': '📜', '阵道': '🔮',
-    '剑道': '⚔️', '刀道': '🔪', '拳道': '👊', '身法道': '🏃',
-    '音律道': '🎵', '画道': '🎨', '茶道': '🍃', '医道': '⚕️'
-  };
-  return iconMap[daoName] || '✨';
-};
-
-// 获取装备图标
-const getEquipmentIcon = (slotName: string): string => {
-  const iconMap: Record<string, string> = {
-    '装备1': '⚔️',
-    '装备2': '🛡️',
-    '装备3': '💍',
-    '装备4': '📿',
-    '装备5': '👑',
-    '装备6': '🦄'
-  };
-  return iconMap[slotName] || '⚔️';
-};
-
-// 获取当前阶段名称
-const getCurrentStageName = (daoName: string): string => {
-  const ds = daoSystemData.value;
-  if (!ds?.大道列表) return '';
-  const daoData = ds.大道列表[daoName];
-  if (!daoData?.阶段列表) return '';
-  const stageIndex = daoData.当前阶段;
-  return daoData.阶段列表[stageIndex]?.名称 || '';
-};
-
-// 获取进度百分比
-const getProgressPercent = (daoName: string): number => {
-  const ds = daoSystemData.value;
-  if (!ds?.大道列表) return 0;
-  const daoData = ds.大道列表[daoName];
-  if (!daoData?.阶段列表) return 0;
-  const currentStage = daoData.阶段列表[daoData.当前阶段];
-  if (!currentStage?.突破经验) return 0;
-  return Math.min(100, (daoData.当前经验 / currentStage.突破经验) * 100);
-};
 
 // 刷新修炼数据
 const refreshCultivationData = async () => {
@@ -562,52 +398,15 @@ const stopCultivation = async () => {
   }
 
   const techniqueToStop = currentTechnique.value;
-  debug.log('修炼面板', '停止修炼', techniqueToStop.名称);
+  debug.log('修炼面板', '请求停止修炼', techniqueToStop.名称);
 
   try {
-    // 检查存档数据
-    if (!saveData.value) {
-      toast.error('存档数据不存在');
-      return;
-    }
-
-    const currentSaveData = saveData.value;
-
-    // 将功法移回背包（如果背包中不存在）
-    if (!currentSaveData.背包) {
-      currentSaveData.背包 = { 物品: {}, 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 } };
-    }
-    if (!currentSaveData.背包.物品) {
-      currentSaveData.背包.物品 = {};
-    }
-
-    const existingItem = Object.values(currentSaveData.背包.物品).find(i => i.物品ID === techniqueToStop.物品ID);
-
-    // 如果背包中不存在这个功法，添加进去
-    if (!existingItem) {
-      const itemToAdd = { ...techniqueToStop, 已装备: false };
-      currentSaveData.背包.物品[itemToAdd.物品ID] = itemToAdd;
-    } else {
-      // 如果存在，清除已装备标记
-      existingItem.已装备 = false;
-    }
-
-    // 清空修炼槽位
-    if (currentSaveData.修炼功法) {
-      currentSaveData.修炼功法.正在修炼 = false;
-    }
-
-    // 保存数据 - 需要导入 characterStore
-    const { useCharacterStore } = await import('@/stores/characterStore');
-    const characterStore = useCharacterStore();
-    await characterStore.syncToTavernAndSave();
-
+    await characterStore.unequipTechnique(techniqueToStop.物品ID);
     toast.success(`已停止修炼《${techniqueToStop.名称}》`);
     debug.log('修炼面板', '停止修炼成功', techniqueToStop.名称);
-
   } catch (error) {
     debug.error('修炼面板', '停止修炼失败', error);
-    toast.error('停止修炼失败');
+    toast.error(`停止修炼失败: ${error instanceof Error ? error.message : '未知错误'}`);
   }
 };
 

@@ -8,6 +8,8 @@ interface RetryDialogConfig {
   onCancel: () => void;
   confirmText?: string; // 可选：自定义确认按钮文本
   cancelText?: string;  // 可选：自定义取消按钮文本
+  neutralText?: string; // 可选：新增第三个中立按钮的文本
+  onNeutral?: () => void; // 可选：新增第三个中立按钮的回调
 }
 
 interface DetailModalConfig {
@@ -110,6 +112,13 @@ export const useUIStore = defineStore('ui', () => {
     }
   }
 
+  function neutralAction() {
+    if (retryDialogConfig.value && retryDialogConfig.value.onNeutral) {
+      retryDialogConfig.value.onNeutral();
+      hideRetryDialog();
+    }
+  }
+
   // --- 新增：数据验证错误弹窗方法 ---
   function showDataValidationErrorDialog(messages: string[], onConfirm: () => void, context: 'creation' | 'loading' = 'creation') {
     dataValidationErrorMessages.value = messages;
@@ -182,6 +191,7 @@ export const useUIStore = defineStore('ui', () => {
     hideRetryDialog,
     confirmRetry,
     cancelRetry,
+    neutralAction, // 暴露中立按钮动作
     showCharacterManagement,
     openCharacterManagement,
     closeCharacterManagement,

@@ -338,6 +338,7 @@ import {
 import { useCharacterStore } from '@/stores/characterStore';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
 import { useUIStore } from '@/stores/uiStore';
+import { panelBus } from '@/utils/panelBus';
 import { EnhancedActionQueueManager } from '@/utils/enhancedActionQueue';
 import { getTavernHelper } from '@/utils/tavern';
 import { AIBidirectionalSystem } from '@/utils/AIBidirectionalSystem';
@@ -926,7 +927,8 @@ const latestMessageText = ref<string | null>(null); // 用于存储单独的text
 
 // 短期记忆设置 - 可配置
 const maxShortTermMemories = ref(5); // 默认5条，避免token过多
-const maxMidTermMemories = ref(25); // 默认25条，可自由配置
+const maxMidTermMemories = ref(25); // 默认25条触发阈值
+const midTermKeepCount = ref(8); // 默认保留8条最新的中期记忆
 // 长期记忆无限制，不设上限
 
 // 从设置加载记忆配置
@@ -941,9 +943,11 @@ const loadMemorySettings = async () => {
           const settings = memorySettings as any;
           if (settings.shortTermLimit) maxShortTermMemories.value = settings.shortTermLimit;
           if (settings.midTermTrigger) maxMidTermMemories.value = settings.midTermTrigger;
+          if (settings.midTermKeep) midTermKeepCount.value = settings.midTermKeep;
           console.log('[记忆设置] 已从酒馆变量加载配置:', {
             短期记忆上限: maxShortTermMemories.value,
-            中期记忆触发阈值: maxMidTermMemories.value
+            中期记忆触发阈值: maxMidTermMemories.value,
+            中期记忆保留数量: midTermKeepCount.value
           });
           return;
         }
@@ -958,9 +962,11 @@ const loadMemorySettings = async () => {
       const settings = JSON.parse(memorySettings);
       if (settings.maxShortTerm) maxShortTermMemories.value = settings.maxShortTerm;
       if (settings.maxMidTerm) maxMidTermMemories.value = settings.maxMidTerm;
+      if (settings.midTermKeep) midTermKeepCount.value = settings.midTermKeep;
       console.log('[记忆设置] 已从localStorage加载配置:', {
         短期记忆上限: maxShortTermMemories.value,
-        中期记忆上限: maxMidTermMemories.value
+        中期记忆触发阈值: maxMidTermMemories.value,
+        中期记忆保留数量: midTermKeepCount.value
       });
     }
   } catch (error) {
@@ -1671,9 +1677,10 @@ const sendMessage = async () => {
         const helper = getTavernHelper();
         if (helper) {
           // 同步三个记忆分片
-          await helper.setVariable('记忆_短期', currentSaveData.记忆.短期记忆, { type: 'chat' });
-          await helper.setVariable('记忆_中期', currentSaveData.记忆.中期记忆, { type: 'chat' });
-          await helper.setVariable('记忆_长期', currentSaveData.记忆.长期记忆, { type: 'chat' });
+          const { deepCleanForClone } = await import('@/utils/dataValidation');
+          await helper.setVariable('记忆_短期', deepCleanForClone(currentSaveData.记忆.短期记忆), { type: 'chat' });
+          await helper.setVariable('记忆_中期', deepCleanForClone(currentSaveData.记忆.中期记忆), { type: 'chat' });
+          await helper.setVariable('记忆_长期', deepCleanForClone(currentSaveData.记忆.长期记忆), { type: 'chat' });
           console.log('[记忆同步] ✅ 记忆已同步到Tavern分片');
         }
       }
@@ -1992,10 +1999,14 @@ const transferToLongTermMemory = async () => {
       return;
     }
 
-    const excess = sd.记忆.中期记忆.length - maxMidTermMemories.value;
+    // 计算需要总结的记忆数量 = 当前中期记忆数量 - 保留数量
+    const memoriesToSummarizeCount = sd.记忆.中期记忆.length - midTermKeepCount.value;
 
-    if (excess > 0) {
-      const oldMemories = sd.记忆.中期记忆.splice(maxMidTermMemories.value);
+    if (memoriesToSummarizeCount > 0) {
+      // 从中期记忆的开头提取（并移除）最旧的记忆进行总结
+      const oldMemories = sd.记忆.中期记忆.splice(0, memoriesToSummarizeCount);
+
+      console.log(`[记忆管理] 提取了 ${oldMemories.length} 条中期记忆进行总结。剩余中期记忆: ${sd.记忆.中期记忆.length} 条`);
 
       // 生成长期记忆总结
       const summary = await generateLongTermSummary(oldMemories);
@@ -2006,7 +2017,21 @@ const transferToLongTermMemory = async () => {
         // 添加新的总结到长期记忆开头
         sd.记忆.长期记忆.unshift(summary);
 
-        console.log(`[记忆管理] 总结 ${oldMemories.length} 条记忆到长期记忆，长期记忆总数: ${sd.记忆.长期记忆.length} 条`);
+        console.log(`[记忆管理] ✅ 成功总结并添加到长期记忆。长期记忆总数: ${sd.记忆.长期记忆.length} 条`);
+        console.log(`[记忆管理] 长期记忆内容预览:`, summary.substring(0, 100));
+        console.log(`[记忆管理] 完整长期记忆数组:`, sd.记忆.长期记忆);
+
+        // 🔥 关键：立即保存到酒馆（使用完整同步确保记忆分片正确更新）
+        await characterStore.syncToTavernAndSave({ fullSync: true });
+        console.log(`[记忆管理] ✅ 已保存中期记忆删除和长期记忆新增到酒馆`);
+
+        // 验证保存后的数据
+        const verifySlot = characterStore.activeSaveSlot;
+        if (verifySlot?.存档数据?.记忆?.长期记忆) {
+          console.log(`[记忆管理] 验证：存档中的长期记忆数量 = ${verifySlot.存档数据.记忆.长期记忆.length}`);
+        }
+      } else {
+        console.warn('[记忆管理] ⚠️ 生成长期记忆总结失败，被移除的中期记忆已丢失:', oldMemories);
       }
     }
   } catch (error) {
@@ -2024,10 +2049,14 @@ const transferToLongTermMemoryDirect = async (saveData: SaveData) => {
       return;
     }
 
-    const excess = saveData.记忆.中期记忆.length - maxMidTermMemories.value;
+    // 计算需要总结的记忆数量 = 当前中期记忆数量 - 保留数量
+    const memoriesToSummarizeCount = saveData.记忆.中期记忆.length - midTermKeepCount.value;
 
-    if (excess > 0) {
-      const oldMemories = saveData.记忆.中期记忆.splice(maxMidTermMemories.value);
+    if (memoriesToSummarizeCount > 0) {
+      // 从中期记忆的开头提取（并移除）最旧的记忆进行总结
+      const oldMemories = saveData.记忆.中期记忆.splice(0, memoriesToSummarizeCount);
+
+      console.log(`[记忆管理] 提取了 ${oldMemories.length} 条中期记忆进行总结。剩余中期记忆: ${saveData.记忆.中期记忆.length} 条`);
 
       // 生成长期记忆总结
       const summary = await generateLongTermSummary(oldMemories);
@@ -2038,7 +2067,9 @@ const transferToLongTermMemoryDirect = async (saveData: SaveData) => {
         // 添加新的总结到长期记忆开头
         saveData.记忆.长期记忆.unshift(summary);
 
-        console.log(`[记忆管理] 总结 ${oldMemories.length} 条记忆到长期记忆，长期记忆总数: ${saveData.记忆.长期记忆.length} 条`);
+        console.log(`[记忆管理] ✅ 成功总结并添加到长期记忆。长期记忆总数: ${saveData.记忆.长期记忆.length} 条`);
+      } else {
+        console.warn('[记忆管理] ⚠️ 生成长期记忆总结失败，被移除的中期记忆已丢失:', oldMemories);
       }
     }
   } catch (error) {
@@ -2052,10 +2083,25 @@ const generateLongTermSummary = async (memories: string[]): Promise<string | nul
     const helper = getTavernHelper();
     if (!helper) return null;
 
-    const prompt = `请将以下游戏记忆总结成一段简洁的长期记忆，保留关键信息和重要事件：\n\n${memories.join('\n\n')}\n\n总结要求：\n1. 保持第三人称视角\n2. 突出重要的修炼进展、人物关系、重大事件\n3. 控制在100字以内\n4. 使用修仙小说的语言风格`;
+    // 构建纯粹的总结提示
+    const memoriesToSummarize = memories.join('\n\n');
 
-    const response = await helper.generate({ user_input: prompt });
-    return response?.trim() || null;
+    const response = await helper.generateRaw({
+      ordered_prompts: [
+        {
+          role: 'system',
+          content: '你是记忆整理助手。将提供的多条记忆整理成一段连贯的总结。只输出总结内容，不要任何前言、后语或额外说明。'
+        },
+        {
+          role: 'user',
+          content: `请将以下记忆总结成一段连贯的文本：\n\n${memoriesToSummarize}`
+        }
+      ],
+      use_world_info: false,
+      should_stream: false
+    });
+
+    return (typeof response === 'string' ? response.trim() : null) || null;
   } catch (error) {
     console.warn('[记忆管理] 生成长期记忆总结失败:', error);
     return null;
@@ -2259,6 +2305,25 @@ onMounted(async () => {
 
     // 为初始加载的存档初始化面板
     await initializePanelForSave();
+
+    // 监听来自MemoryCenterPanel的配置更新事件
+    panelBus.on('memory-settings-updated', (settings: any) => {
+      console.log('[记忆设置] 接收到配置更新事件:', settings);
+      if (settings && typeof settings === 'object') {
+        if (typeof settings.shortTermLimit === 'number') {
+          maxShortTermMemories.value = settings.shortTermLimit;
+          console.log(`[记忆设置] 短期记忆上限已更新为: ${maxShortTermMemories.value}`);
+        }
+        if (typeof settings.midTermTrigger === 'number') {
+          maxMidTermMemories.value = settings.midTermTrigger;
+          console.log(`[记忆设置] 中期记忆触发阈值已更新为: ${maxMidTermMemories.value}`);
+        }
+        if (typeof settings.midTermKeep === 'number') {
+          midTermKeepCount.value = settings.midTermKeep;
+          console.log(`[记忆设置] 中期记忆保留数量已更新为: ${midTermKeepCount.value}`);
+        }
+      }
+    });
 
     // 监听 AI 生成完成事件
     const helper = getTavernHelper();

@@ -2,7 +2,7 @@
   <div class="relationship-network-panel">
     <div class="panel-content">
       <!-- 人物关系列表 -->
-      <div class="relationships-container">
+      <div class="relationships-container" :class="{ 'details-active': isDetailViewActive }">
         <!-- 左侧：人物列表 -->
         <div class="relationship-list">
           <div class="list-header">
@@ -43,10 +43,15 @@
                   <div class="person-name">{{ person.名字 }}</div>
                   <div class="person-meta">
                     <span class="relationship-type">{{ person.与玩家关系 || '相识' }}</span>
-                    <button class="attention-toggle" @click.stop.prevent="toggleAttention(person)" :title="isAttentionEnabled(person) ? '取消关注' : '添加关注'">
-                      <Eye v-if="isAttentionEnabled(person)" :size="14" class="attention-icon active" />
-                      <EyeOff v-else :size="14" class="attention-icon inactive" />
-                    </button>
+                    <div class="card-actions">
+                      <button class="attention-toggle" @click.stop.prevent="toggleAttention(person)" :title="isAttentionEnabled(person) ? '取消关注' : '添加关注'">
+                        <Eye v-if="isAttentionEnabled(person)" :size="14" class="attention-icon active" />
+                        <EyeOff v-else :size="14" class="attention-icon inactive" />
+                      </button>
+                      <button @click.stop="confirmDeleteNpc(person)" class="delete-btn-card" title="删除人物">
+                        <Trash2 :size="14" />
+                      </button>
+                    </div>
                   </div>
                   <div class="person-realm" v-if="getNpcRealm(person) !== '未知'">
                     <span class="realm-label">境界:</span>
@@ -74,11 +79,19 @@
           <template v-if="selectedPerson">
             <!-- 详情头部 -->
             <div class="detail-header">
+               <button @click="isDetailViewActive = false" class="back-to-list-btn">
+                 <ArrowLeft :size="20" />
+               </button>
               <div class="detail-avatar">
                 <span class="avatar-text">{{ selectedPerson.名字.charAt(0) }}</span>
               </div>
               <div class="detail-info">
-                <h3 class="detail-name">{{ selectedPerson.名字 }}</h3>
+                <div class="name-and-actions">
+                  <h3 class="detail-name">{{ selectedPerson.名字 }}</h3>
+                  <button v-if="selectedPerson" @click="confirmDeleteNpc(selectedPerson)" class="delete-npc-btn" title="删除此人物">
+                    <Trash2 :size="16" />
+                  </button>
+                </div>
                 <div class="detail-badges">
                   <span class="relationship-badge">{{ selectedPerson.与玩家关系 || '相识' }}</span>
                   <span class="intimacy-badge" :class="getIntimacyClass(selectedPerson.好感度)">
@@ -434,18 +447,21 @@ import { useActionQueueStore } from '@/stores/actionQueueStore';
 import type { NpcProfile, Item } from '@/types/game';
 import {
   Users2, Search,
-  Loader2, ChevronRight, Package, ArrowRightLeft, Eye, EyeOff
+  Loader2, ChevronRight, Package, ArrowRightLeft, Eye, EyeOff, Trash2, ArrowLeft
 } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
 import { getTavernHelper } from '@/utils/tavern';
 import { useUIStore } from '@/stores/uiStore';
+import { useCharacterStore } from '@/stores/characterStore';
 
 const { characterData } = useUnifiedCharacterData();
 const actionQueue = useActionQueueStore();
 const uiStore = useUIStore();
+const characterStore = useCharacterStore();
 const isLoading = ref(false);
 const selectedPerson = ref<NpcProfile | null>(null);
 const searchQuery = ref('');
+const isDetailViewActive = ref(false); // 用于移动端视图切换
 
 // Tab管理
 const activeTab = ref('basic');
@@ -653,6 +669,12 @@ const selectPerson = (person: NpcProfile) => {
     resetMemoryPagination();
     activeTab.value = 'basic';
   }
+
+  if (selectedPerson.value) {
+    isDetailViewActive.value = true;
+  } else {
+    isDetailViewActive.value = false;
+  }
 };
 
 watch(selectedPerson, (newPerson) => {
@@ -740,7 +762,7 @@ const deleteMemory = async (index: number) => {
       // 保存到酒馆
       const { useCharacterStore } = await import('@/stores/characterStore');
       const characterStore = useCharacterStore();
-      await characterStore.saveCurrentGame();
+      await characterStore.syncToTavernAndSave({ fullSync: true });
     },
     onCancel: () => {}
   });
@@ -909,21 +931,49 @@ ${memoriesText}`;
     // 清空记忆数组
     characterData.value.人物关系[npcKey].记忆 = [];
 
-    // 保存到存档
+    // 同步到酒馆并保存到存档
     const { useCharacterStore } = await import('@/stores/characterStore');
     const characterStore = useCharacterStore();
-    await characterStore.saveCurrentGame();
+
+    // 使用syncToTavernAndSave将修改同步到酒馆变量
+    await characterStore.syncToTavernAndSave({
+      fullSync: true  // 使用完整同步确保人物关系数据正确保存
+    });
 
     // 更新选中的人物
     selectedPerson.value = { ...characterData.value.人物关系[npcKey] };
 
-    toast.success(`已为 ${npcName} 生成记忆总结并清空原始记忆`);
+    toast.success(`已为 ${npcName} 生成记忆总结并同步到酒馆`);
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : '未知错误';
     toast.error(`记忆总结失败: ${errorMsg}`);
   } finally {
     isSummarizing.value = false;
   }
+};
+
+// 删除NPC
+const confirmDeleteNpc = (person: NpcProfile) => {
+  if (!person) return;
+  uiStore.showRetryDialog({
+    title: '删除人物',
+    message: `你确定要从这个世界中永久删除【${person.名字}】吗？此操作无法撤销，所有与该人物相关的数据都将消失。`,
+    confirmText: '确认删除',
+    cancelText: '取消',
+    onConfirm: async () => {
+      try {
+        await characterStore.deleteNpc(person.名字);
+        // 如果删除的是当前选中的NPC，则清空选择
+        if (selectedPerson.value?.名字 === person.名字) {
+          selectedPerson.value = null;
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : '未知错误';
+        toast.error(`删除失败: ${errorMsg}`);
+      }
+    },
+    onCancel: () => {}
+  });
 };
 </script>
 
@@ -2534,5 +2584,130 @@ ${memoriesText}`;
   font-size: 0.95rem;
   font-weight: 700;
   color: var(--color-primary);
+}
+
+.name-and-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.delete-npc-btn {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.delete-npc-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: #ef4444;
+  color: #ef4444;
+  transform: scale(1.1);
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.delete-btn-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: rgba(156, 163, 175, 0.1);
+  border: 1px solid rgba(156, 163, 175, 0.2);
+  color: #9ca3af;
+  padding: 0;
+  outline: none;
+}
+
+.delete-btn-card:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: #ef4444;
+  color: #ef4444;
+  transform: scale(1.1);
+}
+
+.back-to-list-btn {
+  display: none; /* 默认隐藏 */
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  margin-right: 0.5rem;
+}
+
+.back-to-list-btn:hover {
+  background: var(--color-surface);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+@media (max-width: 768px) {
+  .relationships-container {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .relationship-list,
+  .relationship-detail {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.3s ease-in-out;
+    backface-visibility: hidden;
+  }
+
+  .relationship-list {
+    transform: translateX(0);
+    z-index: 10;
+  }
+
+  .relationship-detail {
+    transform: translateX(100%);
+    z-index: 20;
+    border-left: none; /* 移除左边框 */
+  }
+
+  .relationships-container.details-active .relationship-list {
+    transform: translateX(-100%);
+  }
+
+  .relationships-container.details-active .relationship-detail {
+    transform: translateX(0);
+  }
+
+  .back-to-list-btn {
+    display: flex; /* 在移动端显示 */
+  }
+
+  .detail-header {
+    padding: 0.75rem 1rem;
+  }
 }
 </style>

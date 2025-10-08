@@ -1,74 +1,89 @@
 <template>
   <div class="skills-content">
-    <!-- 修炼心法功法区域 -->
-    <div class="cultivation-section">
-
-      <div class="skill-slots-grid">
-        <!-- 功法槽位 -->
-        <div class="skill-slot-group">
-          <div
-            class="skill-slot technique-method"
-            :class="{ 'has-skill': cultivationSkills }"
-            @click="selectSkill(cultivationSkills, '功法')"
-            @mouseenter="onSkillHover(cultivationSkills, '功法')"
-          >
-            <div v-if="cultivationSkills" class="skill-info">
-              <div class="skill-icon" :class="getSkillQualityClass(cultivationSkills)">
-                <span class="skill-type-text">功</span>
-              </div>
-              <div class="skill-details">
-                <div class="skill-name" :class="getSkillQualityClass(cultivationSkills, 'text')">
-                  {{ (cultivationSkills as { 名称: string }).名称 }}
-                </div>
-                <div class="skill-progress">
-                  <div class="progress-flex">
-                    <ProgressBar
-                      v-bind="{
-                        value: Math.min(100, Math.max(0, (cultivationSkills as { 修炼进度?: number }).修炼进度 || 0)),
-                        max: 100,
-                        size: 'sm',
-                        showLabel: false
-                      }"
-                    />
-                  </div>
-                  <span class="progress-text">{{ Math.min(100, Math.max(0, (cultivationSkills as { 修炼进度?: number }).修炼进度 || 0)).toFixed(0) }}%</span>
-                </div>
-              </div>
+    <!-- 左侧：当前修炼+功法库 -->
+    <div>
+      <!-- 当前修炼功法槽位 -->
+      <div class="current-technique-section">
+        <h3 class="section-header">
+          <span class="header-icon">⚡</span>
+          <span class="header-text">当前修炼</span>
+        </h3>
+        <div
+          class="current-technique-slot"
+          :class="{ 'has-technique': cultivationSkills }"
+          @click="cultivationSkills && selectSkill(cultivationSkills, '功法')"
+        >
+          <div v-if="cultivationSkills" class="technique-content">
+            <div class="technique-icon-wrapper" :class="getSkillQualityClass(cultivationSkills)">
+              <span class="technique-icon-text">功</span>
             </div>
-            <div v-else class="empty-slot">
-              <div class="empty-icon">⚡</div>
-              <span>功法槽位</span>
+            <div class="technique-info">
+              <div class="technique-name" :class="getSkillQualityClass(cultivationSkills, 'text')">
+                {{ (cultivationSkills as { 名称: string }).名称 }}
+              </div>
+              <div class="technique-quality">
+                {{ ((cultivationSkills as { 品质?: { quality?: string } }).品质?.quality || '凡') }}品{{ ((cultivationSkills as { 品质?: { grade?: number } }).品质?.grade || 0) }}级
+              </div>
+              <div class="technique-progress">
+                <div class="progress-bar-wrapper">
+                  <ProgressBar
+                    v-bind="{
+                      value: Math.min(100, Math.max(0, (cultivationSkills as { 修炼进度?: number }).修炼进度 || 0)),
+                      max: 100,
+                      size: 'sm',
+                      showLabel: false
+                    }"
+                  />
+                </div>
+                <span class="progress-text">{{ Math.min(100, Math.max(0, (cultivationSkills as { 修炼进度?: number }).修炼进度 || 0)).toFixed(0) }}%</span>
+              </div>
             </div>
           </div>
+          <div v-else class="empty-slot-placeholder">
+            <div class="empty-icon">📜</div>
+            <span class="empty-text">未修炼功法</span>
+            <span class="empty-hint">从下方功法库选择装备</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 功法库列表 -->
+      <div class="technique-library-section">
+        <h3 class="section-header">
+          <span class="header-icon">📚</span>
+          <span class="header-text">功法库</span>
+          <span class="count-badge">{{ inventoryTechniques.length }}</span>
+        </h3>
+
+        <div v-if="inventoryTechniques.length === 0" class="empty-library">
+          <div class="empty-icon">📦</div>
+          <div class="empty-text">功法库为空</div>
+          <div class="empty-hint">从世界中获取功法秘籍</div>
         </div>
 
-        <!-- 背包中的功法物品 -->
-        <div class="inventory-techniques-group">
-          <h4 class="slot-group-title">背包功法</h4>
-          <div class="techniques-grid">
-            <div v-if="inventoryTechniques.length === 0" class="empty-inventory">
-              <div class="empty-icon">📚</div>
-              <span>暂无功法物品</span>
-              <small>从背包面板装备功法</small>
+        <div v-else class="technique-grid">
+          <div
+            v-for="technique in inventoryTechniques"
+            :key="(technique as { 物品ID?: string }).物品ID"
+            class="technique-card"
+            :class="[
+              getSkillQualityClass(technique),
+              { 'selected': selectedSkillData === technique }
+            ]"
+            @click="selectSkill(technique, '背包功法')"
+          >
+            <div class="card-icon" :class="getSkillQualityClass(technique)">
+              <span class="icon-text">功</span>
             </div>
-            <div
-              v-for="technique in inventoryTechniques"
-              :key="(technique as { 物品ID?: string }).物品ID"
-              class="technique-card"
-              :class="getSkillQualityClass(technique)"
-              @click="selectInventoryTechnique(technique)"
-              @mouseenter="onSkillHover(technique, '背包功法')"
-            >
-              <div class="technique-icon" :class="getSkillQualityClass(technique)">
-                <span class="technique-type-text">功</span>
+            <div class="card-body">
+              <div class="card-title" :class="getSkillQualityClass(technique, 'text')">
+                {{ (technique as { 名称: string }).名称 }}
               </div>
-              <div class="technique-info">
-                <div class="technique-name" :class="getSkillQualityClass(technique, 'text')">
-                  {{ (technique as { 名称: string }).名称 }}
-                </div>
-                <div class="technique-quality">
-                  {{ ((technique as { 品质?: { quality?: string } }).品质?.quality || '凡') }}品{{ ((technique as { 品质?: { grade?: number } }).品质?.grade || 0) }}级
-                </div>
+              <div class="card-quality">
+                {{ ((technique as { 品质?: { quality?: string } }).品质?.quality || '凡') }}品{{ ((technique as { 品质?: { grade?: number } }).品质?.grade || 0) }}级
+              </div>
+              <div v-if="(technique as { 描述?: string }).描述" class="card-desc">
+                {{ truncateText((technique as { 描述?: string }).描述, 50) }}
               </div>
             </div>
           </div>
@@ -76,7 +91,7 @@
       </div>
     </div>
 
-    <!-- 功法详情侧边栏 - 重写 -->
+    <!-- 功法详情侧边栏 -->
     <div class="skill-details-sidebar" :class="{ 'no-selection': !selectedSkillData }">
       <div v-if="selectedSkillData" class="skill-details-content">
         <!-- 顶部信息卡片 -->
@@ -103,7 +118,6 @@
         <div class="details-tabs">
           <button class="tab-btn" :class="{ active: activeTab === 'effects' }" @click="activeTab = 'effects'">功法效果</button>
           <button class="tab-btn" :class="{ active: activeTab === 'skills' }" @click="activeTab = 'skills'">功法技能</button>
-          <button v-if="selectedSkillSlot === '功法'" class="tab-btn" :class="{ active: activeTab === 'overview' }" @click="activeTab = 'overview'">修炼概览</button>
         </div>
 
         <!-- 标签页内容 -->
@@ -149,25 +163,6 @@
             </div>
             <div v-else class="empty-tab">此功法无附加技能</div>
           </div>
-
-          <!-- 修炼概览 -->
-          <div v-if="activeTab === 'overview' && selectedSkillSlot === '功法'" class="tab-content">
-            <div class="overview-section">
-              <div class="overview-grid">
-                <div class="overview-item">
-                  <span class="label">修炼进度</span>
-                  <div class="value with-bar">
-                    <ProgressBar v-bind="{ value: Math.min(100, Math.max(0, (cultivationSkills as { 修炼进度?: number })?.修炼进度 || 0)), max: 100, size: 'sm', showLabel: false }" />
-                    <span class="num">{{ Math.min(100, Math.max(0, (cultivationSkills as { 修炼进度?: number })?.修炼进度 || 0)).toFixed(0) }}%</span>
-                  </div>
-                </div>
-                <div class="overview-item">
-                  <span class="label">已修炼</span>
-                  <span class="value">{{ formatHoursToReadable((cultivationSkills as { 修炼时间?: number })?.修炼时间 || 0) }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
 
         <!-- 底部操作按钮 -->
@@ -180,7 +175,7 @@
       <div v-else class="details-placeholder">
         <div class="placeholder-icon">📜</div>
         <p>选择一部功法</p>
-        <span class="placeholder-tip">点击左侧功法以查看其玄妙</span>
+        <span class="placeholder-tip">点击功法卡片查看详情</span>
       </div>
     </div>
 
@@ -263,24 +258,25 @@ const inventoryTechniques = computed(() => {
 
   if (!inventory) return [];
 
-  // 过滤出功法类型的有效物品（忽略以_开头的内部键与非对象值）
+  // 过滤出功法类型的有效物品
   const techniques = Object.entries(inventory)
     .filter(([key, val]) => !String(key).startsWith('_') && val && typeof val === 'object')
-    .map(([, val]) => val as { 类型?: string })
-    .filter(item => item.类型 === '功法');
+    .map(([, val]) => val as { 类型?: string; 名称?: string })
+    .filter(item => item.类型 === '功法' && item.名称 && item.名称.trim() !== '');
   return techniques;
 });
+
+// 截断文本
+const truncateText = (text?: string, maxLength: number = 50): string => {
+  if (!text) return '';
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + '...';
+};
 
 // 选择技能
 const selectSkill = (skill: unknown, slotName: string) => {
   selectedSkillData.value = skill;
   selectedSkillSlot.value = slotName;
-};
-
-// 选择背包中的功法
-const selectInventoryTechnique = (technique: unknown) => {
-  selectedSkillData.value = technique;
-  selectedSkillSlot.value = '背包功法';
 };
 
 // 桌面端：鼠标悬停预览（与点击选择一致，但不在移动端触发）
@@ -480,82 +476,6 @@ const startCultivation = async (totalDays: number) => {
   }
 };
 
-// 装备背包中的功法
-const equipTechnique = async () => {
-  if (!selectedSkillData.value || selectedSkillSlot.value !== '背包功法') {
-    return;
-  }
-
-  const technique = selectedSkillData.value as {
-    物品ID?: string;
-    名称: string;
-    类型: string;
-    品质?: unknown;
-    描述?: string;
-    功法效果?: unknown;
-    功法技能?: unknown;
-  };
-
-  console.log('[技能面板] 装备功法:', technique.名称);
-
-  try {
-    // 检查存档数据是否存在
-    const currentSaveData = saveData.value;
-    if (!currentSaveData) {
-      console.error('[技能面板] 存档数据不存在');
-      return;
-    }
-
-    // 检查是否已经在修炼其他功法
-    if (currentSaveData.修炼功法) {
-      const currentSkill = currentSaveData.修炼功法 as { 物品ID?: string; 名称?: string };
-
-      if (currentSkill.物品ID !== technique.物品ID) {
-        uiStore.showRetryDialog({
-          title: '切换功法',
-          message: `当前正在修炼《${currentSkill.名称}》，确定要切换到《${technique.名称}》吗？`,
-          confirmText: '确认切换',
-          cancelText: '取消',
-          onConfirm: async () => {
-            const prev = currentSaveData.修炼功法 as {
-              物品ID?: string;
-              名称: string;
-              类型: string;
-              品质?: unknown;
-              描述?: string;
-              功法效果?: unknown;
-              功法技能?: unknown;
-            };
-            if (prev?.物品ID && currentSaveData.背包?.物品) {
-              currentSaveData.背包.物品[prev.物品ID] = {
-                物品ID: prev.物品ID,
-                名称: prev.名称,
-                类型: '功法' as const,
-                品质: (prev.品质 as { quality: "神" | "仙" | "天" | "地" | "玄" | "黄" | "凡"; grade: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 }) || { quality: "凡", grade: 0 },
-                数量: 1,
-                描述: prev.描述 || '',
-                功法效果: prev.功法效果 || {},
-                功法技能: (prev.功法技能 || {}) as Record<string, TechniqueSkill>
-              } as TechniqueItem;
-              console.log('[技能面板] 之前的功法已放回背包:', prev.名称);
-            }
-            // 确认后继续执行装备
-            await finalizeEquipTechnique(technique);
-          },
-          onCancel: () => {}
-        });
-        return;
-      }
-    }
-
-    // 无冲突情况下直接完成装备
-    await finalizeEquipTechnique(technique);
-
-  } catch (error) {
-    console.error('[技能面板] 装备功法失败:', error);
-  }
-};
-
 // 卸下功法
 const unequipSkill = async () => {
   if (!selectedSkillData.value || !selectedSkillSlot.value) {
@@ -625,7 +545,81 @@ const unequipSkill = async () => {
   return;
 };
 
-// 将功法装备到修炼槽位（封装）
+// 装备背包中的功法
+const equipTechnique = async () => {
+  if (!selectedSkillData.value || selectedSkillSlot.value !== '背包功法') {
+    return;
+  }
+
+  const technique = selectedSkillData.value as {
+    物品ID?: string;
+    名称: string;
+    类型: string;
+    品质?: unknown;
+    描述?: string;
+    功法效果?: unknown;
+    功法技能?: unknown;
+  };
+
+  console.log('[技能面板] 装备功法:', technique.名称);
+
+  try {
+    const currentSaveData = saveData.value;
+    if (!currentSaveData) {
+      console.error('[技能面板] 存档数据不存在');
+      return;
+    }
+
+    // 检查是否已经在修炼其他功法
+    if (currentSaveData.修炼功法) {
+      const currentSkill = currentSaveData.修炼功法 as { 物品ID?: string; 名称?: string };
+
+      if (currentSkill.物品ID !== technique.物品ID) {
+        uiStore.showRetryDialog({
+          title: '切换功法',
+          message: `当前正在修炼《${currentSkill.名称}》，确定要切换到《${technique.名称}》吗？`,
+          confirmText: '确认切换',
+          cancelText: '取消',
+          onConfirm: async () => {
+            const prev = currentSaveData.修炼功法 as {
+              物品ID?: string;
+              名称: string;
+              类型: string;
+              品质?: unknown;
+              描述?: string;
+              功法效果?: unknown;
+              功法技能?: unknown;
+            };
+            if (prev?.物品ID && currentSaveData.背包?.物品) {
+              currentSaveData.背包.物品[prev.物品ID] = {
+                物品ID: prev.物品ID,
+                名称: prev.名称,
+                类型: '功法' as const,
+                品质: (prev.品质 as { quality: "神" | "仙" | "天" | "地" | "玄" | "黄" | "凡"; grade: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 }) || { quality: "凡", grade: 0 },
+                数量: 1,
+                描述: prev.描述 || '',
+                功法效果: prev.功法效果 || {},
+                功法技能: (prev.功法技能 || {}) as Record<string, TechniqueSkill>
+              } as TechniqueItem;
+              console.log('[技能面板] 之前的功法已放回背包:', prev.名称);
+            }
+            await finalizeEquipTechnique(technique);
+          },
+          onCancel: () => {}
+        });
+        return;
+      }
+    }
+
+    // 无冲突情况下直接完成装备
+    await finalizeEquipTechnique(technique);
+
+  } catch (error) {
+    console.error('[技能面板] 装备功法失败:', error);
+  }
+};
+
+// 将功法装备到修炼槽位
 const finalizeEquipTechnique = async (technique: {
   物品ID?: string;
   名称: string;
@@ -686,60 +680,282 @@ onMounted(async () => {
 .skills-content {
   width: 100%;
   height: 100%;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 0;
   background: var(--color-background);
   overflow: hidden;
 }
 
-/* 修炼区域 */
-.cultivation-section {
-  flex: 1;
-  padding: 20px;
-  overflow-y: auto;
-}
-
-.section-header {
-  margin-bottom: 24px;
-  text-align: center;
-}
-
-.section-header h3 {
-  margin: 0 0 4px 0;
-  color: var(--color-warning);
-  font-size: 1.5rem;
-  font-weight: 600;
-}
-
-.section-subtitle {
-  color: var(--color-text-secondary);
-  font-size: 0.9rem;
-}
-
-/* 技能槽位网格 */
-.skill-slots-grid {
+/* 左侧：当前修炼+功法库 */
+.skills-content > div:first-child {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  max-width: 800px;
-  margin: 0 auto;
+  overflow-y: auto;
+  padding: 20px;
+  gap: 20px;
 }
 
-.skill-slot-group {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+.current-technique-section,
+.technique-library-section {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 区块标题 */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--color-border);
+}
+
+.header-icon {
+  font-size: 1.2rem;
+}
+
+.header-text {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.count-badge {
+  margin-left: auto;
+  padding: 2px 10px;
+  background: var(--color-primary);
+  color: white;
   border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* 当前修炼槽位 */
+.current-technique-slot {
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.3s ease;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+}
+
+.current-technique-slot.has-technique {
+  cursor: pointer;
+  border-color: var(--color-success);
+}
+
+.current-technique-slot.has-technique:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.2);
+}
+
+.technique-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.technique-icon-wrapper {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  border: 3px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface-light);
+  flex-shrink: 0;
+}
+
+.technique-icon-text {
+  font-size: 28px;
+  font-weight: bold;
+  color: var(--color-text);
+}
+
+.technique-info {
+  flex: 1;
+}
+
+.technique-name {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.technique-quality {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+}
+
+.technique-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.progress-bar-wrapper {
+  flex: 1;
+}
+
+.progress-text {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text);
+  min-width: 45px;
+  text-align: right;
+}
+
+/* 空槽位占位符 */
+.empty-slot-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+  gap: 8px;
   padding: 20px;
 }
 
-.slot-group-title {
-  margin: 0 0 16px 0;
-  color: var(--color-accent);
-  font-size: 1.1rem;
-  font-weight: 600;
-  text-align: center;
-  border-bottom: 1px solid var(--color-border);
-  padding-bottom: 8px;
+.empty-icon {
+  font-size: 3rem;
+  opacity: 0.5;
 }
+
+.empty-text {
+  font-size: 1rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.empty-hint {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+/* 功法库区域 */
+.technique-library-section {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.empty-library {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  gap: 12px;
+}
+
+.empty-library .empty-icon {
+  font-size: 4rem;
+  opacity: 0.4;
+}
+
+.empty-library .empty-text {
+  font-size: 1.1rem;
+  color: var(--color-text-secondary);
+}
+
+.empty-library .empty-hint {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
+/* 功法卡片网格 */
+.technique-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.technique-card {
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: 10px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  gap: 10px;
+}
+
+.technique-card:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.2);
+}
+
+.technique-card.selected {
+  border-color: var(--color-accent);
+  background: var(--color-surface-hover);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.card-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  border: 2px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface-light);
+  flex-shrink: 0;
+}
+
+.icon-text {
+  font-size: 18px;
+  font-weight: bold;
+  color: var(--color-text);
+}
+
+.card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.card-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-quality {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+}
+
+.card-desc {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+
 
 /* 技能槽位 */
 .skill-slot {
@@ -1159,95 +1375,6 @@ onMounted(async () => {
   opacity: 0.8;
 }
 
-/* 背包功法区域 */
-.inventory-techniques-group {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 20px;
-  margin-top: 16px;
-}
-
-.techniques-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
-}
-
-.empty-inventory {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 32px 20px;
-  color: var(--color-text-secondary);
-  text-align: center;
-  gap: 8px;
-}
-
-.empty-inventory small {
-  font-size: 0.8rem;
-  color: var(--color-text-muted);
-  opacity: 0.8;
-}
-
-.technique-card {
-  background: var(--color-background);
-  border: 2px solid var(--color-border);
-  border-radius: 10px;
-  padding: 12px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.technique-card:hover {
-  border-color: var(--color-primary);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.2);
-}
-
-.technique-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 6px;
-  border: 2px solid var(--color-border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-surface);
-  flex-shrink: 0;
-  font-weight: bold;
-  color: var(--color-text);
-}
-
-.technique-type-text {
-  font-size: 14px;
-  font-weight: bold;
-}
-
-.technique-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.technique-name {
-  font-weight: 600;
-  font-size: 0.9rem;
-  margin-bottom: 4px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.technique-quality {
-  font-size: 0.8rem;
-  color: var(--color-text-secondary);
-  font-weight: 500;
-}
 .details-actions {
   padding: 16px 20px;
   border-top: 1px solid var(--color-border);
@@ -1270,16 +1397,6 @@ onMounted(async () => {
 
 .action-btn:hover {
   transform: translateY(-1px);
-}
-
-.equip-btn {
-  background: var(--color-success);
-  border-color: var(--color-success);
-  color: white;
-}
-
-.equip-btn:hover {
-  background: var(--color-success-hover);
 }
 
 .cultivate-btn {

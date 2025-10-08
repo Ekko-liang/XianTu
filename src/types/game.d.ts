@@ -719,7 +719,7 @@ export interface NpcProfile {
 
   // === 可选模块 ===
   私密信息?: NpcPrivacyProfile; // 仅NSFW模式下存在
-  实时关注?: boolean; // 标记为关注的NPC会在AI回合中主动更新
+  实时关注: boolean; // 标记为关注的NPC会在AI回合中主动更新
 }
 
 

@@ -248,7 +248,8 @@ const saveVariable = async (updatedItem: EditingItem) => {
     }
 
     // 直接使用编辑后的值，TavernEditModal 已经处理了类型转换
-    const data = { [key]: value }
+    const { deepCleanForClone } = await import('@/utils/dataValidation')
+    const data = { [key]: deepCleanForClone(value) }
     await helper.insertOrAssignVariables(data, { type: type as 'chat' | 'global' })
 
     // 更新本地状态

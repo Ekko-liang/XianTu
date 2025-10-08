@@ -145,16 +145,47 @@ export async function clearAllCharacterData(): Promise<void> {
     console.warn('TavernHelper不可用，跳过清理流程。');
     return;
   }
-  
+
   uiStore.updateLoadingText('正在净化天地，重置天机...');
+
+  // 【紧急修复】先使用clearChat彻底清空，解决structuredClone问题
+  try {
+    console.log('[清理] 使用clearChat彻底清空聊天和变量...');
+    if (helper.clearChat) {
+      await helper.clearChat();
+      console.log('[清理] ✅ clearChat执行成功');
+      uiStore.updateLoadingText('天机已彻底重置，准备开启新道途。');
+      return; // clearChat已经清空所有数据，无需继续
+    }
+  } catch (e) {
+    console.warn('[清理] clearChat执行失败，尝试逐个删除:', e);
+  }
 
   let successCount = 0;
   let errorCount = 0;
 
   // 步骤1: 清理聊天变量 - 彻底清空所有变量（防止数据堆叠）
   try {
-    const chatVars = await helper.getVariables({ type: 'chat' });
-    const chatKeys = Object.keys(chatVars);
+    let chatVars: Record<string, unknown> = {};
+    let chatKeys: string[] = [];
+
+    // 尝试获取变量列表，如果失败则使用已知的变量名列表
+    try {
+      chatVars = await helper.getVariables({ type: 'chat' });
+      chatKeys = Object.keys(chatVars);
+    } catch (getError: any) {
+      console.warn('[清理] getVariables 失败（可能有坏数据），使用已知变量名列表:', getError?.message);
+      // 使用已知的所有可能变量名
+      chatKeys = [
+        '基础信息', '境界', '属性', '位置', '修炼功法', '掌握技能', '装备栏',
+        '背包_灵石', '背包_物品', '人物关系', '三千大道', '世界信息',
+        '记忆_短期', '记忆_中期', '记忆_长期', '记忆_隐式中期',
+        '游戏时间', '状态效果', '系统',
+        // 旧版变量名
+        '背包', '装备栏', '修炼功法', '人物关系', '宗门系统', '玩家角色状态',
+        '背包数据', '装备栏数据', '修炼功法数据', 'character.memorySettings'
+      ];
+    }
 
     if (chatKeys.length > 0) {
       console.log(`[清理] 发现 ${chatKeys.length} 个聊天变量，全部清理:`, chatKeys);
@@ -272,7 +303,37 @@ export async function clearAllCharacterData(): Promise<void> {
     toast.info('天机已部分重置，少数数据清理失败，但不影响使用。');
     uiStore.updateLoadingText('天机已重置，准备开启新道途。');
   } else {
+    console.log('[清理] ✅ 天机已彻底重置，所有变量已清空');
     uiStore.updateLoadingText('天机已彻底重置，准备开启新道途。');
   }
   // 不再抛出错误，允许后续流程（如创角）继续
+}
+
+/**
+ * 【紧急修复】强制清空整个聊天（包括消息和变量）
+ * 用于修复酒馆助手3.6.11的structuredClone兼容性问题
+ * 当变量中有坏数据导致getVariables失败时，使用clearChat彻底清空
+ */
+export async function forceCleanTavernChat(): Promise<void> {
+  const helper = getTavernHelper();
+  if (!helper) {
+    console.error('[强制清空] TavernHelper不可用');
+    return;
+  }
+
+  try {
+    console.log('[强制清空] 使用clearChat彻底清空聊天和变量...');
+
+    if (helper.clearChat) {
+      await helper.clearChat();
+      console.log('[强制清空] ✅ 聊天和变量已彻底清空');
+      toast.success('已彻底清空酒馆数据');
+    } else {
+      console.error('[强制清空] clearChat方法不可用');
+      toast.error('无法清空酒馆数据，clearChat方法不存在');
+    }
+  } catch (e) {
+    console.error('[强制清空] 清空失败:', e);
+    toast.error('清空酒馆数据失败');
+  }
 }

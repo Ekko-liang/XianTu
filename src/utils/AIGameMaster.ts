@@ -32,59 +32,42 @@ function formatGameTime(gameTime: GameTime | undefined): string {
  * 生成长期记忆总结
  */
 async function generateLongTermSummary(memories: string[]): Promise<string | null> {
-  try {
-    const helper = getTavernHelper();
-    if (!helper) return null;
+try {
+  const helper = getTavernHelper();
+  if (!helper) return null;
 
-    // 尝试从酒馆变量读取用户自定义的长期记忆格式
-    let customFormat = '';
-    let midTermTrigger = 25; // 默认值
-    try {
-      const memorySettings = await helper.getVariable('character.memorySettings', { type: 'chat' });
-      if (memorySettings && typeof memorySettings === 'object') {
-        const settings = memorySettings as any;
-        customFormat = settings.longTermFormat || '';
-        if (settings.midTermTrigger && typeof settings.midTermTrigger === 'number') {
-          midTermTrigger = settings.midTermTrigger;
-        }
-      }
-    } catch (e) {
-      // 读取失败，使用默认格式
-      console.log('[记忆管理] 未找到自定义格式配置，使用默认格式');
-    }
+  // [核心修复] 重写系统提示词，强化规则，禁止使用世界书
+  const systemPrompt = `
+你是一名严谨的档案管理员，你的唯一任务是根据下面提供的文本记录，进行客观、忠实的总结。
 
-    console.log(`[记忆管理] 当前配置: 中期记忆触发阈值=${midTermTrigger}条, 使用${customFormat ? '自定义' : '默认'}提示词格式`);
+**核心规则:**
+1.  **绝对禁止**使用任何未在输入文本中提供的信息、知识或世界观设定。
+2.  你的总结**必须**完全基于所提供的记忆片段。
+3.  将多个离散的记忆点，按时间顺序和逻辑关系，整合成一段连贯、通顺的叙述。
+4.  保留所有关键信息，如人物、地点、事件、对话核心、物品得失、能力变化等。
+5.  输出格式为一段简洁、连贯的段落，不要使用列表、标题或任何多余的格式。
+6.  直接返回总结好的文本，不要包含任何如“好的，这是您的总结：”之类的前言或结语。`;
 
-    // 如果用户提供了自定义格式，使用自定义格式；否则使用默认格式
-    const systemPrompt = customFormat.trim() || `你是一个专业的记忆总结助手，擅长将游戏记忆总结为详细的长期记忆。
-
-总结要求：
-1. 必须包含小说六要素：时间、地点、人物、事件、原因、结果
-2. 保持第三人称视角
-3. 完整记录所有重要的修炼进展、人物关系变化、重大事件
-4. 按时间顺序梳理事件脉络
-5. 字数控制在200-300字，确保信息完整
-6. 使用修仙小说的语言风格
-7. 只返回总结内容，不要有任何前缀、后缀或标题`;
-
-    const userPrompt = `请将以下游戏记忆总结成详细的长期记忆${customFormat.trim() ? '' : '，务必包含时间、地点、人物、事件、原因、结果六要素'}：
+  const userPrompt = `请根据以下记忆记录，生成一段客观、连贯的总结：
 
 ${memories.join('\n\n')}`;
 
-    // 使用Raw模式的ordered_prompts，关闭世界书
-    const response = await helper.generateRaw({
-      ordered_prompts: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      should_stream: false
-    });
+  // [核心修复] 确保使用 generateRaw 并关闭世界书
+  const response = await helper.generateRaw({
+    ordered_prompts: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ],
+    // 明确禁止使用世界书
+    use_world_info: false,
+    should_stream: false
+  });
 
-    return (typeof response === 'string' ? response.trim() : null) || null;
-  } catch (error) {
-    console.warn('[记忆管理] 生成长期记忆总结失败:', error);
-    return null;
-  }
+  return (typeof response === 'string' ? response.trim() : null) || null;
+} catch (error) {
+  console.warn('[记忆管理] 生成长期记忆总结失败:', error);
+  return null;
+}
 }
 
 /**
@@ -93,28 +76,37 @@ ${memories.join('\n\n')}`;
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function transferToLongTermMemoryInAI(saveData: SaveData, maxMidTermMemories: number): Promise<void> {
   try {
-    console.log('[记忆管理] 开始直接转移到长期记忆');
+    console.log('[记忆管理] 开始检查并转移中期记忆到长期记忆');
 
-    if (!saveData?.记忆?.中期记忆) {
-      console.warn('[记忆管理] 存档或中期记忆数据不可用，无法处理长期记忆转移');
+    if (!saveData?.记忆?.中期记忆 || saveData.记忆.中期记忆.length <= maxMidTermMemories) {
+      console.log('[记忆管理] 中期记忆数量未达到阈值，无需转移');
       return;
     }
 
-    const excess = saveData.记忆.中期记忆.length - maxMidTermMemories;
+    // [核心修复] 正确使用 splice 来提取并移除需要总结的记忆
+    // 1. 计算需要从数组开头提取多少条记忆进行总结
+    const memoriesToSummarizeCount = saveData.记忆.中期记忆.length - maxMidTermMemories;
+    
+    // 2. 从中期记忆的开头提取（并移除）这些记忆
+    const memoriesToSummarize = saveData.记忆.中期记忆.splice(0, memoriesToSummarizeCount);
 
-    if (excess > 0) {
-      const oldMemories = saveData.记忆.中期记忆.splice(maxMidTermMemories);
+    console.log(`[记忆管理] 提取了 ${memoriesToSummarize.length} 条中期记忆进行总结。剩余中期记忆: ${saveData.记忆.中期记忆.length} 条`);
 
-      // 生成长期记忆总结
-      const summary = await generateLongTermSummary(oldMemories);
+    if (memoriesToSummarize.length > 0) {
+      // 3. 生成长期记忆总结
+      const summary = await generateLongTermSummary(memoriesToSummarize);
       if (summary) {
         // 确保长期记忆结构存在
-        if (!saveData.记忆.长期记忆) saveData.记忆.长期记忆 = [];
+        if (!saveData.记忆.长期记忆) {
+          saveData.记忆.长期记忆 = [];
+        }
 
-        // 添加新的总结到长期记忆开头
+        // 4. 添加新的总结到长期记忆开头
         saveData.记忆.长期记忆.unshift(summary);
 
-        console.log(`[记忆管理] 总结 ${oldMemories.length} 条记忆到长期记忆，长期记忆总数: ${saveData.记忆.长期记忆.length} 条`);
+        console.log(`[记忆管理] ✅ 成功总结并添加到长期记忆。长期记忆总数: ${saveData.记忆.长期记忆.length} 条`);
+      } else {
+        console.warn('[记忆管理] ⚠️ 生成长期记忆总结失败，被移除的中期记忆已丢失:', memoriesToSummarize);
       }
     }
   } catch (error) {
@@ -1080,7 +1072,8 @@ export async function syncChangesToTavern(changes: StateChange[], scope: 'global
       }
 
       // 更新分片
-      await helper.setVariable(shardName, currentShard, { type: scope });
+      const { deepCleanForClone } = await import('@/utils/dataValidation');
+      await helper.setVariable(shardName, deepCleanForClone(currentShard), { type: scope });
       console.log(`[syncChangesToTavern] ✅ 分片 "${shardName}" 已更新到酒馆`);
     }
 

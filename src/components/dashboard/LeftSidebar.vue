@@ -289,51 +289,55 @@ const handleTavernData = () => {
 
 const handleBackToMenu = () => {
   uiStore.showRetryDialog({
-    title: '⚠️ 返回道途确认',
-    message: '确定要返回道途吗？这将会：\n\n• 保存当前游戏进度\n• 清理酒馆聊天上下文\n• 返回主菜单\n\n只有真正要退出游戏时才应该选择此操作！',
-    confirmText: '确认退出游戏',
+    title: '返回道途',
+    message: '您想如何退出当前游戏？',
+    confirmText: '保存并退出',
     cancelText: '取消',
+    neutralText: '不保存直接退出',
     onConfirm: async () => {
-      console.log('[返回道途] 用户确认返回，开始保存、清理和跳转...');
-      
+      console.log('[返回道途] 用户选择保存并退出...');
       try {
-        // 1. 保存游戏
         await characterStore.saveCurrentGame();
-        console.log('[返回道途] 游戏保存成功');
+        toast.success('游戏已保存');
       } catch (error) {
-        console.warn('[返回道途] 游戏保存失败:', error);
-        toast.error('游戏保存失败，但仍会尝试返回。');
+        console.error('[返回道途] 保存游戏失败:', error);
+        toast.error('游戏保存失败，但仍会继续退出。');
       }
-
-      try {
-        // 2. 清理酒馆上下文（清除所有分片）
-        const helper = getTavernHelper();
-        if (helper) {
-          const { clearAllShards } = await import('@/utils/storageSharding');
-          await clearAllShards(helper);
-          console.log('[返回道途] 已从酒馆聊天上下文中清理所有分片数据。');
-        }
-      } catch (error) {
-        console.error('[返回道途] 清理酒馆数据失败:', error);
-        toast.warning('清理会话上下文失败，可能会影响下次游戏。');
-      }
-        
-      // 3. 重置状态并跳转
-      console.log('[返回道途] 开始路由跳转');
-      characterStore.rootState.当前激活存档 = null;
-      uiStore.stopLoading();
-      
-      try {
-        await router.push('/');
-        console.log('[返回道途] 路由跳转成功');
-      } catch (error) {
-        console.log('[返回道途] 路由跳转失败:', error);
-      }
+      await exitToMenu();
+    },
+    onNeutral: async () => {
+      console.log('[返回道途] 用户选择不保存直接退出...');
+      toast.info('游戏进度未保存');
+      await exitToMenu(false); // 传入 false 表示不保存
     },
     onCancel: () => {
-      console.log('[返回道途] 用户取消返回');
+      console.log('[返回道途] 用户取消操作');
     }
   });
+};
+
+// 封装一个统一的退出函数，避免代码重复
+const exitToMenu = async (shouldSave = true) => {
+  // 如果 shouldSave 为 true，则保存操作已在 onConfirm 中完成
+  try {
+    const helper = getTavernHelper();
+    if (helper) {
+      const { clearAllShards } = await import('@/utils/storageSharding');
+      await clearAllShards(helper);
+      console.log('[返回道途] 已清理酒馆上下文');
+    }
+  } catch (error) {
+    console.error('[返回道途] 清理酒馆数据失败:', error);
+    toast.warning('清理会话上下文失败');
+  }
+
+  characterStore.rootState.当前激活存档 = null;
+  await characterStore.commitToStorage();
+  console.log('[返回道途] 已重置激活存档状态');
+
+  uiStore.stopLoading();
+  await router.push('/');
+  console.log('[返回道途] 已跳转至主菜单');
 };
 </script>
 

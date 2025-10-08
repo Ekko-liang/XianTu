@@ -121,6 +121,22 @@
             重置默认
           </button>
         </div>
+
+        <!-- 手动总结触发 -->
+        <div class="manual-summary-section">
+          <div class="summary-info">
+            <span class="info-text">当前中期记忆: {{ mediumTermMemories.length }} 条</span>
+            <span class="info-hint">（达到 {{ memoryConfig.midTermTrigger }} 条时自动触发总结）</span>
+          </div>
+          <button
+            class="action-btn warning"
+            @click="manualTriggerSummary"
+            :disabled="mediumTermMemories.length < memoryConfig.midTermKeep + 5"
+            :title="mediumTermMemories.length < memoryConfig.midTermKeep + 5 ? `至少需要 ${memoryConfig.midTermKeep + 5} 条中期记忆才能总结` : '手动触发AI总结'"
+          >
+            📝 手动总结中期记忆
+          </button>
+        </div>
       </div>
     </div>
 
@@ -147,7 +163,16 @@
             <div class="memory-type-badge" :class="`badge-${memory.type}`">
               {{ getTypeIcon(memory.type) }} {{ getTypeName(memory.type) }}
             </div>
-            <div class="memory-time">{{ memory.time }}</div>
+            <div class="memory-actions">
+              <button
+                class="delete-memory-btn"
+                @click.stop="deleteMemory(memory, index)"
+                title="删除此记忆"
+              >
+                🗑️
+              </button>
+              <div class="memory-time">{{ memory.time }}</div>
+            </div>
           </div>
 
           <div class="memory-content">
@@ -222,10 +247,16 @@ interface Memory {
     title?: string;
     sections: { [key: string]: string[] };
     format?: MemoryFormatConfig;
+    事件?: string;
+    时间?: string;
+    地点?: string;
+    人物?: string;
+    影响?: string;
   };
   // 新增字段用于记忆转化逻辑
   originalIndex?: number; // 原始索引位置
   isConverted?: boolean; // 是否是转化后的记忆
+  isSummarized?: boolean; // 是否是AI总结后的记忆
   importance?: number; // 记忆重要性（1-10）
 }
 
@@ -338,6 +369,141 @@ const formatTime = (timestamp: number): string => {
   return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
 };
 
+/**
+ * 将中期记忆总结为长期记忆（使用AI总结）
+ * 根据配置，将超过阈值的中期记忆总结为长期记忆，并删除被总结的中期记忆
+ */
+const summarizeMidTermToLongTerm = async () => {
+  try {
+    const helper = getTavernHelper();
+    if (!helper) {
+      debug.warn('记忆中心', '无法连接到酒馆助手，跳过AI总结');
+      return;
+    }
+
+    // 计算需要总结的中期记忆数量
+    const midTermCount = mediumTermMemories.value.length;
+    const keepCount = memoryConfig.value.midTermKeep || 8;
+    const summaryCount = Math.max(0, midTermCount - keepCount);
+
+    if (summaryCount <= 0) {
+      debug.log('记忆中心', '中期记忆数量未超过保留阈值，无需总结');
+      return;
+    }
+
+    debug.log('记忆中心', `开始AI总结：将总结 ${summaryCount} 条中期记忆，保留最新 ${keepCount} 条`);
+
+    // 提取要总结的记忆（最早的N条）
+    const memoriesToSummarize = mediumTermMemories.value.slice(0, summaryCount);
+
+    // 构建总结提示词
+    const memoriesText = memoriesToSummarize.map((m, i) => {
+      const content = m.parsedContent
+        ? `${m.parsedContent.事件}（${m.parsedContent.时间}）`
+        : m.content;
+      return `${i + 1}. ${content}`;
+    }).join('\n');
+
+    const defaultPrompt = `你是一个专业的记忆总结助手，擅长将中期记忆整合为详细的长期记忆档案。
+
+总结要求：
+1. 必须包含时间线索、关键事件、人物关系变化、情感波动
+2. 使用第一人称（"我"）的视角描述
+3. 按时间顺序梳理事件脉络，突出因果关系
+4. 保留重要细节，合并琐碎信息
+5. 字数控制在200-350字，确保信息完整详实
+6. 使用修仙小说的语言风格
+7. 只返回总结内容，不要有任何前缀、后缀或标题`;
+
+    const systemPrompt = memoryConfig.value.longTermFormat || defaultPrompt;
+    const userPrompt = `请将以下中期记忆总结成详细的长期记忆档案：
+
+${memoriesText}`;
+
+    // 使用Raw模式调用AI
+    const response = await helper.generateRaw({
+      ordered_prompts: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      should_stream: false
+    });
+
+    if (!response || typeof response !== 'string') {
+      throw new Error('AI响应格式错误');
+    }
+
+    const summary = response.trim();
+    if (!summary) {
+      throw new Error('总结内容为空');
+    }
+
+    // 创建长期记忆
+    const longTermMemory: Memory = {
+      type: 'long',
+      content: summary,
+      time: `总结于${formatTime(Date.now())}`,
+      importance: 8, // 总结的记忆重要性较高
+      parsedContent: {
+        事件: summary,
+        时间: `总结于${formatTime(Date.now())}`,
+        地点: '综合',
+        人物: '综合',
+        影响: '记忆总结'
+      },
+      isConverted: true,
+      isSummarized: true
+    };
+
+    // 添加到长期记忆
+    longTermMemories.value.push(longTermMemory);
+
+    // 删除被总结的中期记忆
+    mediumTermMemories.value.splice(0, summaryCount);
+
+    debug.log('记忆中心', `✅ AI总结完成：已将 ${summaryCount} 条中期记忆总结为1条长期记忆`);
+    toast.success(`已将 ${summaryCount} 条中期记忆总结为长期记忆`);
+
+    // 保存到存档
+    await saveMemoriesToStore();
+
+  } catch (error) {
+    debug.error('记忆中心', 'AI总结失败:', error);
+    const errorMsg = error instanceof Error ? error.message : '未知错误';
+    toast.error(`记忆总结失败: ${errorMsg}`);
+    throw error;
+  }
+};
+
+/**
+ * 保存记忆数据到存档
+ */
+const saveMemoriesToStore = async () => {
+  try {
+    const { useCharacterStore } = await import('@/stores/characterStore');
+    const characterStore = useCharacterStore();
+    const saveData = characterStore.activeSaveSlot?.存档数据;
+
+    if (!saveData || !saveData.记忆) {
+      debug.warn('记忆中心', '存档数据不存在，无法保存记忆');
+      return;
+    }
+
+    // 将内存中的记忆数据转换为存档格式（字符串数组）
+    saveData.记忆.短期记忆 = shortTermMemories.value.map(m => m.content);
+    saveData.记忆.中期记忆 = mediumTermMemories.value.map(m => m.content);
+    saveData.记忆.长期记忆 = longTermMemories.value.map(m => m.content);
+
+    // 触发存档保存
+    await characterStore.syncToTavernAndSave({ fullSync: true });
+
+    debug.log('记忆中心', '记忆数据已保存到存档');
+  } catch (error) {
+    debug.error('记忆中心', '保存记忆数据到存档失败:', error);
+    throw error;
+  }
+};
+
 // 记忆转化功能
 const convertMemories = () => {
   let hasConversion = false;
@@ -362,20 +528,29 @@ const convertMemories = () => {
 
   // 检查中期记忆是否达到转化阈值
   if (mediumTermMemories.value.length >= MEMORY_CONFIG.MEDIUM_TERM_LIMIT) {
-    debug.log('记忆中心', '中期记忆达到上限，开始转化为长期记忆');
+    debug.log('记忆中心', '中期记忆达到上限，准备转化为长期记忆');
 
-    // 取最早的中期记忆转化为长期记忆
-    const oldestMedium = mediumTermMemories.value.shift();
-    if (oldestMedium) {
-      const convertedMemory: Memory = {
-        ...oldestMedium,
-        type: 'long',
-        time: `归档于${formatTime(Date.now())}`,
-        importance: Math.max(oldestMedium.importance || 5, 7), // 长期记忆重要性至少为7
-        isConverted: true
-      };
-      longTermMemories.value.push(convertedMemory);
-      hasConversion = true;
+    // 如果启用了自动总结，触发AI总结
+    if (memoryConfig.value.autoSummaryEnabled) {
+      debug.log('记忆中心', '自动总结已启用，将在后台触发AI总结');
+      // 异步触发总结，不阻塞当前流程
+      summarizeMidTermToLongTerm().catch(error => {
+        debug.error('记忆中心', '自动总结失败:', error);
+      });
+    } else {
+      // 未启用自动总结，直接转化（旧逻辑）
+      const oldestMedium = mediumTermMemories.value.shift();
+      if (oldestMedium) {
+        const convertedMemory: Memory = {
+          ...oldestMedium,
+          type: 'long',
+          time: `归档于${formatTime(Date.now())}`,
+          importance: Math.max(oldestMedium.importance || 5, 7),
+          isConverted: true
+        };
+        longTermMemories.value.push(convertedMemory);
+        hasConversion = true;
+      }
     }
   }
 
@@ -531,6 +706,9 @@ const loadMemoryData = async () => {
 
       // 长期记忆 - 字符串数组
       if (Array.isArray(memoryData.长期记忆)) {
+        debug.log('记忆中心', `发现长期记忆数组，长度: ${memoryData.长期记忆.length}`);
+        debug.log('记忆中心', '长期记忆原始数据:', memoryData.长期记忆);
+
         memoryData.长期记忆.forEach((content: string, index: number) => {
           if (content && typeof content === 'string') {
             const memory: Memory = {
@@ -540,8 +718,11 @@ const loadMemoryData = async () => {
               importance: 9
             };
             loadedLongMemories.push(memory);
+            debug.log('记忆中心', `加载长期记忆 #${index}:`, content.substring(0, 50));
           }
         });
+      } else {
+        debug.warn('记忆中心', '长期记忆不是数组或不存在:', memoryData.长期记忆);
       }
 
       debug.log('记忆中心', `记忆加载完成: 短期${loadedShortMemories.length}, 中期${loadedMediumMemories.length}, 长期${loadedLongMemories.length}`);
@@ -565,37 +746,40 @@ const loadMemoryData = async () => {
 };
 
 // 记忆配置管理功能
-// 临时记忆系统适配层：防止未定义错误，并尝试将配置写入酒馆变量
-const memorySystem = {
-  getMemoryStats: () => ({ config: null as any }),
-  updateConfig: (cfg: any) => {
-    try {
-      const helper = getTavernHelper();
-      if (helper) {
-        // 异步持久化到酒馆变量（不阻塞UI）
-        helper.setVariable('character.memorySettings', cfg, { type: 'chat' })
-          .then(() => debug.log('记忆中心', '配置已保存到酒馆变量 character.memorySettings'))
-          .catch((e: any) => debug.warn('记忆中心', '保存配置到酒馆失败（非致命）', e));
-      }
-    } catch { /* no-op */ }
-  }
-};
-const loadMemoryConfig = () => {
+const loadMemoryConfig = async () => {
   try {
-    const stats = memorySystem.getMemoryStats();
-    if (stats.config) {
-      memoryConfig.value = { ...memoryConfig.value, ...stats.config };
+    const helper = getTavernHelper();
+    if (helper) {
+      const settings = await helper.getVariable('character.memorySettings', { type: 'chat' });
+      if (settings && typeof settings === 'object') {
+        // 合并加载的配置，以防存档中的配置不完整
+        memoryConfig.value = { ...memoryConfig.value, ...settings };
+        debug.log('记忆中心', '已从酒馆变量加载配置', settings);
+        return;
+      }
     }
+    debug.log('记忆中心', '未找到酒馆配置，使用默认值');
   } catch (error) {
-    debug.error('记忆中心', '加载配置失败:', error);
+    debug.error('记忆中心', '加载记忆配置失败:', error);
   }
 };
 
-const saveMemoryConfig = () => {
+const saveMemoryConfig = async () => {
   try {
-    memorySystem.updateConfig(memoryConfig.value);
-    toast.success('记忆系统配置已保存');
-    debug.log('记忆中心', '配置已保存:', memoryConfig.value);
+    const helper = getTavernHelper();
+    if (helper) {
+      const { deepCleanForClone } = await import('@/utils/dataValidation');
+      const cleanedCfg = deepCleanForClone(memoryConfig.value);
+      await helper.setVariable('character.memorySettings', cleanedCfg, { type: 'chat' });
+      
+      // 发送全局事件，通知其他面板配置已更新
+      panelBus.emit('memory-settings-updated', cleanedCfg);
+      
+      toast.success('记忆系统配置已保存');
+      debug.log('记忆中心', '配置已保存并同步:', cleanedCfg);
+    } else {
+      throw new Error('无法获取Tavern助手');
+    }
   } catch (error) {
     debug.error('记忆中心', '保存配置失败:', error);
     toast.error('保存配置失败');
@@ -614,9 +798,89 @@ const resetMemoryConfig = () => {
   toast.success('配置已重置为默认值');
 };
 
-onMounted(() => {
-  loadMemoryData();
-  loadMemoryConfig();
+/**
+ * 手动触发中期记忆到长期记忆的AI总结
+ */
+const manualTriggerSummary = async () => {
+  const minRequired = memoryConfig.value.midTermKeep + 5;
+  if (mediumTermMemories.value.length < minRequired) {
+    toast.warning(`中期记忆不足，至少需要 ${minRequired} 条才能总结`);
+    return;
+  }
+
+  try {
+    toast.loading('正在调用AI总结中期记忆...', { id: 'manual-summary' });
+    await summarizeMidTermToLongTerm();
+    toast.success('手动总结完成！', { id: 'manual-summary' });
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : '未知错误';
+    toast.error(`手动总结失败: ${errorMsg}`, { id: 'manual-summary' });
+  }
+};
+
+/**
+ * 删除单条记忆（同时删除本地显示、IndexedDB存档和酒馆变量）
+ * 这是唯一能完整删除记忆的方法，确保三处数据同步
+ */
+const deleteMemory = async (memory: Memory, displayIndex: number) => {
+  uiStore.showRetryDialog({
+    title: '删除记忆',
+    message: `确定要删除这条${getTypeName(memory.type)}吗？此操作不可撤销。\n\n内容：${memory.content.substring(0, 50)}...`,
+    confirmText: '删除',
+    cancelText: '取消',
+    onConfirm: async () => {
+      try {
+        // 🔥 步骤1：从显示数组中删除
+        let actualIndex = -1;
+        switch (memory.type) {
+          case 'short':
+            actualIndex = shortTermMemories.value.findIndex(m => m === memory);
+            if (actualIndex !== -1) {
+              shortTermMemories.value.splice(actualIndex, 1);
+            }
+            break;
+          case 'medium':
+            actualIndex = mediumTermMemories.value.findIndex(m => m === memory);
+            if (actualIndex !== -1) {
+              mediumTermMemories.value.splice(actualIndex, 1);
+            }
+            break;
+          case 'long':
+            actualIndex = longTermMemories.value.findIndex(m => m === memory);
+            if (actualIndex !== -1) {
+              longTermMemories.value.splice(actualIndex, 1);
+            }
+            break;
+        }
+
+        if (actualIndex === -1) {
+          toast.error('找不到要删除的记忆');
+          return;
+        }
+
+        // 🔥 步骤2：直接通过syncToTavernAndSave保存（自动覆盖）
+        // 说明：删除显示层数据后，通过saveMemoriesToStore()将内存数据写回存档并同步
+        const { useCharacterStore } = await import('@/stores/characterStore');
+        const characterStore = useCharacterStore();
+
+        // 调用保存函数，将当前内存中的记忆数据覆盖到存档
+        await saveMemoriesToStore();
+
+        debug.log('记忆中心', `✅ 已删除${getTypeName(memory.type)}并同步到存档和酒馆`);
+        toast.success(`已删除${getTypeName(memory.type)}并同步到酒馆`);
+      } catch (error) {
+        debug.error('记忆中心', '删除记忆失败:', error);
+        const errorMsg = error instanceof Error ? error.message : '未知错误';
+        toast.error(`删除失败: ${errorMsg}`);
+      }
+    },
+    onCancel: () => {}
+  });
+};
+
+onMounted(async () => {
+  await loadMemoryData();
+  await loadMemoryConfig();
   // 绑定统一顶栏动作
   panelBus.on('refresh', async () => {
     loading.value = true;
@@ -953,6 +1217,33 @@ onMounted(() => {
   box-sizing: border-box;
 }
 
+/* 手动总结区域 */
+.manual-summary-section {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.summary-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.info-text {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.info-hint {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
 /* 通用操作按钮基样式，确保有清晰边框 */
 .action-btn {
   padding: 0.5rem 1rem;
@@ -1077,6 +1368,30 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 0.75rem;
+}
+
+.memory-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.delete-memory-btn {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  opacity: 0.6;
+}
+
+.delete-memory-btn:hover {
+  opacity: 1;
+  background: rgba(220, 38, 38, 0.1);
+  border-color: #dc2626;
+  transform: scale(1.1);
 }
 
 .memory-type-badge {

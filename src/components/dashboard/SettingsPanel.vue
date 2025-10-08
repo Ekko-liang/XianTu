@@ -70,7 +70,7 @@
               <span class="setting-desc">调整游戏文字显示大小</span>
             </div>
             <div class="setting-control">
-              <select v-model="settings.fontSize" class="setting-select">
+              <select v-model="settings.fontSize" class="setting-select" @change="applyFontSize">
                 <option value="small">小</option>
                 <option value="medium">中</option>
                 <option value="large">大</option>

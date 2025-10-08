@@ -33,6 +33,7 @@
 
     <!-- 主体区域 -->
     <main class="main-content" :class="{ 'fullscreen-content': isFullscreen }">
+      <input ref="fileInput" type="file" accept=".json" @change="handleImportFile" style="display: none">
       <!-- 返回按钮 - 仅在全屏模式显示 -->
       <div v-if="isFullscreen" class="fullscreen-header">
         <button @click="handleClose" class="fullscreen-back-btn">
@@ -88,9 +89,21 @@
             <div class="character-count">{{ allCharacterCount }} 个角色</div>
           </div>
           <div class="grid-header-right">
-            <h2>存档管理</h2>
-            <div v-if="selectedCharacter" class="selected-char-info">
-              {{ selectedCharacter.角色基础信息.名字 }} - {{ selectedCharacter.模式 }}模式
+            <div class="header-left-content">
+              <h2>存档管理</h2>
+              <div v-if="selectedCharacter" class="selected-char-info">
+                {{ selectedCharacter.角色基础信息.名字 }} - {{ selectedCharacter.模式 }}模式
+              </div>
+            </div>
+            <div v-if="selectedCharacter" class="save-actions-buttons">
+              <button @click="exportSaves" class="btn-save-action export" title="导出选中角色的存档">
+                <Download :size="18" />
+                <span>导出存档</span>
+              </button>
+              <button @click="importSaves" class="btn-save-action import" title="向选中角色导入存档">
+                <Upload :size="18" />
+                <span>导入存档</span>
+              </button>
             </div>
           </div>
 
@@ -371,19 +384,19 @@
                 </div>
                 <div class="detail-item">
                   <span class="label">世界</span>
-                  <span class="value">{{ detailsCharacter.角色基础信息.世界 }}</span>
+                  <span class="value">{{ getFieldName(detailsCharacter.角色基础信息.世界) }}</span>
                 </div>
                 <div class="detail-item">
                   <span class="label">天资</span>
-                  <span class="value">{{ detailsCharacter.角色基础信息.天资 }}</span>
+                  <span class="value">{{ getFieldName(detailsCharacter.角色基础信息.天资) }}</span>
                 </div>
                 <div class="detail-item">
                   <span class="label">出身</span>
-                  <span class="value">{{ detailsCharacter.角色基础信息.出生 }}</span>
+                  <span class="value">{{ getFieldName(detailsCharacter.角色基础信息.出生) }}</span>
                 </div>
                 <div class="detail-item">
                   <span class="label">灵根</span>
-                  <span class="value">{{ detailsCharacter.角色基础信息.灵根 }}</span>
+                  <span class="value">{{ getFieldName(detailsCharacter.角色基础信息.灵根) }}</span>
                 </div>
                 <div class="detail-item">
                   <span class="label">模式</span>
@@ -408,8 +421,13 @@
               <h4>天赋神通</h4>
               <div class="talents-list">
                 <div v-if="detailsCharacter.角色基础信息.天赋?.length" class="talent-items">
-                  <span v-for="talent in detailsCharacter.角色基础信息.天赋" :key="talent" class="talent-tag">
-                    {{ talent }}
+                  <span
+                    v-for="(talent, index) in detailsCharacter.角色基础信息.天赋"
+                    :key="index"
+                    class="talent-tag"
+                    :title="getTalentDescription(talent)"
+                  >
+                    {{ getTalentName(talent) }}
                   </span>
                 </div>
                 <span v-else class="no-talents">暂无天赋</span>
@@ -429,10 +447,11 @@ import { useCharacterStore } from '@/stores/characterStore';
 import { verifyStoredToken } from '@/services/request';
 import HexagonChart from '@/components/common/HexagonChart.vue';
 import VideoBackground from '@/components/common/VideoBackground.vue';
-import { ArrowLeft } from 'lucide-vue-next';
+import { ArrowLeft, Download, Upload } from 'lucide-vue-next';
 import type { CharacterProfile, SaveSlot } from '@/types/game';
 import "@/style.css";
 import { formatRealmWithStage } from '@/utils/realmUtils';
+import { toast } from '@/utils/toast';
 
 interface Props {
   fullscreen?: boolean;
@@ -459,7 +478,9 @@ const selectedCharId = ref<string | null>(null);
 const showDetailsModal = ref(false);
 const detailsCharacter = ref<CharacterProfile | null>(null);
 const promptInput = ref<HTMLInputElement | null>(null);
+const fileInput = ref<HTMLInputElement | null>(null);
 const isCharacterPanelOpen = ref(false);
+const loading = ref(false);
 
 // 响应式屏幕尺寸检测
 const screenWidth = ref(window.innerWidth);
@@ -756,6 +777,36 @@ const convertToStats = (innateAttrs: Record<string, number>) => {
   };
 };
 
+// 获取天赋名称（兼容字符串和对象格式）
+const getTalentName = (talent: string | { 名称: string; 描述?: string } | { name: string; description?: string }): string => {
+  if (typeof talent === 'string') return talent;
+  if (talent && typeof talent === 'object') {
+    return (talent as any).名称 || (talent as any).name || '未知天赋';
+  }
+  return '未知天赋';
+};
+
+// 获取天赋描述（兼容字符串和对象格式）
+const getTalentDescription = (talent: string | { 名称: string; 描述?: string } | { name: string; description?: string }): string => {
+  if (typeof talent === 'string') return `天赋《${talent}》`;
+  if (talent && typeof talent === 'object') {
+    const desc = (talent as any).描述 || (talent as any).description || '';
+    const name = getTalentName(talent);
+    return desc || `天赋《${name}》`;
+  }
+  return '未知天赋';
+};
+
+// 通用字段名称获取（兼容字符串和对象格式 { 名称, 描述 } 或 { name, description }）
+const getFieldName = (field: any): string => {
+  if (!field) return '未知';
+  if (typeof field === 'string') return field;
+  if (typeof field === 'object' && field !== null) {
+    return field.名称 || field.name || field.名字 || '未知';
+  }
+  return '未知';
+};
+
 // --- 自定义对话框逻辑 ---
 
 const showAlert = (title: string, message: string, onConfirm?: () => void) => {
@@ -830,6 +881,109 @@ const handleModalCancel = () => {
 
 const closeModal = () => {
   modalState.value.show = false;
+};
+
+// 导出存档
+const exportSaves = () => {
+  if (!selectedCharacter.value) {
+    toast.error('请先选择一个角色');
+    return;
+  }
+  try {
+    const character = selectedCharacter.value;
+    const savesToExport = Object.values(character.存档列表 || {}).filter(slot => slot.存档数据);
+
+    if (savesToExport.length === 0) {
+      toast.info('该角色没有可导出的存档');
+      return;
+    }
+
+    const exportData = {
+      saves: savesToExport,
+      exportTime: new Date().toISOString(),
+      version: '1.0.0',
+      characterName: character.角色基础信息.名字,
+    };
+
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(dataBlob);
+    link.download = `大道朝天-${character.角色基础信息.名字}-存档备份-${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+
+    toast.success('存档已导出');
+  } catch (error) {
+    console.error('导出失败', error);
+    toast.error('导出存档失败');
+  }
+};
+
+// 导入存档
+const importSaves = () => {
+  if (!selectedCharacter.value) {
+    toast.error('请先选择一个角色以导入存档');
+    return;
+  }
+  fileInput.value?.click();
+};
+
+// 处理导入文件
+const handleImportFile = async (event: Event) => {
+  if (!selectedCharId.value || !selectedCharacter.value) return;
+
+  const file = (event.target as HTMLInputElement).files?.[0];
+  if (!file) return;
+
+  const charId = selectedCharId.value;
+  const charName = selectedCharacter.value.角色基础信息.名字;
+
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+
+    if (!data.saves || !Array.isArray(data.saves)) {
+      throw new Error('无效的存档文件格式');
+    }
+
+    showConfirm(
+      '导入存档',
+      `确定要将 ${data.saves.length} 个存档导入到角色 "${charName}" 吗？同名存档将被覆盖。`,
+      async () => {
+        loading.value = true;
+        try {
+          // 设置活跃角色以确保 importSave 能正确工作
+          await characterStore.setActiveCharacterInTavern(charId);
+          
+          for (const save of data.saves) {
+            await characterStore.importSave(save);
+          }
+          
+          toast.success(`成功为角色 "${charName}" 导入 ${data.saves.length} 个存档`);
+        } catch (error) {
+          console.error('导入失败', error);
+          toast.error('导入存档失败: ' + (error as Error).message);
+        } finally {
+          loading.value = false;
+          if (fileInput.value) {
+            fileInput.value.value = '';
+          }
+        }
+      },
+      () => {
+        if (fileInput.value) {
+          fileInput.value.value = '';
+        }
+      }
+    );
+  } catch (error) {
+    console.error('处理导入文件失败', error);
+    toast.error('处理导入文件失败: ' + (error as Error).message);
+    if (fileInput.value) {
+      fileInput.value.value = '';
+    }
+  }
 };
 </script>
 
@@ -1256,6 +1410,7 @@ const closeModal = () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 1rem;
 }
 
 .grid-header-left h2, .grid-header-right h2 {
@@ -1265,18 +1420,105 @@ const closeModal = () => {
   font-weight: 600;
 }
 
-.character-count, .selected-char-info {
+.character-count {
   font-size: 0.75rem;
   color: var(--color-text-secondary);
   background: var(--color-background);
   padding: 0.2rem 0.4rem;
   border-radius: 4px;
   border: 1px solid var(--color-border);
-  /* Fix for vertical text issue on small screens */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100%; /* Ensure it doesn't overflow its container */
+  max-width: 100%;
+}
+
+/* 右侧标题栏布局 */
+.header-left-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.selected-char-info {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  background: linear-gradient(135deg,
+    rgba(var(--color-primary-rgb), 0.1),
+    rgba(var(--color-accent-rgb), 0.05)
+  );
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid rgba(var(--color-primary-rgb), 0.3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: fit-content;
+}
+
+/* 存档操作按钮组 */
+.save-actions-buttons {
+  display: flex;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.btn-save-action {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border: 2px solid;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: linear-gradient(135deg,
+    rgba(var(--color-surface-rgb), 0.8),
+    rgba(var(--color-background-rgb), 0.6)
+  );
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.btn-save-action.export {
+  color: var(--color-success);
+  border-color: rgba(var(--color-success-rgb), 0.4);
+}
+
+.btn-save-action.export:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--color-success), rgba(var(--color-success-rgb), 0.8));
+  color: white;
+  border-color: var(--color-success);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(var(--color-success-rgb), 0.3);
+}
+
+.btn-save-action.import {
+  color: var(--color-info);
+  border-color: rgba(var(--color-info-rgb), 0.4);
+}
+
+.btn-save-action.import:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--color-info), rgba(var(--color-info-rgb), 0.8));
+  color: white;
+  border-color: var(--color-info);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(var(--color-info-rgb), 0.3);
+}
+
+.btn-save-action:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+}
+
+.btn-save-action:disabled:hover {
+  transform: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 /* 内容区域 - 简化样式 */
@@ -2174,7 +2416,30 @@ const closeModal = () => {
   }
 
   .grid-header-right {
-    padding-left: 1rem;
+    padding: 0.8rem;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.8rem;
+  }
+
+  .header-left-content {
+    gap: 0.3rem;
+  }
+
+  .save-actions-buttons {
+    width: 100%;
+    gap: 0.5rem;
+  }
+
+  .btn-save-action {
+    flex: 1;
+    padding: 0.7rem 0.8rem;
+    font-size: 0.8rem;
+    justify-content: center;
+  }
+
+  .btn-save-action span {
+    display: inline;
   }
 
   .grid-content-left,
@@ -2402,6 +2667,10 @@ const closeModal = () => {
     padding: 0.8rem;
     margin-bottom: 0.8rem;
     min-height: 80px;
+  }
+
+  .btn-save-action span {
+    font-size: 0.75rem;
   }
 
   .card-header {

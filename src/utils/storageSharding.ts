@@ -369,7 +369,8 @@ export async function updateShard<K extends keyof StorageShards>(
   value: StorageShards[K],
   helper: TavernHelper
 ): Promise<void> {
-  await helper.setVariable(key, value, { type: 'chat' });
+  const { deepCleanForClone } = await import('@/utils/dataValidation');
+  await helper.setVariable(key, deepCleanForClone(value), { type: 'chat' });
   debug.log('分片存储', `已更新分片: ${key}`);
 }
 

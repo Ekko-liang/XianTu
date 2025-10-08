@@ -52,7 +52,7 @@ export interface Origin {
 export interface SpiritRoot {
   id: number;
   name: string;
-  tier?: string;
+  tier: string;
   description: string;
   cultivation_speed?: string;
   special_effects?: string[];
@@ -149,7 +149,7 @@ export interface Character {
   inventory: Inventory;
   talents: Talent[];
   reputation: number;
-  
+
   // --- 先天六司 (永不改变) ---
   root_bone: number;
   spirituality: number;

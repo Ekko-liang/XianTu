@@ -4,6 +4,7 @@ import { merge, set as setLodash, cloneDeep } from 'lodash';
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
 import { useUIStore } from './uiStore'; // 导入UI Store
+import { useCharacterCreationStore } from './characterCreationStore'; // 导入创角Store
 import * as storage from '@/utils/indexedDBManager';
 import { getTavernHelper, clearAllCharacterData } from '@/utils/tavern';
 import { initializeCharacter } from '@/services/characterInitialization';
@@ -409,11 +410,36 @@ export const useCharacterStore = defineStore('characterV3', () => {
    */
   const createNewCharacter = async (payload: CreationPayload): Promise<CharacterBaseInfo | undefined> => {
     const uiStore = useUIStore();
+    const creationStore = useCharacterCreationStore(); // 导入创角状态
     const { charId, baseInfo, world, mode, age } = payload;
+
     if (rootState.value.角色列表[charId]) {
       toast.error(`角色ID ${charId} 已存在，创建失败！`);
       return undefined;
     }
+
+    // [核心修复] 从创角store中提取最权威、最完整的数据，覆盖传入的payload
+    // 这是为了确保即使用户界面和payload构建逻辑有误，最终发送给AI的数据也是绝对正确的
+    const authoritativeBaseInfo: CharacterBaseInfo = {
+      ...baseInfo, // 保留玩家输入的名字、性别等
+      世界: creationStore.selectedWorld?.name || baseInfo.世界,
+      天资: creationStore.selectedTalentTier?.name || baseInfo.天资,
+      出生: creationStore.selectedOrigin?.name || '随机出身',
+      // 修复：确保灵根是包含完整信息的对象，或明确的“随机”标识
+      灵根: creationStore.selectedSpiritRoot
+        ? {
+            名称: creationStore.selectedSpiritRoot.name,
+            品级: creationStore.selectedSpiritRoot.grade,
+            描述: creationStore.selectedSpiritRoot.description,
+          }
+        : '随机灵根',
+      // 修复：确保天赋是包含名称和描述的完整对象数组
+      天赋: creationStore.selectedTalents.map(t => ({
+        名称: t.name,
+        描述: t.description,
+      })),
+    };
+    debug.log('角色商店', '构建权威创角信息:', authoritativeBaseInfo);
 
     // const toastId = `create-char-${charId}`; // 不再需要独立的toastId
     try {
@@ -430,16 +456,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
           // 构造符合后端schema的数据结构
           const characterSubmissionData = {
             char_id: charId,
-            base_info: {
-              名字: baseInfo.名字,
-              性别: baseInfo.性别,
-              世界: baseInfo.世界,
-              天资: baseInfo.天资,
-              出生: baseInfo.出生,
-              灵根: baseInfo.灵根,
-              天赋: baseInfo.天赋,
-              先天六司: baseInfo.先天六司
-            }
+            base_info: authoritativeBaseInfo,
           };
           
           debug.log('角色商店', '向后端提交的数据', characterSubmissionData);
@@ -457,14 +474,14 @@ export const useCharacterStore = defineStore('characterV3', () => {
       console.log('[角色商店] 准备调用initializeCharacter...');
       let initialSaveData: SaveData | null = null;
       try {
-        console.log('[角色商店] 调用initializeCharacter,参数:', { charId, baseInfo: baseInfo.名字, world: world.name, age });
-        initialSaveData = await initializeCharacter(charId, baseInfo, world, age);
+        console.log('[角色商店] 调用initializeCharacter,参数:', { charId, baseInfo: authoritativeBaseInfo, world: world.name, age });
+        initialSaveData = await initializeCharacter(charId, authoritativeBaseInfo, world, age);
         console.log('[角色商店] ✅ initializeCharacter返回成功,数据有效:', !!initialSaveData);
       } catch (e) {
         console.error('[角色商店] ❌ initializeCharacter失败:', e);
         if (mode === '单机') { // 单机
           console.log('[角色商店] 单机模式,尝试离线初始化...');
-          initialSaveData = await initializeCharacterOffline(charId, baseInfo, world, age);
+          initialSaveData = await initializeCharacterOffline(charId, authoritativeBaseInfo, world, age);
         } else {
           throw e;
         }
@@ -475,14 +492,14 @@ export const useCharacterStore = defineStore('characterV3', () => {
         const now = new Date().toISOString();
         newProfile = {
           模式: '单机',
-          角色基础信息: initialSaveData.角色基础信息 || baseInfo, // 使用AI处理后的数据
+          角色基础信息: initialSaveData.角色基础信息 || authoritativeBaseInfo, // 使用AI处理后的数据
           存档列表: {
             '存档1': {
               存档名: '存档1',
               保存时间: now,
               最后保存时间: now,
               游戏内时间: '修仙元年 春',
-              角色名字: baseInfo.名字,
+              角色名字: authoritativeBaseInfo.名字,
               境界: '凡人',
               位置: '未知',
               修为进度: 0,
@@ -499,7 +516,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       } else { // 联机模式
         newProfile = {
           模式: '联机',
-          角色基础信息: initialSaveData.角色基础信息 || baseInfo, // 使用AI处理后的数据
+          角色基础信息: initialSaveData.角色基础信息 || authoritativeBaseInfo, // 使用AI处理后的数据
           存档: {
             存档名: '云端修行',
             保存时间: new Date().toISOString(),
@@ -549,7 +566,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       }
       
       // 最终的成功提示由App.vue处理
-      return baseInfo;
+      return authoritativeBaseInfo;
     } catch (error) {
       debug.error('角色商店', '角色创建失败', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -581,6 +598,15 @@ export const useCharacterStore = defineStore('characterV3', () => {
 
     delete rootState.value.角色列表[charId];
     await commitToStorage();
+
+    // 🔥 同步到云端
+    try {
+      await syncRootStateToCloud();
+      debug.log('角色商店', '删除角色后已同步到云端');
+    } catch (error) {
+      debug.error('角色商店', '删除角色后同步云端失败', error);
+    }
+
     toast.success(`角色【${characterName}】已彻底删除。`);
   };
 
@@ -1082,6 +1108,15 @@ export const useCharacterStore = defineStore('characterV3', () => {
     // 删除存档
     delete profile.存档列表[slotKey];
     await commitToStorage();
+
+    // 🔥 同步到云端
+    try {
+      await syncRootStateToCloud();
+      debug.log('角色商店', '删除存档后已同步到云端');
+    } catch (error) {
+      debug.error('角色商店', '删除存档后同步云端失败', error);
+    }
+
     toast.success(`存档【${saveName}】已删除`);
   };
 
@@ -1729,6 +1764,136 @@ export const useCharacterStore = defineStore('characterV3', () => {
     }
   };
 
+/**
+ * [新增] 删除一个NPC
+ * @param npcName 要删除的NPC的名字
+ */
+const deleteNpc = async (npcName: string) => {
+  const active = rootState.value.当前激活存档;
+  const profile = activeCharacterProfile.value;
+  const slot = activeSaveSlot.value;
+
+  if (!active || !profile || !slot?.存档数据?.人物关系) {
+    toast.error('无法删除NPC：没有激活的存档或人物关系数据。');
+    return;
+  }
+
+  const npcKey = Object.keys(slot.存档数据.人物关系).find(
+    key => slot.存档数据!.人物关系[key]?.名字 === npcName
+  );
+
+  if (!npcKey) {
+    toast.error(`找不到名为 ${npcName} 的NPC。`);
+    return;
+  }
+
+  // 从人物关系中删除NPC
+  delete slot.存档数据.人物关系[npcKey];
+  debug.log('角色商店', `已从存档数据中删除NPC: ${npcName} (key: ${npcKey})`);
+
+  // 强制触发响应式更新
+  triggerRef(rootState);
+
+  try {
+    // 保存并同步变更
+    await syncToTavernAndSave({ fullSync: true });
+    toast.success(`NPC【${npcName}】已成功删除。`);
+  } catch (error) {
+    debug.error('角色商店', `删除NPC ${npcName} 后保存失败`, error);
+    toast.error('删除NPC失败，无法保存更改。');
+    // 可以在这里实现回滚逻辑
+  }
+};
+
+/**
+ * [新增] 装备一个功法
+ * @param itemId 要装备的功法物品ID
+ */
+const equipTechnique = async (itemId: string) => {
+  const slot = activeSaveSlot.value;
+  if (!slot?.存档数据) {
+    toast.error('存档数据不存在');
+    return;
+  }
+
+  const saveData = slot.存档数据;
+  const item = saveData.背包?.物品?.[itemId];
+
+  if (!item || item.类型 !== '功法') {
+    toast.error('要装备的物品不是一个有效的功法');
+    return;
+  }
+
+  // 1. 卸下当前所有功法
+  Object.values(saveData.背包.物品).forEach(i => {
+    if (i.类型 === '功法') {
+      i.已装备 = false;
+    }
+  });
+
+  // 2. 装备新功法
+  item.已装备 = true;
+
+  // 3. 创建或更新修炼槽位
+  saveData.修炼功法 = {
+    物品ID: item.物品ID,
+    名称: item.名称,
+    类型: '功法',
+    品质: item.品质,
+    描述: item.描述,
+    功法效果: (item as any).功法效果,
+    功法技能: (item as any).功法技能,
+    熟练度: 0, // 初始熟练度
+    已解锁技能: [],
+    修炼时间: 0,
+    突破次数: 0,
+    正在修炼: true,
+    修炼进度: (item as any).修炼进度 || 0, // 从背包同步进度
+  };
+
+  debug.log('角色商店', `已装备功法: ${item.名称}，修炼进度: ${saveData.修炼功法.修炼进度}%`);
+
+  await syncToTavernAndSave({ fullSync: true }); // 装备是重大变更，建议全量同步
+  toast.success(`已开始修炼《${item.名称}》`);
+};
+
+/**
+ * [新增] 卸下一个功法
+ * @param itemId 要卸下的功法物品ID
+ */
+const unequipTechnique = async (itemId: string) => {
+  const slot = activeSaveSlot.value;
+  if (!slot?.存档数据) {
+    toast.error('存档数据不存在');
+    return;
+  }
+
+  const saveData = slot.存档数据;
+  const item = saveData.背包?.物品?.[itemId];
+  const cultivationInfo = saveData.修炼功法;
+
+  if (!item || item.类型 !== '功法' || !cultivationInfo || cultivationInfo.物品ID !== itemId) {
+    toast.error('要卸下的功法与当前修炼的功法不匹配');
+    return;
+  }
+
+  // 1. 获取最终修炼进度
+  const finalProgress = cultivationInfo.修炼进度 || 0;
+
+  // 2. 更新背包中的功法
+  item.已装备 = false;
+  (item as any).修炼进度 = finalProgress;
+
+  // 3. 清空修炼槽
+  saveData.修炼功法 = null;
+
+  debug.log('角色商店', `已卸下功法: ${item.名称}，最终进度: ${finalProgress}%`);
+
+  await syncToTavernAndSave({ fullSync: true }); // 卸下也是重大变更
+  toast.info(`已停止修炼《${item.名称}》`);
+};
+
+
 return {
   // State
   rootState,
@@ -1743,6 +1908,7 @@ return {
   reloadFromStorage,
   createNewCharacter,
   deleteCharacter,
+  deleteNpc, // 新增：删除NPC
   deleteSave,
   deleteSaveById,
   createNewSave,
@@ -1770,5 +1936,8 @@ return {
   initialCreationStateChanges,
   setInitialCreationStateChanges,
   consumeInitialCreationStateChanges,
+  // 功法管理
+  equipTechnique,
+  unequipTechnique,
 };
 });

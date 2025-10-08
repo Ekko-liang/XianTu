@@ -25,17 +25,7 @@ export function deepCleanForClone<T>(value: T): T {
     return value;
   }
 
-  // 先尝试用JSON.stringify，这是最快且最安全的方法
-  try {
-    // 如果能成功序列化，说明没有循环引用、函数、Proxy等问题
-    const jsonStr = JSON.stringify(value);
-    return JSON.parse(jsonStr) as T;
-  } catch (e) {
-    // JSON序列化失败，需要手动清理
-    console.warn('[数据清理] JSON序列化失败，进行深度清理:', e);
-  }
-
-  // 手动深度清理（用于处理JSON无法序列化的情况）
+  // 直接进行深度清理（不使用JSON.stringify，因为它会丢失undefined值）
   const seen = new WeakMap<any, any>(); // 用于追踪已处理的对象，避免循环引用
 
   function deepClean(val: any): any {
@@ -57,16 +47,14 @@ export function deepCleanForClone<T>(value: T): T {
       return new Date(val.getTime());
     }
 
-    // 处理数组
+    // 处理数组 - 保留所有元素包括undefined
     if (Array.isArray(val)) {
       const result: any[] = [];
       seen.set(val, result); // 标记为已处理
 
       for (let i = 0; i < val.length; i++) {
-        const cleaned = deepClean(val[i]);
-        if (cleaned !== undefined) {
-          result.push(cleaned);
-        }
+        // 保留所有元素，包括undefined
+        result.push(deepClean(val[i]));
       }
 
       return result;
@@ -92,10 +80,15 @@ export function deepCleanForClone<T>(value: T): T {
     for (const key in val) {
       try {
         if (Object.prototype.hasOwnProperty.call(val, key)) {
-          const cleaned = deepClean(val[key]);
-          if (cleaned !== undefined) {
-            result[key] = cleaned;
+          const originalValue = val[key];
+          const cleaned = deepClean(originalValue);
+
+          // 保留所有值，包括undefined和null，除非原始值是函数
+          if (typeof originalValue === 'function') {
+            // 跳过函数
+            continue;
           }
+          result[key] = cleaned;
         }
       } catch (e) {
         console.warn(`[数据清理] 提取属性 "${key}" 失败:`, e);

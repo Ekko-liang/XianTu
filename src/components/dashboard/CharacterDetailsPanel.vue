@@ -229,7 +229,10 @@
               <span class="tier-label">天资等级</span>
             </div>
             <div class="tier-value-display">
-              <span class="tier-value" :class="`tier-${baseInfo.天资}`">{{ baseInfo.天资 }}</span>
+              <span class="tier-value" :class="`tier-${getTalentTierName(baseInfo.天资)}`">{{ getTalentTierName(baseInfo.天资) }}</span>
+            </div>
+            <div v-if="getTalentTierDescription(baseInfo.天资)" class="tier-description">
+              {{ getTalentTierDescription(baseInfo.天资) }}
             </div>
           </div>
 
@@ -273,10 +276,10 @@
                   <span v-if="getTalentList(baseInfo.天赋)?.length" class="talents-count">({{ getTalentList(baseInfo.天赋).length }})</span>
                 </div>
                 <div v-if="getTalentList(baseInfo.天赋)?.length" class="talents-container">
-                  <div v-for="talent in getTalentList(baseInfo.天赋)" :key="talent.名称 || talent"
+                  <div v-for="talent in getTalentList(baseInfo.天赋)" :key="talent.名称"
                        class="talent-item" :title="talent.描述">
-                    <div class="talent-name">{{ talent.名称 || talent }}</div>
-                    <div v-if="talent.描述" class="talent-tooltip">
+                    <div class="talent-name">{{ talent.名称 }}</div>
+                    <div v-if="talent.描述" class="talent-description-display">
                       {{ talent.描述 }}
                     </div>
                   </div>
@@ -825,11 +828,6 @@
               </div>
             </div>
 
-            <div class="spirit-root-description">
-              <h4>灵根描述</h4>
-              <p>{{ getSpiritRootDescription(baseInfo.灵根) }}</p>
-            </div>
-
             <div v-if="getSpiritRootEffects(baseInfo).length > 0" class="spirit-root-effects-section">
               <h4>特殊效果</h4>
               <div class="effects-grid">
@@ -1184,17 +1182,55 @@ const getCultivationProgress = (): number => {
 
 
 
-const getTalentList = (talents: string[] | Array<{ 名称: string; 描述: string }> | undefined): Array<{ 名称: string; 描述?: string }> => {
-  if (!talents) return [];
-  if (Array.isArray(talents)) {
-    return talents.map(talent => {
-      if (typeof talent === 'string') {
-        return { 名称: talent };
-      }
-      return talent;
-    });
+// 解析天资等级数据（可能是字符串或对象）
+const parseTalentTier = (talentTier: string | { 名称: string; 描述?: string } | undefined) => {
+  if (!talentTier) return { name: '未知', description: '' };
+
+  // 如果是对象格式：{ 名称, 描述 }
+  if (typeof talentTier === 'object' && talentTier !== null && '名称' in talentTier) {
+    return {
+      name: talentTier.名称 || '未知',
+      description: talentTier.描述 || ''
+    };
   }
-  return [];
+
+  // 如果是字符串格式
+  if (typeof talentTier === 'string') {
+    return {
+      name: talentTier,
+      description: ''
+    };
+  }
+
+  return { name: '未知', description: '' };
+};
+
+// 获取天资等级名称
+const getTalentTierName = (talentTier: string | { 名称: string; 描述?: string } | undefined): string => {
+  const parsed = parseTalentTier(talentTier);
+  return parsed.name;
+};
+
+// 获取天资等级描述
+const getTalentTierDescription = (talentTier: string | { 名称: string; 描述?: string } | undefined): string => {
+  const parsed = parseTalentTier(talentTier);
+  return parsed.description;
+};
+
+const getTalentList = (talents: string[] | Array<{ 名称: string; 描述: string }> | undefined): Array<{ 名称: string; 描述: string }> => {
+  if (!talents || !Array.isArray(talents)) return [];
+
+  return talents.map(talent => {
+    if (typeof talent === 'string') {
+      // 如果是字符串，返回一个带有默认描述的对象
+      return { 名称: talent, 描述: `天赋《${talent}》的详细描述暂未开放，请期待后续更新。` };
+    }
+    // 如果已经是对象，直接返回
+    return {
+      名称: talent.名称,
+      描述: talent.描述 || `天赋《${talent.名称}》的详细描述暂未开放，请期待后续更新。`
+    };
+  });
 };
 
 const getPercentage = (current: number, max: number): number => {
@@ -1424,66 +1460,31 @@ const showOriginDetails = (origin: unknown) => {
 
 // 增强的灵根系统 - 简化版
 const parseSpiritRoot = (spiritRoot: string | { 名称: string; 品级?: string; 描述?: string } | undefined) => {
-  if (!spiritRoot) return { name: '未知', grade: '', description: '' };
+  if (!spiritRoot) return { name: '未知', grade: '凡品', description: '暂无灵根信息' };
 
   // 优先处理对象格式：{ 名称, 品级, 描述 }
-  if (typeof spiritRoot === 'object') {
-    let name = spiritRoot.名称 || '未知';
-    const grade = spiritRoot.品级 || '';
-    const description = spiritRoot.描述 || '';
+  if (typeof spiritRoot === 'object' && spiritRoot !== null && '名称' in spiritRoot) {
+    return {
+      name: spiritRoot.名称 || '未知',
+      grade: spiritRoot.品级 || '凡品',
+      description: spiritRoot.描述 || `关于${spiritRoot.名称}的详细描述暂未开放。`
+    };
+  }
 
-    // 特殊处理：如果名称还是"随机灵根"，尝试从描述中提取真实的灵根类型
-    if (name === '随机灵根' && description) {
-      // 尝试匹配描述中的灵根类型，如"上品火灵根"、"水木双灵根"等
-      const typeMatch = description.match(/([金木水火土风雷冰光暗混沌阴阳]+)([双三四五])?灵根/);
-      if (typeMatch) {
-        name = typeMatch[1] + (typeMatch[2] || '') + '灵根';
-      } else if (grade && grade !== '凡品') {
-        // 如果无法从描述提取，但有品级，则显示为"品级灵根"（待AI更新）
-        name = `${grade}灵根（待确定属性）`;
-      }
-    }
+  // 处理字符串格式的灵根 (向后兼容)
+  if (typeof spiritRoot === 'string') {
+    const gradeMatch = spiritRoot.match(/(下品|中品|上品|极品|神品|特殊|凡品)/);
+    const grade = gradeMatch ? gradeMatch[1] : '凡品';
+    const name = gradeMatch ? spiritRoot.replace(gradeMatch[1], '').trim() : spiritRoot;
 
     return {
       name: name,
       grade: grade,
-      description: description
+      description: `一种${grade}灵根。`
     };
   }
 
-  // 处理字符串格式的灵根
-  if (typeof spiritRoot === 'string') {
-    // 首先尝试匹配明确的品级词汇
-    const gradeMatch = spiritRoot.match(/(下品|中品|上品|极品|神品|特殊|凡品)/);
-    let grade = gradeMatch ? gradeMatch[1] : '';
-
-    // 如果没有明确品级，则根据灵根名称推断品级
-    if (!grade) {
-      const rootName = spiritRoot.toLowerCase();
-      if (rootName.includes('混沌') || rootName.includes('先天') || rootName.includes('太古') || rootName.includes('洪荒')) {
-        grade = '神品';
-      } else if (rootName.includes('天') || rootName.includes('仙') || rootName.includes('圣')) {
-        grade = '极品';
-      } else if (rootName.includes('玄') || rootName.includes('灵')) {
-        grade = '上品';
-      } else if (rootName.includes('真') || rootName.includes('元')) {
-        grade = '中品';
-      }
-    }
-
-    let rootName = spiritRoot;
-    if (gradeMatch) {
-      rootName = spiritRoot.replace(gradeMatch[1], '').trim();
-    }
-
-    return {
-      name: rootName,
-      grade: grade,
-      description: grade ? `${grade}灵根` : '灵根'
-    };
-  }
-
-  return { name: '未知', grade: '', description: '' };
+  return { name: '未知', grade: '凡品', description: '灵根信息格式无法识别' };
 };
 
 const getSpiritRootDisplay = (spiritRoot: string | { 名称: string; 品级?: string; 描述?: string } | undefined): string => {
@@ -3761,28 +3762,12 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   cursor: help;
 }
 
-.talent-description {
-  position: absolute;
-  bottom: 100%;
-  right: 0;
-  margin-bottom: 0.5rem;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 0.5rem;
-  font-size: 0.75rem;
+.talent-description-display {
+  font-size: 0.8rem;
   color: var(--color-text-secondary);
-  max-width: 200px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s;
-  z-index: 10;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  white-space: normal;
-}
-
-.talent-tag:hover .talent-description {
-  opacity: 1;
+  margin-top: 4px;
+  padding-left: 8px;
+  border-left: 2px solid var(--color-border);
 }
 
 /* 新的天赋与灵根卡片样式 */
@@ -3846,6 +3831,18 @@ const getSpiritRootEffects = (baseInfo: CharacterBaseInfo | undefined): string[]
   border-color: var(--color-border-hover);
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(var(--color-primary-rgb), 0.1);
+}
+
+/* 天资等级描述样式 */
+.tier-description {
+  margin-top: 12px;
+  padding: 10px;
+  background: var(--color-background);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  border-left: 3px solid var(--color-primary);
 }
 
 /* 卡片头部样式 */
