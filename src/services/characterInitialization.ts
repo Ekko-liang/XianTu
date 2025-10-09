@@ -245,19 +245,8 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
         '⚠️ 先创建后修改：修改数据前必须确保数据已存在',
         '装备栏字段：装备1-6'
       ],
-      // 🔥 NSFW设置：从localStorage读取用户设置，供AI判断是否生成私密信息
-      nsfwMode: (() => {
-        try {
-          const savedSettings = localStorage.getItem('dad_game_settings');
-          if (savedSettings) {
-            const parsed = JSON.parse(savedSettings);
-            return parsed.enableNsfwMode !== undefined ? parsed.enableNsfwMode : true;
-          }
-        } catch (e) {
-          console.error('[初始化] 读取NSFW设置失败:', e);
-        }
-        return true; // 默认开启
-      })(),
+      // 🔥 NSFW设置：角色初始化时强制默认开启
+      nsfwMode: true,
       nsfwGenderFilter: (() => {
         try {
           const savedSettings = localStorage.getItem('dad_game_settings');
@@ -404,7 +393,7 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
     })) || [],
     mapConfig: saveData.世界信息?.地图配置,
     // 🔥 传递系统设置，用于NSFW内容生成
-    systemSettings: saveData.系统 || { nsfwMode: false, nsfwGenderFilter: 'all' }
+    systemSettings: saveData.系统 || { nsfwMode: true, nsfwGenderFilter: 'all' }
   };
 
   console.log(`[初始化] 准备生成开场剧情，角色: ${baseInfo.名字}`);
@@ -630,7 +619,7 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
     // 验证AI是否正确替换了随机灵根
     if (typeof mergedBaseInfo.灵根 === 'string' && mergedBaseInfo.灵根.includes('随机')) {
       console.warn('[数据最终化] ⚠️ 警告：AI未能正确替换随机灵根，使用本地数据库生成');
-      
+
       // 🔥 后备逻辑：使用本地数据库随机生成
       const 天资 = baseInfo.天资;
       let 灵根池 = LOCAL_SPIRIT_ROOTS.filter(root => {
@@ -647,12 +636,12 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
           return root.tier === '凡品' || root.tier === '下品'; // 默认
         }
       });
-      
+
       if (灵根池.length === 0) {
         // 如果过滤结果为空，使用所有灵根
         灵根池 = LOCAL_SPIRIT_ROOTS;
       }
-      
+
       const 随机灵根 = 灵根池[Math.floor(Math.random() * 灵根池.length)];
       mergedBaseInfo.灵根 = {
         名称: 随机灵根.name,
@@ -685,7 +674,7 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
     // 验证AI是否正确替换了随机出身
     if (typeof mergedBaseInfo.出生 === 'string' && mergedBaseInfo.出生.includes('随机')) {
       console.warn('[数据最终化] ⚠️ 警告：AI未能正确替换随机出身，使用本地数据库生成');
-      
+
       // 🔥 后备逻辑：使用本地数据库随机生成
       // 从本地数据库中随机选择一个出身
       const 随机出身 = LOCAL_ORIGINS[Math.floor(Math.random() * LOCAL_ORIGINS.length)];
