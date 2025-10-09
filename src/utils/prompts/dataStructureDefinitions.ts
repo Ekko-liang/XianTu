@@ -121,8 +121,69 @@ export const DATA_STRUCTURE_DEFINITIONS = `
 
 ## 世界信息
 \`\`\`json
-{"世界名称":"string","世界背景":"string","世界纪元":"string","特殊设定":["string"],"版本":"string","生成时间":"string","大陆信息":[{"名称":"string","描述":"string","范围":"string","特色":"string"}],"势力信息":[{"名称":"string","类型":"修仙宗门|魔道宗门","等级":"超级|一流|二流|三流","所在大洲":"string","位置":"string","势力范围":["string"],"描述":"string","特色":"string","与玩家关系":"敌对|中立|友好|盟友","leadership":{"宗主":"string","宗主修为":"string","副宗主":"string","太上长老":"string","太上长老修为":"string","长老数量":number,"最强修为":"string","综合战力":number,"核心弟子数":number,"内门弟子数":number,"外门弟子数":number}}],"地点信息":[{"名称":"string","类型":"城池|宗门|秘境|险地|商会|坊市|洞府","位置":"string","coordinates":{"longitude":number,"latitude":number},"描述":"string","特色":"string","安全等级":"安全|较安全|危险|极危险","开放状态":"开放|限制|封闭|未发现","相关势力":["string"]}]}
+{
+  "世界名称":"string",
+  "世界背景":"string",
+  "世界纪元":"string",
+  "特殊设定":["string"],
+  "版本":"string",
+  "生成时间":"string",
+  "大陆信息":[{
+    "名称":"string",
+    "描述":"string",
+    "地理特征":["string"],
+    "修真环境":"string",
+    "气候":"string",
+    "天然屏障":["string"],
+    "大洲边界":[{"longitude":number,"latitude":number}],
+    "主要势力":["string"]
+  }],
+  "势力信息":[{
+    "id":"string",
+    "名称":"string",
+    "类型":"修仙宗门|魔道宗门|中立宗门|修仙世家|魔道势力|商会组织|散修联盟",
+    "等级":"超级|一流|二流|三流",
+    "所在大洲":"string",
+    "位置":{"longitude":number,"latitude":number},
+    "势力范围":[{"longitude":number,"latitude":number}],
+    "描述":"string",
+    "特色":"string",
+    "与玩家关系":"敌对|中立|友好|盟友",
+    "leadership":{
+      "宗主":"string",
+      "宗主修为":"string",
+      "副宗主":"string",
+      "太上长老":"string",
+      "太上长老修为":"string",
+      "长老数量":number,
+      "最强修为":"string",
+      "综合战力":number,
+      "核心弟子数":number,
+      "内门弟子数":number,
+      "外门弟子数":number
+    },
+    "加入条件":"string",
+    "特殊福利":["string"]
+  }],
+  "地点信息":[{
+    "名称":"string",
+    "类型":"城池|宗门|秘境|险地|商会|坊市|洞府",
+    "位置":"string",
+    "coordinates":{"longitude":number,"latitude":number},
+    "描述":"string",
+    "特色":"string",
+    "安全等级":"安全|较安全|危险|极危险",
+    "开放状态":"开放|限制|封闭|未发现",
+    "相关势力":["string"],
+    "特殊功能":["string"]
+  }]
+}
 \`\`\`
+⚠️ **地图数据注意事项**：
+- 坐标系统：longitude(经度)100-130，latitude(纬度)25-45
+- 位置描述格式：必须是"大陆名·地点名"
+- 大洲边界：至少4个坐标点构成闭合多边形
+- 所有势力和地点必须有准确的coordinates坐标
 
 ## 灵根
 \`\`\`json
