@@ -1907,6 +1907,40 @@ const equipTechnique = async (itemId: string) => {
 };
 
 /**
+ * [新增] 导入一个完整的角色档案
+ * @param profileData 从JSON文件解析的角色档案数据
+ */
+const importCharacter = async (profileData: CharacterProfile) => {
+  if (!profileData || !profileData.角色基础信息 || !profileData.模式) {
+    throw new Error('无效的角色文件格式。');
+  }
+
+  // 为导入的角色生成一个新的唯一ID，避免覆盖现有角色
+  const newCharId = `char_${Date.now()}`;
+  const characterName = profileData.角色基础信息.名字 || '未知角色';
+
+  // 检查角色名是否重复
+  const isDuplicate = Object.values(rootState.value.角色列表).some(
+    p => p.角色基础信息.名字 === characterName
+  );
+
+  if (isDuplicate) {
+    // 可以选择抛出错误或自动重命名
+    // 这里我们选择抛出错误，让用户决定如何处理
+    throw new Error(`角色 "${characterName}" 已存在，请先删除或重命名现有角色。`);
+  }
+
+  // 将角色数据添加到列表
+  rootState.value.角色列表[newCharId] = {
+    ...profileData,
+    // 可以选择在这里清理或验证存档数据
+  };
+
+  await commitToStorage();
+  debug.log('角色商店', `成功导入角色: ${characterName} (新ID: ${newCharId})`);
+};
+
+/**
  * [新增] 卸下一个功法
  * @param itemId 要卸下的功法物品ID
  */
@@ -1945,6 +1979,9 @@ const unequipTechnique = async (itemId: string) => {
   } catch (e) {
     debug.error('角色商店', '卸下功法后自动计算掌握技能失败:', e);
   }
+  
+  // 🔥 [UI即时响应] 在同步前强制触发一次UI更新
+  triggerRef(rootState);
 
   await syncToTavernAndSave({ fullSync: true }); // 卸下也是重大变更
   toast.info(`已停止修炼《${item.名称}》`);
@@ -1996,5 +2033,6 @@ return {
   // 功法管理
   equipTechnique,
   unequipTechnique,
+  importCharacter, // 新增：导入角色
 };
 });

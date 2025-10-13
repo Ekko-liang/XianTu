@@ -1027,9 +1027,10 @@ const skillsList = computed((): SkillInfo[] => {
   const skills: SkillInfo[] = [];
   Object.entries(technique.功法技能).forEach(([skillName, skillInfo]) => {
     const unlocked = (technique.已解锁技能 || []).includes(skillName);
+    const info = skillInfo as any;
     skills.push({
       name: skillName,
-      description: skillInfo.技能描述,
+      description: info?.技能描述 || '',
       type: '功法技能',
       unlockCondition: '修炼解锁',
       unlocked

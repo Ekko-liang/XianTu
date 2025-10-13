@@ -111,6 +111,33 @@ export function calculateTalentBonuses(talents: Talent[]): InnateAttributes {
 }
 
 /**
+ * 计算已装备功法提供的属性加成
+ */
+export function calculateTechniqueBonuses(saveData: SaveData): InnateAttributes {
+  const bonuses: InnateAttributes = { 根骨: 0, 灵性: 0, 悟性: 0, 气运: 0, 魅力: 0, 心性: 0 };
+
+  if (!saveData.背包?.物品) {
+    return bonuses;
+  }
+
+  // 查找已装备的功法
+  const equippedTechnique = Object.values(saveData.背包.物品).find(
+    item => item?.类型 === '功法' && item?.已装备 === true
+  );
+
+  if (equippedTechnique && equippedTechnique.功法效果?.属性加成) {
+    const attributeBonuses = equippedTechnique.功法效果.属性加成;
+    for (const key in attributeBonuses) {
+      if (key in bonuses) {
+        bonuses[key as keyof InnateAttributes] += attributeBonuses[key as keyof InnateAttributes] || 0;
+      }
+    }
+  }
+
+  return bonuses;
+}
+
+/**
  * 计算最终的六司属性（先天+后天）
  */
 export function calculateFinalAttributes(
@@ -122,21 +149,24 @@ export function calculateFinalAttributes(
   最终六司: InnateAttributes
 } {
   // 装备加成
-  const equipmentBonuses = saveData.装备栏 && saveData.背包 
+  const equipmentBonuses = saveData.装备栏 && saveData.背包
     ? calculateEquipmentBonuses(saveData.装备栏, saveData.背包)
     : { 根骨: 0, 灵性: 0, 悟性: 0, 气运: 0, 魅力: 0, 心性: 0 };
 
   // 天赋加成（CharacterBaseInfo.天赋 是简化格式，不包含 effects，因此无加成）
   const talentBonuses = { 根骨: 0, 灵性: 0, 悟性: 0, 气运: 0, 魅力: 0, 心性: 0 };
 
+  // 功法加成
+  const techniqueBonuses = calculateTechniqueBonuses(saveData);
+
   // 合并所有后天加成
   const totalAcquiredBonuses: InnateAttributes = {
-    根骨: equipmentBonuses.根骨 + talentBonuses.根骨,
-    灵性: equipmentBonuses.灵性 + talentBonuses.灵性,
-    悟性: equipmentBonuses.悟性 + talentBonuses.悟性,
-    气运: equipmentBonuses.气运 + talentBonuses.气运,
-    魅力: equipmentBonuses.魅力 + talentBonuses.魅力,
-    心性: equipmentBonuses.心性 + talentBonuses.心性,
+    根骨: equipmentBonuses.根骨 + talentBonuses.根骨 + techniqueBonuses.根骨,
+    灵性: equipmentBonuses.灵性 + talentBonuses.灵性 + techniqueBonuses.灵性,
+    悟性: equipmentBonuses.悟性 + talentBonuses.悟性 + techniqueBonuses.悟性,
+    气运: equipmentBonuses.气运 + talentBonuses.气运 + techniqueBonuses.气运,
+    魅力: equipmentBonuses.魅力 + talentBonuses.魅力 + techniqueBonuses.魅力,
+    心性: equipmentBonuses.心性 + talentBonuses.心性 + techniqueBonuses.心性,
   };
 
   // 计算最终属性

@@ -239,6 +239,8 @@ async function handleAIPromptSubmit(userPrompt: string) {
       id: Date.now(),
       name: parsedTalent.name || parsedTalent.名称 || '未命名天赋',
       description: parsedTalent.description || parsedTalent.描述 || parsedTalent.说明 || '',
+      talent_cost: parsedTalent.talent_cost || parsedTalent.点数消耗 || 1,
+      rarity: parsedTalent.rarity || parsedTalent.稀有度 || 1,
       source: 'local'
     };
 

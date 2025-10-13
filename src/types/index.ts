@@ -71,6 +71,13 @@ export interface Talent {
   talent_cost: number;
   rarity: number;
   source?: 'local' | 'cloud';
+  effects?: Array<{
+    类型: string;
+    目标?: string;
+    数值: number;
+    技能?: string;
+    名称?: string;
+  }>;
 }
 
 export interface CharacterGameState {

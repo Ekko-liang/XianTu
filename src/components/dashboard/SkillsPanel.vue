@@ -19,23 +19,30 @@
             </div>
             <div class="technique-info">
               <div class="technique-name" :class="getSkillQualityClass(cultivationSkills, 'text')">
-                {{ (cultivationSkills as { 名称: string }).名称 }}
+                {{ cultivationSkills.名称 }}
               </div>
               <div class="technique-quality">
-                {{ ((cultivationSkills as { 品质?: { quality?: string } }).品质?.quality || '凡') }}品{{ ((cultivationSkills as { 品质?: { grade?: number } }).品质?.grade || 0) }}级
+                {{ cultivationSkills.品质?.quality || '凡' }}品
+                <span
+                  v-if="cultivationSkills.品质?.grade !== undefined"
+                  class="grade-display"
+                  :class="getGradeClass(cultivationSkills.品质.grade)"
+                >
+                  {{ getGradeText(cultivationSkills.品质.grade) }}({{ cultivationSkills.品质.grade }})
+                </span>
               </div>
               <div class="technique-progress">
                 <div class="progress-bar-wrapper">
                   <ProgressBar
                     v-bind="{
-                      value: Math.min(100, Math.max(0, (cultivationSkills as { 修炼进度?: number }).修炼进度 || 0)),
+                      value: Math.min(100, Math.max(0, cultivationSkills.修炼进度 || 0)),
                       max: 100,
                       size: 'sm',
                       showLabel: false
                     }"
                   />
                 </div>
-                <span class="progress-text">{{ Math.min(100, Math.max(0, (cultivationSkills as { 修炼进度?: number }).修炼进度 || 0)).toFixed(0) }}%</span>
+                <span class="progress-text">{{ Math.min(100, Math.max(0, cultivationSkills.修炼进度 || 0)).toFixed(1) }}/100</span>
               </div>
             </div>
           </div>
@@ -43,6 +50,37 @@
             <div class="empty-icon">📜</div>
             <span class="empty-text">未修炼功法</span>
             <span class="empty-hint">从下方功法库选择装备</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 已学技能列表 -->
+      <div class="learned-skills-section">
+        <h3 class="section-header">
+          <span class="header-icon">⚔️</span>
+          <span class="header-text">已学技能</span>
+          <span class="count-badge">{{ allLearnedSkills.length }}</span>
+        </h3>
+
+        <div v-if="allLearnedSkills.length === 0" class="empty-library">
+          <div class="empty-icon">📖</div>
+          <div class="empty-text">暂无已学技能</div>
+          <div class="empty-hint">修炼功法解锁技能</div>
+        </div>
+
+        <div v-else class="learned-skills-grid">
+          <div
+            v-for="skill in allLearnedSkills"
+            :key="skill.技能名称"
+            class="learned-skill-card"
+          >
+            <div class="skill-card-icon">⚡</div>
+            <div class="skill-card-body">
+              <div class="skill-card-name">{{ skill.技能名称 }}</div>
+              <div class="skill-card-source">来源: {{ skill.来源功法 }}</div>
+              <div class="skill-card-desc">{{ truncateText(skill.技能描述, 60) }}</div>
+              <div v-if="skill.消耗" class="skill-card-cost">消耗: {{ skill.消耗 }}</div>
+            </div>
           </div>
         </div>
       </div>
@@ -64,7 +102,7 @@
         <div v-else class="technique-grid">
           <div
             v-for="technique in inventoryTechniques"
-            :key="(technique as { 物品ID?: string }).物品ID"
+            :key="technique.物品ID"
             class="technique-card"
             :class="[
               getSkillQualityClass(technique),
@@ -77,13 +115,20 @@
             </div>
             <div class="card-body">
               <div class="card-title" :class="getSkillQualityClass(technique, 'text')">
-                {{ (technique as { 名称: string }).名称 }}
+                {{ technique.名称 }}
               </div>
               <div class="card-quality">
-                {{ ((technique as { 品质?: { quality?: string } }).品质?.quality || '凡') }}品{{ ((technique as { 品质?: { grade?: number } }).品质?.grade || 0) }}级
+                {{ technique.品质?.quality || '凡' }}品
+                <span
+                  v-if="technique.品质?.grade !== undefined"
+                  class="grade-display"
+                  :class="getGradeClass(technique.品质.grade)"
+                >
+                  {{ getGradeText(technique.品质.grade) }}({{ technique.品质.grade }})
+                </span>
               </div>
-              <div v-if="(technique as { 描述?: string }).描述" class="card-desc">
-                {{ truncateText((technique as { 描述?: string }).描述, 50) }}
+              <div v-if="technique.描述" class="card-desc">
+                {{ truncateText(technique.描述, 50) }}
               </div>
             </div>
           </div>
@@ -102,16 +147,23 @@
               <span class="skill-type-text-large">{{ getSkillTypeIcon(selectedSkillSlot) }}</span>
             </div>
             <div class="details-title-area">
-              <h3 :class="getSkillQualityClass(selectedSkillData, 'text')">{{ (selectedSkillData as { 名称: string }).名称 }}</h3>
+              <h3 :class="getSkillQualityClass(selectedSkillData, 'text')">{{ selectedSkillData.名称 }}</h3>
               <div class="details-meta">
                 <span class="meta-tag type-tag">{{ selectedSkillSlot }}</span>
                 <span class="meta-tag quality-tag" :class="getSkillQualityClass(selectedSkillData, 'text')">
-                  {{ ((selectedSkillData as { 品质?: { quality?: string } }).品质?.quality || '凡') }}品{{ ((selectedSkillData as { 品质?: { grade?: number } }).品质?.grade || 0) }}级
+                  {{ selectedSkillData.品质?.quality || '凡' }}品
+                </span>
+                <span
+                  v-if="selectedSkillData.品质?.grade !== undefined"
+                  class="grade-display"
+                  :class="getGradeClass(selectedSkillData.品质.grade)"
+                >
+                  {{ getGradeText(selectedSkillData.品质.grade) }}({{ selectedSkillData.品质.grade }})
                 </span>
               </div>
             </div>
           </div>
-          <p class="details-description">{{ (selectedSkillData as { 描述?: string }).描述 }}</p>
+          <p class="details-description">{{ selectedSkillData.描述 }}</p>
         </div>
 
         <!-- 标签页导航 -->
@@ -124,20 +176,20 @@
         <div class="details-body">
           <!-- 功法效果 -->
           <div v-if="activeTab === 'effects'" class="tab-content">
-            <div v-if="(selectedSkillData as { 功法效果?: unknown }).功法效果" class="skill-effects-section">
+            <div v-if="selectedSkillData.功法效果" class="skill-effects-section">
               <div class="effect-details">
-                <div v-if="((selectedSkillData as { 功法效果?: { 修炼速度加成?: number } }).功法效果 as { 修炼速度加成?: number })?.修炼速度加成" class="effect-item">
+                <div v-if="selectedSkillData.功法效果.修炼速度加成" class="effect-item">
                   <span class="effect-label">修炼速度</span>
-                  <span class="effect-value">+{{ (((selectedSkillData as { 功法效果?: { 修炼速度加成?: number } }).功法效果 as { 修炼速度加成?: number })?.修炼速度加成! * 100).toFixed(0) }}%</span>
+                  <span class="effect-value">{{ cultivationSpeedBonusText }}</span>
                 </div>
-                <div v-if="((selectedSkillData as { 功法效果?: { 属性加成?: unknown } }).功法效果 as { 属性加成?: unknown })?.属性加成" class="effect-item">
+                <div v-if="selectedSkillData.功法效果.属性加成" class="effect-item">
                   <span class="effect-label">属性加成</span>
-                  <span class="effect-value">{{ formatAttributeBonus(((selectedSkillData as { 功法效果?: { 属性加成?: unknown } }).功法效果 as { 属性加成?: unknown })?.属性加成) }}</span>
+                  <span class="effect-value">{{ formatAttributeBonus(selectedSkillData.功法效果.属性加成) }}</span>
                 </div>
-                <div v-if="((selectedSkillData as { 功法效果?: { 特殊能力?: string[] } }).功法效果 as { 特殊能力?: string[] })?.特殊能力?.length" class="effect-item">
+                <div v-if="selectedSkillData.功法效果.特殊能力?.length" class="effect-item">
                   <span class="effect-label">特殊能力</span>
                   <div class="special-abilities">
-                    <span v-for="ability in ((selectedSkillData as { 功法效果?: { 特殊能力?: string[] } }).功法效果 as { 特殊能力?: string[] })?.特殊能力" :key="ability" class="ability-tag">
+                    <span v-for="ability in selectedSkillData.功法效果.特殊能力" :key="ability" class="ability-tag">
                       {{ ability }}
                     </span>
                   </div>
@@ -149,9 +201,9 @@
 
           <!-- 功法技能 -->
           <div v-if="activeTab === 'skills'" class="tab-content">
-            <div v-if="Array.isArray((selectedSkillData as TechniqueItem).功法技能) && (selectedSkillData as TechniqueItem).功法技能!.length > 0" class="technique-skills-section">
+            <div v-if="selectedSkillData.功法技能?.length" class="technique-skills-section">
               <div class="skills-list">
-                <div v-for="(skill, index) in (selectedSkillData as TechniqueItem).功法技能" :key="index" class="skill-item">
+                <div v-for="(skill, index) in selectedSkillData.功法技能" :key="index" class="skill-item">
                   <div class="skill-header">
                     <span class="skill-name">{{ skill.技能名称 }}</span>
                     <div v-if="unlockedSkillsMap.has(skill.技能名称)" class="skill-status unlocked">已掌握</div>
@@ -211,7 +263,7 @@ interface TechniqueSkill {
 
 const { characterData, saveData } = useUnifiedCharacterData();
 const uiStore = useUIStore();
-const selectedSkillData = ref<unknown | null>(null);
+const selectedSkillData = ref<TechniqueItem | null>(null);
 const selectedSkillSlot = ref<string>('');
 const activeTab = ref('effects'); // 新增：控制标签页显示
 
@@ -243,32 +295,72 @@ const initializeCultivationSkills = async (currentSaveData: { 修炼功法?: unk
 // 修炼功法数据
 const cultivationSkills = computed(() => {
   const currentSaveData = saveData.value;
-
-  if (!currentSaveData) {
+  if (!currentSaveData?.修炼功法?.物品ID) {
     return null;
   }
 
-  // 确保修炼功法数据结构存在
-  // 注意：这个调用是异步的，但我们不希望在这里 await 它，
-  // 因为它的目的是在后台更新数据，而不是阻塞UI渲染。
-  // Pinia 的响应性会处理UI更新。
-  initializeCultivationSkills(currentSaveData);
+  // 从背包中查找完整的功法对象
+  const techniqueId = currentSaveData.修炼功法.物品ID;
+  const inventory = currentSaveData.背包?.物品;
+  if (inventory && inventory[techniqueId]) {
+    // 将背包中的功法数据与修炼进度等信息合并
+    const techniqueData = inventory[techniqueId] as TechniqueItem;
+    return {
+      ...techniqueData,
+      修炼进度: currentSaveData.修炼功法.修炼进度,
+      已解锁技能: currentSaveData.修炼功法.已解锁技能,
+    };
+  }
 
-  return (currentSaveData.修炼功法 as { 物品ID?: string; 名称?: string; 修炼进度?: number; 熟练度?: number; 已解锁技能?: string[]; 修炼时间?: number; 品质?: unknown } | null) || null;
+  return null;
 });
 
 // 背包中的功法物品
-const inventoryTechniques = computed(() => {
+const inventoryTechniques = computed((): TechniqueItem[] => {
   const inventory = characterData.value?.背包_物品;
 
   if (!inventory) return [];
 
   // 过滤出功法类型的有效物品
-  const techniques = Object.entries(inventory)
-    .filter(([key, val]) => !String(key).startsWith('_') && val && typeof val === 'object')
-    .map(([, val]) => val as { 类型?: string; 名称?: string })
-    .filter(item => item.类型 === '功法' && item.名称 && item.名称.trim() !== '');
+  const techniques = Object.values(inventory)
+    .filter((item): item is TechniqueItem =>
+      item && typeof item === 'object' && item.类型 === '功法' && !!item.名称?.trim()
+    );
   return techniques;
+});
+
+// 计算所有已学技能（从当前修炼的功法中根据进度自动解锁）
+const allLearnedSkills = computed(() => {
+  const skills: Array<{
+    技能名称: string;
+    技能描述: string;
+    消耗?: string;
+    来源功法: string;
+    解锁需要熟练度: number;
+  }> = [];
+
+  if (!cultivationSkills.value) return skills;
+
+  const currentProgress = cultivationSkills.value.修炼进度 || 0;
+  const techniqueSkills = cultivationSkills.value.功法技能;
+
+  if (!Array.isArray(techniqueSkills)) return skills;
+
+  // 根据修炼进度自动解锁技能
+  techniqueSkills.forEach((skill: any) => {
+    const requiredProgress = skill.解锁需要熟练度 || 0;
+    if (currentProgress >= requiredProgress) {
+      skills.push({
+        技能名称: skill.技能名称,
+        技能描述: skill.技能描述,
+        消耗: skill.消耗,
+        来源功法: cultivationSkills.value!.名称,
+        解锁需要熟练度: requiredProgress
+      });
+    }
+  });
+
+  return skills;
 });
 
 // 截断文本
@@ -279,7 +371,7 @@ const truncateText = (text?: string, maxLength: number = 50): string => {
 };
 
 // 选择技能
-const selectSkill = (skill: unknown, slotName: string) => {
+const selectSkill = (skill: TechniqueItem, slotName: string) => {
   selectedSkillData.value = skill;
   selectedSkillSlot.value = slotName;
 };
@@ -291,6 +383,26 @@ const getSkillQualityClass = (skill: unknown, type: 'border' | 'text' = 'border'
   const quality = typedSkill.品质?.quality || '凡';
   return `${type}-quality-${quality}`;
 };
+
+// 获取品级文本显示
+const getGradeText = (grade: number): string => {
+  if (grade === 0) return '残缺'
+  if (grade >= 1 && grade <= 3) return '下品'
+  if (grade >= 4 && grade <= 6) return '中品'
+  if (grade >= 7 && grade <= 9) return '上品'
+  if (grade === 10) return '极品'
+  return '未知'
+}
+
+// 获取品级样式
+const getGradeClass = (grade: number): string => {
+  if (grade === 0) return 'grade-broken'
+  if (grade >= 1 && grade <= 3) return 'grade-low'
+  if (grade >= 4 && grade <= 6) return 'grade-mid'
+  if (grade >= 7 && grade <= 9) return 'grade-high'
+  if (grade === 10) return 'grade-perfect'
+  return 'grade-unknown'
+}
 
 // 获取功法类型图标
 const getSkillTypeIcon = (slotName: string): string => {
@@ -310,7 +422,22 @@ const formatAttributeBonus = (bonus: unknown): string => {
 
 // 计算已解锁技能的 Set，优化查询性能
 const unlockedSkillsMap = computed(() => {
-  return new Set((cultivationSkills.value as { 已解锁技能?: string[] })?.已解锁技能 || []);
+  const currentSaveData = saveData.value;
+  return new Set(currentSaveData?.修炼功法?.已解锁技能 || []);
+});
+
+// 新增：计算修炼速度加成文本，并修复逻辑错误
+const cultivationSpeedBonusText = computed(() => {
+  const technique = selectedSkillData.value;
+  if (!technique?.功法效果?.修炼速度加成) return '无';
+
+  const bonus = technique.功法效果.修炼速度加成;
+  if (typeof bonus === 'number') {
+    const percentage = (bonus - 1) * 100;
+    if (Math.abs(percentage) < 1) return '无'; // 忽略可忽略的值
+    return `${percentage > 0 ? '+' : ''}${percentage.toFixed(0)}%`;
+  }
+  return '无';
 });
 
 // 显示修炼对话框
@@ -529,7 +656,13 @@ const finalizeEquipTechnique = async (technique: {
   const characterStore = useCharacterStore();
   await characterStore.syncToTavernAndSave();
   console.log('[技能面板] 功法装备成功:', technique.名称);
-  selectedSkillData.value = currentSaveData.修炼功法;
+
+  // 装备后，从背包中查找完整的功法对象并更新 selectedSkillData
+  if (technique.物品ID && currentSaveData.背包?.物品?.[technique.物品ID]) {
+    selectedSkillData.value = currentSaveData.背包.物品[technique.物品ID] as TechniqueItem;
+  } else {
+    selectedSkillData.value = null; // Fallback
+  }
   selectedSkillSlot.value = '功法';
 };
 
@@ -699,6 +832,88 @@ const finalizeEquipTechnique = async (technique: {
 .empty-hint {
   font-size: 0.85rem;
   color: var(--color-text-muted);
+}
+
+/* 已学技能区域 */
+.learned-skills-section {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20px;
+}
+
+.learned-skills-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.learned-skill-card {
+  background: var(--color-surface);
+  border: 2px solid var(--color-success);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  gap: 10px;
+  transition: all 0.3s ease;
+}
+
+.learned-skill-card:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.2);
+}
+
+.skill-card-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--color-success), var(--color-info));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.skill-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.skill-card-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.skill-card-source {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+}
+
+.skill-card-desc {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.skill-card-cost {
+  font-size: 0.7rem;
+  color: var(--color-info);
+  font-weight: 500;
 }
 
 /* 功法库区域 */
@@ -1257,6 +1472,23 @@ const finalizeEquipTechnique = async (technique: {
 .action-btn:hover {
   transform: translateY(-1px);
 }
+
+/* 品级样式 */
+.grade-display {
+  font-size: 0.8rem;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+.grade-broken { background: #6b7280; color: white; border-color: #6b7280; }
+.grade-low { background: #10b981; color: white; border-color: #10b981; }
+.grade-mid { background: #3b82f6; color: white; border-color: #3b82f6; }
+.grade-high { background: #8b5cf6; color: white; border-color: #8b5cf6; }
+.grade-perfect { background: #f59e0b; color: white; border-color: #f59e0b; }
+.grade-unknown { background: #9ca3af; color: white; border-color: #9ca3af; }
 
 .cultivate-btn {
   background: var(--color-info);

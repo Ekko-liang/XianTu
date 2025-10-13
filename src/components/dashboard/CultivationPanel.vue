@@ -77,12 +77,12 @@
                 </div>
 
                 <!-- 功法效果 -->
-                <div v-if="techniqueEffects" class="detail-block">
+                <div v-if="hasVisibleEffects" class="detail-block">
                   <h5 class="detail-block-title">功法效果</h5>
                   <ul class="effects-list">
-                    <li v-if="techniqueEffects.修炼速度加成">
+                    <li v-if="techniqueEffects?.修炼速度加成">
                       <span class="effect-icon">🚀</span>
-                      <strong>修炼速度:</strong> +{{ ((techniqueEffects.修炼速度加成 || 1) * 100 - 100).toFixed(0) }}%
+                      <strong>修炼速度:</strong> +{{ ((techniqueEffects?.修炼速度加成 || 1) * 100 - 100).toFixed(0) }}%
                     </li>
                     <li v-if="attributeBonuses.length > 0">
                       <span class="effect-icon">💪</span>
@@ -91,7 +91,7 @@
                         {{ bonus.key }} +{{ bonus.value }}
                       </span>
                     </li>
-                    <li v-for="(ability, index) in (techniqueEffects.特殊能力 || [])" :key="index">
+                    <li v-for="(ability, index) in (techniqueEffects?.特殊能力 || [])" :key="index">
                       <span class="effect-icon">✨</span>
                       <strong>特殊能力:</strong> {{ ability }}
                     </li>
@@ -188,6 +188,15 @@ const attributeBonuses = computed(() => {
   const bonuses = techniqueEffects.value?.属性加成;
   if (!bonuses) return [];
   return Object.entries(bonuses).map(([key, value]) => ({ key, value }));
+});
+
+const hasVisibleEffects = computed(() => {
+  if (!techniqueEffects.value) return false;
+  const effects = techniqueEffects.value;
+  const hasSpeedBonus = !!effects.修炼速度加成;
+  const hasAttributeBonus = attributeBonuses.value.length > 0;
+  const hasSpecialAbilities = Array.isArray(effects.特殊能力) && effects.特殊能力.length > 0;
+  return hasSpeedBonus || hasAttributeBonus || hasSpecialAbilities;
 });
 
 // 类型定义
@@ -499,7 +508,6 @@ const confirmDeepCultivation = async (totalDays: number) => {
 .panel-content {
   flex: 1;
   margin: 0 1rem 1rem 1rem;
-  overflow-y: auto;
   min-height: 0;
 }
 

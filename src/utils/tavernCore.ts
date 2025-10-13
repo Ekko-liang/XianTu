@@ -1,5 +1,6 @@
 import { toast } from './toast';
 import { getTavernHelper } from './tavern';
+import { validateAndFixGMResponse, cleanAIText, safeParseJSON } from './dataValidator';
 
 // ⚠️ 所有规则已移至酒馆预设，不再从代码导入
 
@@ -288,44 +289,56 @@ export async function generateItemWithTavernAI<T = unknown>(
     console.log(`【神识印记】AI响应文本长度:`, text.length);
     console.log(`【神识印记】AI原始响应文本 (前200字符):`, text.substring(0, 200));
 
+    // 清理文本
+    const cleanedText = cleanAIText(text);
+
     // 尝试提取JSON
-    let jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
+    let jsonMatch = cleanedText.match(/```json\s*([\s\S]*?)\s*```/);
     if (!jsonMatch) {
-      jsonMatch = text.match(/```\s*([\s\S]*?)\s*```/);
+      jsonMatch = cleanedText.match(/```\s*([\s\S]*?)\s*```/);
     }
 
+    let jsonStr: string;
     if (!jsonMatch) {
       // 尝试直接解析整个响应为JSON
-      try {
-        const parsed = JSON.parse(text);
-        const checked = ensureValidGMResponse(parsed);
-        if (showToast) {
-          toast.success(`${typeName}推演完成！`);
-        }
-        return checked as T;
-      } catch {
-        console.warn(`【神识印记】响应中未找到JSON代码块，且无法直接解析为JSON: ${text}`);
-        throw new Error(`响应格式无效：缺少JSON代码块或无法解析的内容`);
-      }
+      jsonStr = cleanedText;
+    } else {
+      jsonStr = jsonMatch[1].trim();
     }
 
-    const jsonStr = jsonMatch[1].trim();
-    console.log(`【神识印记】提取到的JSON字符串:`, jsonStr);
+    console.log(`【神识印记】提取到的JSON字符串 (前500字符):`, jsonStr.substring(0, 500));
 
-    try {
-      const parsed = JSON.parse(jsonStr);
-      console.log(`【神识印记】成功解析${typeName}:`, parsed);
-      if (showToast) {
-        toast.success(`${typeName}推演完成！`);
-      }
-      const checked = ensureValidGMResponse(parsed);
-      return checked as T;
-    } catch (parseError) {
-      const errorMsg = parseError instanceof Error ? parseError.message : String(parseError);
-      console.error(`【神识印记】JSON解析失败:`, parseError);
-      console.error(`【神识印记】原始JSON字符串:`, jsonStr);
-      throw new Error(`JSON解析失败: ${errorMsg}`);
+    // 使用安全的JSON解析
+    const parsed = safeParseJSON(jsonStr, null, `生成${typeName}`);
+
+    if (!parsed) {
+      console.error(`【神识印记】JSON解析失败，原始文本:`, text);
+      throw new Error(`响应格式无效：无法解析JSON内容`);
     }
+
+    console.log(`【神识印记】成功解析${typeName}:`, parsed);
+
+    // 如果是GM_Response类型，进行验证和修复
+    let result: any = parsed;
+    if (parsed && typeof parsed === 'object' && ('text' in parsed || 'tavern_commands' in parsed)) {
+      const validated = validateAndFixGMResponse(parsed, typeName);
+      if (!validated) {
+        console.error(`【神识印记】GM响应验证失败`);
+        throw new Error(`生成的${typeName}数据结构不完整`);
+      }
+      result = validated;
+      console.log(`【神识印记】GM响应验证通过，命令数: ${validated.tavern_commands?.length || 0}`);
+    } else {
+      // 非GM_Response，进行基本校验
+      const checked = ensureValidGMResponse(result);
+      result = checked;
+    }
+
+    if (showToast) {
+      toast.success(`${typeName}推演完成！`);
+    }
+
+    return result as T;
 
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);

@@ -76,7 +76,10 @@
         <div class="empty-icon">🌟</div>
         <h2>道途未启</h2>
         <p>尚未创建任何法身，请返回道途开启修仙之旅</p>
-        <button @click="goBack" class="btn-create">踏入仙途</button>
+        <div class="empty-actions">
+          <button @click="goBack" class="btn-create">踏入仙途</button>
+          <button @click="importCharacter" class="btn-import">导入角色</button>
+        </div>
       </div>
 
       <!-- 角色管理界面 -->
@@ -142,6 +145,7 @@
                 <!-- 卡片底部操作 -->
                 <div class="card-actions">
                   <button @click.stop="showCharacterDetails(charId)" class="btn-details">详情</button>
+                  <button @click.stop="exportCharacter(charId)" class="btn-export">导出</button>
                   <button @click.stop="handleDeleteCharacter(charId)" class="btn-delete">删除</button>
                 </div>
               </div>
@@ -883,6 +887,36 @@ const closeModal = () => {
   modalState.value.show = false;
 };
 
+// 导出角色
+const exportCharacter = (charId: string) => {
+  try {
+    const character = characterStore.rootState.角色列表[charId];
+    if (!character) {
+      toast.error('角色不存在');
+      return;
+    }
+
+    const exportData = {
+      ...character,
+      exportTime: new Date().toISOString(),
+      version: '1.0.0',
+    };
+
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(dataBlob);
+    link.download = `大道朝天-${character.角色基础信息.名字}-角色备份-${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+
+    toast.success(`角色 "${character.角色基础信息.名字}" 已导出`);
+  } catch (error) {
+    console.error('导出角色失败', error);
+    toast.error('导出角色失败');
+  }
+};
+
 // 导出存档
 const exportSaves = () => {
   if (!selectedCharacter.value) {
@@ -929,54 +963,92 @@ const importSaves = () => {
   fileInput.value?.click();
 };
 
+// 导入角色
+const importCharacter = () => {
+  fileInput.value?.click();
+};
+
 // 处理导入文件
 const handleImportFile = async (event: Event) => {
-  if (!selectedCharId.value || !selectedCharacter.value) return;
-
   const file = (event.target as HTMLInputElement).files?.[0];
   if (!file) return;
-
-  const charId = selectedCharId.value;
-  const charName = selectedCharacter.value.角色基础信息.名字;
 
   try {
     const text = await file.text();
     const data = JSON.parse(text);
 
-    if (!data.saves || !Array.isArray(data.saves)) {
-      throw new Error('无效的存档文件格式');
-    }
+    // 判断是导入角色还是存档
+    if (data.saves && Array.isArray(data.saves)) {
+      // 导入存档
+      if (!selectedCharId.value || !selectedCharacter.value) {
+        toast.error('请先选择一个角色以导入存档');
+        if (fileInput.value) fileInput.value.value = '';
+        return;
+      }
 
-    showConfirm(
-      '导入存档',
-      `确定要将 ${data.saves.length} 个存档导入到角色 "${charName}" 吗？同名存档将被覆盖。`,
-      async () => {
-        loading.value = true;
-        try {
-          // 设置活跃角色以确保 importSave 能正确工作
-          await characterStore.setActiveCharacterInTavern(charId);
-          
-          for (const save of data.saves) {
-            await characterStore.importSave(save);
+      const charId = selectedCharId.value;
+      const charName = selectedCharacter.value.角色基础信息.名字;
+
+      showConfirm(
+        '导入存档',
+        `确定要将 ${data.saves.length} 个存档导入到角色 "${charName}" 吗？同名存档将被覆盖。`,
+        async () => {
+          loading.value = true;
+          try {
+            await characterStore.setActiveCharacterInTavern(charId);
+
+            for (const save of data.saves) {
+              await characterStore.importSave(save);
+            }
+
+            toast.success(`成功为角色 "${charName}" 导入 ${data.saves.length} 个存档`);
+          } catch (error) {
+            console.error('导入失败', error);
+            toast.error('导入存档失败: ' + (error as Error).message);
+          } finally {
+            loading.value = false;
+            if (fileInput.value) {
+              fileInput.value.value = '';
+            }
           }
-          
-          toast.success(`成功为角色 "${charName}" 导入 ${data.saves.length} 个存档`);
-        } catch (error) {
-          console.error('导入失败', error);
-          toast.error('导入存档失败: ' + (error as Error).message);
-        } finally {
-          loading.value = false;
+        },
+        () => {
           if (fileInput.value) {
             fileInput.value.value = '';
           }
         }
-      },
-      () => {
-        if (fileInput.value) {
-          fileInput.value.value = '';
+      );
+    } else if (data.角色基础信息 && data.模式) {
+      // 导入角色
+      const charName = data.角色基础信息?.名字 || '未知角色';
+
+      showConfirm(
+        '导入角色',
+        `确定要导入角色 "${charName}" 吗？`,
+        async () => {
+          loading.value = true;
+          try {
+            await characterStore.importCharacter(data);
+            toast.success(`成功导入角色 "${charName}"`);
+          } catch (error) {
+            console.error('导入角色失败', error);
+            toast.error('导入角色失败: ' + (error as Error).message);
+          } finally {
+            loading.value = false;
+            if (fileInput.value) {
+              fileInput.value.value = '';
+            }
+          }
+        },
+        () => {
+          if (fileInput.value) {
+            fileInput.value.value = '';
+          }
         }
-      }
-    );
+      );
+    } else {
+      throw new Error('无效的文件格式，请导入角色或存档文件');
+    }
   } catch (error) {
     console.error('处理导入文件失败', error);
     toast.error('处理导入文件失败: ' + (error as Error).message);
@@ -1349,20 +1421,37 @@ const handleImportFile = async (event: Event) => {
   margin-bottom: 0.5rem;
 }
 
-.btn-create {
+.empty-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.btn-create, .btn-import {
   padding: 1rem 2rem;
-  background: linear-gradient(135deg, var(--color-success), var(--color-info));
   color: white;
-  border: 1px solid var(--color-success);
   border-radius: 12px;
   font-size: 1.1rem;
   font-weight: 600;
   cursor: pointer;
-  margin-top: 1rem;
   transition: all 0.3s;
 }
 
+.btn-create {
+  background: linear-gradient(135deg, var(--color-success), var(--color-info));
+  border: 1px solid var(--color-success);
+}
+
 .btn-create:hover {
+  transform: scale(1.05);
+}
+
+.btn-import {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  border: 1px solid var(--color-primary);
+}
+
+.btn-import:hover {
   transform: scale(1.05);
 }
 
@@ -1669,7 +1758,7 @@ const handleImportFile = async (event: Event) => {
   border-top: 1px solid var(--color-border);
 }
 
-.btn-details, .btn-delete {
+.btn-details, .btn-export, .btn-delete {
   flex: 1;
   padding: 0.3rem 0.5rem;
   border-radius: 4px;
@@ -1688,6 +1777,16 @@ const handleImportFile = async (event: Event) => {
 
 .btn-details:hover {
   background: var(--color-info);
+  color: white;
+}
+
+.btn-export {
+  color: var(--color-success);
+  border-color: var(--color-success);
+}
+
+.btn-export:hover {
+  background: var(--color-success);
   color: white;
 }
 
@@ -2635,6 +2734,14 @@ const handleImportFile = async (event: Event) => {
 }
 
 @media (max-width: 480px) {
+  .empty-actions {
+    flex-direction: column;
+  }
+
+  .btn-create, .btn-import {
+    width: 100%;
+  }
+
   .mobile-header {
     padding: 0.6rem 0.8rem;
   }
@@ -2754,7 +2861,7 @@ const handleImportFile = async (event: Event) => {
     padding: 1rem;
   }
 
-  .btn-details, .btn-delete {
+  .btn-details, .btn-export, .btn-delete {
     min-height: 36px;
     font-size: 0.85rem;
     padding: 0.6rem 0.8rem;

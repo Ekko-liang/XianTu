@@ -54,7 +54,9 @@
       "Bash(Get-Content \"src/views/CharacterCreation.vue\")",
       "Bash(Select-String:*)",
       "Bash(Select-Object -First 50)",
-      "Bash(Get-ChildItem -Path src/utils/prompts -Recurse -Filter \"*.ts\")"
+      "Bash(Get-ChildItem -Path src/utils/prompts -Recurse -Filter \"*.ts\")",
+      "Bash(Get-Content \"src/utils/generators/gameMasterGenerators.ts\")",
+      "Bash(Select-Object -First 100)"
     ],
     "deny": [],
     "ask": [],

@@ -5,57 +5,223 @@ import {
   ORIGIN_ITEM_GENERATION_PROMPT,
   SPIRIT_ROOT_ITEM_GENERATION_PROMPT,
   TALENT_ITEM_GENERATION_PROMPT,
-  MAP_GENERATION_PROMPT,
+  TECHNIQUE_ITEM_GENERATION_PROMPT, // 使用优化后的功法生成提示词
 } from '../prompts/gameElementPrompts';
-import { TECHNIQUE_ITEM_GENERATION_PROMPT } from '../prompts/dataStructureDefinitions'; // 从新位置导入
 import type { GM_Response } from '../../types/AIGameMaster';
 import type { World, TalentTier, Origin, SpiritRoot, Talent, TechniqueItem } from '../../types'; // 导入功法类型
+import { withRetry, RetryConditions } from '../retryHelper';
+import { toast } from '../toast';
 
 /**
- * AI生成世界设定
+ * 验证生成的数据是否包含必需字段
+ */
+function validateGeneratedItem(item: any, requiredFields: string[], typeName: string): boolean {
+  if (!item || typeof item !== 'object') {
+    console.error(`[生成验证] ${typeName}: 不是有效对象`);
+    return false;
+  }
+
+  for (const field of requiredFields) {
+    if (!(field in item)) {
+      console.error(`[生成验证] ${typeName}: 缺少必需字段 "${field}"`);
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * AI生成世界设定（带重试）
  */
 export async function generateWorld(): Promise<World | null> {
-  return await generateItemWithTavernAI<World>(WORLD_ITEM_GENERATION_PROMPT, '世界设定');
+  try {
+    return await withRetry(
+      async () => {
+        const result = await generateItemWithTavernAI<World>(WORLD_ITEM_GENERATION_PROMPT, '世界设定');
+
+        if (!result) {
+          throw new Error('生成结果为空');
+        }
+
+        // 验证必需字段
+        if (!validateGeneratedItem(result, ['名称', '描述'], '世界设定')) {
+          throw new Error('生成的世界设定缺少必需字段');
+        }
+
+        return result;
+      },
+      {
+        maxRetries: 3,
+        showToast: false,
+        shouldRetry: RetryConditions.aiGenerationError,
+      }
+    );
+  } catch (error) {
+    console.error('[生成器] 生成世界设定最终失败:', error);
+    toast.error('生成世界设定失败，请重试');
+    return null;
+  }
 }
 
-
 /**
- * AI生成天资等级
+ * AI生成天资等级（带重试）
  */
 export async function generateTalentTier(): Promise<TalentTier | null> {
-  return await generateItemWithTavernAI<TalentTier>(TALENT_TIER_ITEM_GENERATION_PROMPT, '天资等级');
+  try {
+    return await withRetry(
+      async () => {
+        const result = await generateItemWithTavernAI<TalentTier>(TALENT_TIER_ITEM_GENERATION_PROMPT, '天资等级');
+
+        if (!result) {
+          throw new Error('生成结果为空');
+        }
+
+        if (!validateGeneratedItem(result, ['名称', '描述'], '天资等级')) {
+          throw new Error('生成的天资等级缺少必需字段');
+        }
+
+        return result;
+      },
+      {
+        maxRetries: 3,
+        showToast: false,
+        shouldRetry: RetryConditions.aiGenerationError,
+      }
+    );
+  } catch (error) {
+    console.error('[生成器] 生成天资等级最终失败:', error);
+    toast.error('生成天资等级失败，请重试');
+    return null;
+  }
 }
 
-
 /**
- * AI生成出身背景
+ * AI生成出身背景（带重试）
  */
 export async function generateOrigin(): Promise<Origin | null> {
-  return await generateItemWithTavernAI<Origin>(ORIGIN_ITEM_GENERATION_PROMPT, '出身背景');
+  try {
+    return await withRetry(
+      async () => {
+        const result = await generateItemWithTavernAI<Origin>(ORIGIN_ITEM_GENERATION_PROMPT, '出身背景');
+
+        if (!result) {
+          throw new Error('生成结果为空');
+        }
+
+        if (!validateGeneratedItem(result, ['名称', '描述'], '出身背景')) {
+          throw new Error('生成的出身背景缺少必需字段');
+        }
+
+        return result;
+      },
+      {
+        maxRetries: 3,
+        showToast: false,
+        shouldRetry: RetryConditions.aiGenerationError,
+      }
+    );
+  } catch (error) {
+    console.error('[生成器] 生成出身背景最终失败:', error);
+    toast.error('生成出身背景失败，请重试');
+    return null;
+  }
 }
 
-
 /**
- * AI生成灵根类型
+ * AI生成灵根类型（带重试）
  */
 export async function generateSpiritRoot(): Promise<SpiritRoot | null> {
-  return await generateItemWithTavernAI<SpiritRoot>(SPIRIT_ROOT_ITEM_GENERATION_PROMPT, '灵根类型');
+  try {
+    return await withRetry(
+      async () => {
+        const result = await generateItemWithTavernAI<SpiritRoot>(SPIRIT_ROOT_ITEM_GENERATION_PROMPT, '灵根类型');
+
+        if (!result) {
+          throw new Error('生成结果为空');
+        }
+
+        if (!validateGeneratedItem(result, ['名称', '描述'], '灵根类型')) {
+          throw new Error('生成的灵根类型缺少必需字段');
+        }
+
+        return result;
+      },
+      {
+        maxRetries: 3,
+        showToast: false,
+        shouldRetry: RetryConditions.aiGenerationError,
+      }
+    );
+  } catch (error) {
+    console.error('[生成器] 生成灵根类型最终失败:', error);
+    toast.error('生成灵根类型失败，请重试');
+    return null;
+  }
 }
 
-
 /**
- * AI生成天赋技能
+ * AI生成天赋技能（带重试）
  */
 export async function generateTalent(): Promise<Talent | null> {
-  return await generateItemWithTavernAI<Talent>(TALENT_ITEM_GENERATION_PROMPT, '天赋技能');
+  try {
+    return await withRetry(
+      async () => {
+        const result = await generateItemWithTavernAI<Talent>(TALENT_ITEM_GENERATION_PROMPT, '天赋技能');
+
+        if (!result) {
+          throw new Error('生成结果为空');
+        }
+
+        if (!validateGeneratedItem(result, ['名称', '描述'], '天赋技能')) {
+          throw new Error('生成的天赋技能缺少必需字段');
+        }
+
+        return result;
+      },
+      {
+        maxRetries: 3,
+        showToast: false,
+        shouldRetry: RetryConditions.aiGenerationError,
+      }
+    );
+  } catch (error) {
+    console.error('[生成器] 生成天赋技能最终失败:', error);
+    toast.error('生成天赋技能失败，请重试');
+    return null;
+  }
 }
 
-
 /**
- * AI生成功法
+ * AI生成功法（带重试）
  */
 export async function generateTechnique(): Promise<TechniqueItem | null> {
-  return await generateItemWithTavernAI<TechniqueItem>(TECHNIQUE_ITEM_GENERATION_PROMPT, '功法');
+  try {
+    return await withRetry(
+      async () => {
+        const result = await generateItemWithTavernAI<TechniqueItem>(TECHNIQUE_ITEM_GENERATION_PROMPT, '功法');
+
+        if (!result) {
+          throw new Error('生成结果为空');
+        }
+
+        if (!validateGeneratedItem(result, ['名称', '描述'], '功法')) {
+          throw new Error('生成的功法缺少必需字段');
+        }
+
+        return result;
+      },
+      {
+        maxRetries: 3,
+        showToast: false,
+        shouldRetry: RetryConditions.aiGenerationError,
+      }
+    );
+  } catch (error) {
+    console.error('[生成器] 生成功法最终失败:', error);
+    toast.error('生成功法失败，请重试');
+    return null;
+  }
 }
 
 

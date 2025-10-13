@@ -226,7 +226,8 @@ export interface TechniqueItem extends BaseItem {
   功法效果?: TechniqueEffects;
   功法技能?: TechniqueSkill[]; // ✅ 改为数组格式
   修炼进度?: number; // 0-100 百分比
-  // 移除 修炼中 字段，统一使用 已装备 字段
+  修炼中?: boolean; // 是否正在修炼（兼容旧代码）
+  // 注意：新代码应使用 已装备 字段，修炼中 仅为向后兼容
 }
 
 /** 其他/消耗品类型物品 */
@@ -246,6 +247,15 @@ export interface CultivationTechniqueReference {
   正在修炼?: boolean; // 是否正在修炼此功法
   修炼进度?: number;  // 修炼进度（0-100）
   功法技能?: any; // HACK: 修正characterInitialization中的类型错误
+  品质?: ItemQuality; // 品质信息（可选）
+  描述?: string;     // 描述（可选）
+  功法效果?: TechniqueEffects; // 功法效果（可选）
+  熟练度?: number;   // 熟练度（可选）
+  已解锁技能?: string[]; // 已解锁的技能列表（可选）
+  修炼时间?: number; // 修炼时间（可选）
+  突破次数?: number; // 突破次数（可选）
+  类型?: '功法';    // 类型（可选）
+  功法?: any;        // 功法引用（可选）
 }
 
 /** @deprecated 旧的修炼功法数据接口，已废弃，使用 CultivationTechniqueReference 替代 */

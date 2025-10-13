@@ -5,7 +5,7 @@
 
 import { useCharacterStore } from '@/stores/characterStore';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
-import type { Item, SaveData, CultivationTechniqueData } from '@/types/game';
+import type { Item, SaveData, CultivationTechniqueReference } from '@/types/game';
 import { toast } from './toast';
 import { getTavernHelper } from '@/utils/tavern';
 
@@ -23,7 +23,7 @@ export interface UndoAction {
     originalQuantity?: number;
     // 功法修炼的恢复数据
     originalCultivationState?: {
-      previousTechnique: CultivationTechniqueData | null;
+      previousTechnique: CultivationTechniqueReference | null;
       wasInInventory: boolean;
     };
   };
@@ -382,7 +382,7 @@ export class EnhancedActionQueueManager {
         return false;
       }
 
-      let previousTechnique: CultivationTechniqueData | null = null;
+      let previousTechnique: CultivationTechniqueReference | null = null;
 
       // 检查是否已经在修炼其他功法
       const currentTechnique = saveData.修炼功法;

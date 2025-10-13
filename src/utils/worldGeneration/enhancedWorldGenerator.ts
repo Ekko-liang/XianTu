@@ -45,9 +45,23 @@ export interface EnhancedWorldGenConfig {
 export class EnhancedWorldGenerator {
   private config: EnhancedWorldGenConfig;
   private previousErrors: string[] = [];
-  
+  // 保存原始配置，用于重试时的数量计算
+  private originalConfig: {
+    factionCount: number;
+    locationCount: number;
+    secretRealmsCount: number;
+    continentCount: number;
+  };
+
   constructor(config: EnhancedWorldGenConfig) {
     this.config = config;
+    // 保存原始数量配置
+    this.originalConfig = {
+      factionCount: config.factionCount,
+      locationCount: config.locationCount,
+      secretRealmsCount: config.secretRealmsCount,
+      continentCount: config.continentCount
+    };
   }
   
   /**
@@ -92,18 +106,18 @@ export class EnhancedWorldGenerator {
    * @param retryCount 当前重试次数
    */
   private reduceCountsForRetry(retryCount: number): void {
-    // 每次重试减少约20%的数量
+    // 每次重试减少约20%的数量（基于原始配置，避免累积减少）
     const reductionFactor = 0.8;
 
-    // 计算减少后的数量
+    // 计算减少后的数量（从原始配置计算，而不是从当前config）
     const factor = Math.pow(reductionFactor, retryCount);
 
-    this.config.factionCount = Math.max(3, Math.floor(this.config.factionCount * factor));
-    this.config.locationCount = Math.max(5, Math.floor(this.config.locationCount * factor));
-    this.config.secretRealmsCount = Math.max(2, Math.floor(this.config.secretRealmsCount * factor));
-    this.config.continentCount = Math.max(2, Math.floor(this.config.continentCount * factor));
+    this.config.factionCount = Math.max(3, Math.floor(this.originalConfig.factionCount * factor));
+    this.config.locationCount = Math.max(5, Math.floor(this.originalConfig.locationCount * factor));
+    this.config.secretRealmsCount = Math.max(2, Math.floor(this.originalConfig.secretRealmsCount * factor));
+    this.config.continentCount = Math.max(2, Math.floor(this.originalConfig.continentCount * factor));
 
-    console.log(`[增强世界生成器] 重试 ${retryCount} 次后调整数量参数:`, {
+    console.log(`[增强世界生成器] 重试 ${retryCount} 次后调整数量参数（基于原始配置: faction=${this.originalConfig.factionCount}, location=${this.originalConfig.locationCount}）:`, {
       factionCount: this.config.factionCount,
       locationCount: this.config.locationCount,
       secretRealmsCount: this.config.secretRealmsCount,

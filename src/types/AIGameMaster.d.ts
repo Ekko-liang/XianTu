@@ -187,7 +187,7 @@ export interface GM_Request {
  * AI Game Master 返回的结构化响应对象 (天道响应)。
  */
 export interface GM_Response {
-  /** AI生成的主要叙事内容，用于展示给用户。 */
+  /** AI生成的主要叙事内容，用于展示给用户。也作为短期记忆存储 */
   text: string;
   /**
    * 一个包含所有状态变更指令的数组。
@@ -196,6 +196,8 @@ export interface GM_Response {
   tavern_commands?: TavernCommand[];
   /** 新增：用于承载关键记忆的烙印，将被注入到中期记忆中。 */
   mid_term_memory?: string;
+  /** 短期记忆（别名，指向text字段） */
+  short_term_memory?: string;
   /** 新增：用于承载AI返回的结构化数据，例如生成的物品、角色等。 */
   json?: any;
   /** 处理后的具体出身（从随机出身转化而来） */

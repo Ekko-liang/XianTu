@@ -5,7 +5,8 @@ import { getTavernHelper } from '../tavern';
 import { toast } from '../toast';
 
 import type { GM_Response, TavernCommand } from '../../types/AIGameMaster';
-import type { InitialGameData, SaveData, WorldInfo } from '../../types';
+import type { InitialGameData, WorldInfo } from '../../types';
+import type { SaveData } from '../../types/game';
 
 /**
  * (新) 调用酒馆AI生成一个简单的、无状态的JSON响应
@@ -773,7 +774,7 @@ export async function generateInGameResponse(
         let eqBonus = 0;
         const eqNames: string[] = [];
         slots.forEach((sk: string) => {
-          const it = eq?.[sk];
+          const it = (eq as Record<string, any>)?.[sk];
           if (it && typeof it === 'object') {
             eqNames.push(it.名称 || sk);
             const aug = it.装备增幅 || {};
@@ -786,9 +787,9 @@ export async function generateInGameResponse(
             }
           }
         });
-        const hpMax = Number(vit.hp?.最大 || 0);
-        const mpMax = Number(vit.mp?.最大 || 0);
-        const spMax = Number(vit.spirit?.最大 || 0);
+        const hpMax = Number((vit.hp as any)?.最大 || (vit.hp as any)?.上限 || 0);
+        const mpMax = Number((vit.mp as any)?.最大 || (vit.mp as any)?.上限 || 0);
+        const spMax = Number((vit.spirit as any)?.最大 || (vit.spirit as any)?.上限 || 0);
         const battlePower = Math.round(realmLevel * 100 + hpMax * 0.5 + mpMax * 0.3 + spMax * 0.2 + sixSum * 2 + eqBonus);
         const buffs = Array.isArray(status?.状态效果) ? status.状态效果.filter((e: { 类型: string; }) => String(e?.类型).toLowerCase() === 'buff') : [];
 
@@ -807,10 +808,12 @@ export async function generateInGameResponse(
           cultivation: { // 修炼
             efficiency: (() => {
               let eff = 5;
-              const spiritRootName = save?.角色基础信息?.灵根?.名称 || save?.角色基础信息?.灵根 || '';
+              const spiritRoot = save?.角色基础信息?.灵根;
+              const spiritRootName = typeof spiritRoot === 'string' ? spiritRoot : spiritRoot?.名称 || '';
               if (spiritRootName.includes('仙品')) eff += 5;
               if (spiritRootName.includes('极品')) eff += 3;
-              const technique = save?.修炼功法?.功法;
+              const techniqueRef = save?.修炼功法;
+              const technique = techniqueRef?.功法 || techniqueRef;
               if (technique?.品质?.quality === '仙') eff += 5;
               if (technique?.品质?.quality === '天') eff += 3;
               return Math.round(eff);
@@ -917,20 +920,18 @@ export async function generateInGameResponse(
       user_input: userInput,  // 🔥 关键：玩家行动作为最终的user输入
       injects: [
         {
-          id: 'game_system_rules',
           position: 'in_chat',
           depth: 0,  // 深度0 = 最靠近用户输入（在world book之后）
           role: 'system',
           content: systemPrompt,
-          scan: false  // 不参与world book扫描
+          should_scan: false  // 不参与world book扫描
         },
         {
-          id: 'previous_scene',
           position: 'in_chat',
           depth: 1,  // 深度1 = 在系统规则之后
           role: 'assistant',
           content: memoryContent,
-          scan: true  // 参与world book扫描
+          should_scan: true  // 参与world book扫描
         }
       ],
       max_chat_history: 0,  // 禁用真实对话历史

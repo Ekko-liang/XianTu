@@ -91,7 +91,9 @@
         v-show="!isPanelOpen"
       >
         <div class="sidebar-wrapper">
-          <RightSidebar />
+          <ErrorBoundary>
+            <RightSidebar />
+          </ErrorBoundary>
         </div>
       </div>
     </div>
@@ -136,6 +138,7 @@ import TopBar from '@/components/dashboard/TopBar.vue'
 import LeftSidebar from '@/components/dashboard/LeftSidebar.vue'
 import RightSidebar from '@/components/dashboard/RightSidebar.vue'
 import CharacterManagement from '@/components/character-creation/CharacterManagement.vue';
+import ErrorBoundary from '@/components/common/ErrorBoundary.vue';
 import { getTavernHelper } from '@/utils/tavern';
 import { syncHeavenlyPrecalcToTavern } from '@/utils/judgement/heavenlyRules';
 import type { SaveData, CharacterBaseInfo } from '@/types/game';

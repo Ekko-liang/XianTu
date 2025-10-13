@@ -186,6 +186,7 @@ export function assembleSaveData(shards: Partial<StorageShards>): SaveData {
       灵根: baseInfo.灵根,
       天赋: baseInfo.天赋,
       先天六司: baseInfo.先天六司,
+      后天六司: (baseInfo as any).后天六司 || { 根骨: 0, 悟性: 0, 定力: 0, 气运: 0, 魅力: 0, 心性: 0 },
     },
     玩家角色状态: {
       境界: realm,
