@@ -882,7 +882,7 @@ export interface SaveSlot {
   位置?: string; // 当前位置
   修为进度?: number; // 修为进度
   世界地图?: WorldMap;
-  存档数据: SaveData | null;
+  存档数据?: SaveData | null;
 }
 
 // --- 角色基础信息 (静态) ---

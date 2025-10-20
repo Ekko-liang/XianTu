@@ -1098,7 +1098,7 @@ const sendMessage = async () => {
           世界地图: currentSlot.世界地图,
           存档数据: JSON.parse(JSON.stringify(currentSlot.存档数据))
         };
-        await characterStore.commitToStorage();
+        await characterStore.commitMetadataToStorage();
         console.log('[上次对话] 已备份当前状态，时间:', now);
       }
     }

@@ -318,7 +318,7 @@ export async function getStorageStats(): Promise<{ itemCount: number; estimatedS
  * @param slotId 存档槽位ID
  * @param saveDataContent 完整的游戏存档数据
  */
-export async function saveActiveSaveData(
+export async function saveSaveData(
   characterId: string,
   slotId: string,
   saveDataContent: SaveData
@@ -340,7 +340,7 @@ export async function saveActiveSaveData(
  * @param slotId 存档槽位ID
  * @returns SaveData 或 null（如果不存在）
  */
-export async function loadActiveSaveData(
+export async function loadSaveData(
   characterId: string,
   slotId: string
 ): Promise<SaveData | null> {
@@ -380,7 +380,7 @@ export async function loadActiveSaveData(
  * @param characterId 角色ID
  * @param slotId 存档槽位ID
  */
-export async function deleteActiveSaveData(
+export async function deleteSaveData(
   characterId: string,
   slotId: string
 ): Promise<void> {

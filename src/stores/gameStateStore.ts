@@ -97,20 +97,14 @@ export const useGameStateStore = defineStore('gameState', {
         return;
       }
 
-      let saveData: SaveData | null = null;
-
-      if (profile.模式 === '单机' && profile.存档列表) {
-        const slot = profile.存档列表[saveSlot];
-        saveData = slot?.存档数据 || null;
-      } else if (profile.模式 === '联机' && profile.存档) {
-        saveData = profile.存档.存档数据 || null;
-      }
+      // 新架构：从 characterStore 加载存档数据，它会处理从 IndexedDB 读取的逻辑
+      const saveData = await characterStore.loadSaveData(characterId, saveSlot);
 
       if (saveData) {
         this.loadFromSaveData(saveData);
         console.log('[GameState] Game loaded successfully');
       } else {
-        console.error('[GameState] No save data found for this slot');
+        console.error(`[GameState] No save data found for character ${characterId}, slot ${saveSlot}`);
       }
     },
 
@@ -306,39 +300,13 @@ export const useGameStateStore = defineStore('gameState', {
       const { useCharacterStore } = await import('./characterStore');
       const characterStore = useCharacterStore();
 
-      const profile = characterStore.activeCharacterProfile;
-      const active = characterStore.rootState.当前激活存档;
+      // 新架构：委托给 characterStore 处理保存逻辑
+      // 1. 保存到当前激活的存档
+      await characterStore.saveCurrentGame();
 
-      if (!profile || !active || profile.模式 !== '单机' || !profile.存档列表) {
-        console.error('[GameState] Invalid save state for conversation save');
-        return;
-      }
+      // 2. 同时保存到 "上次对话" 存档槽
+      await characterStore.saveToSlot('上次对话');
 
-      const saveData = this.toSaveData();
-      if (!saveData) {
-        console.error('[GameState] Cannot generate save data');
-        return;
-      }
-
-      // 1. 保存到当前激活存档
-      const currentSlot = profile.存档列表[active.存档槽位];
-      if (currentSlot) {
-        currentSlot.存档数据 = saveData;
-        currentSlot.最后保存时间 = new Date().toISOString();
-        currentSlot.境界 = saveData.玩家角色状态.境界?.名称;
-        currentSlot.位置 = saveData.玩家角色状态.位置?.描述;
-      }
-
-      // 2. 同时保存到"上次对话"存档（用于重roll）
-      const lastConversationSlot = profile.存档列表['上次对话'];
-      if (lastConversationSlot) {
-        lastConversationSlot.存档数据 = JSON.parse(JSON.stringify(saveData)); // 深拷贝
-        lastConversationSlot.最后保存时间 = new Date().toISOString();
-        lastConversationSlot.境界 = saveData.玩家角色状态.境界?.名称;
-        lastConversationSlot.位置 = saveData.玩家角色状态.位置?.描述;
-      }
-
-      await characterStore.commitToStorage();
       console.log('[GameState] Saved to current slot and "上次对话"');
 
       // 3. 检查是否需要创建时间点存档
@@ -366,36 +334,10 @@ export const useGameStateStore = defineStore('gameState', {
       const { useCharacterStore } = await import('./characterStore');
       const characterStore = useCharacterStore();
 
-      const profile = characterStore.activeCharacterProfile;
-      if (!profile || profile.模式 !== '单机' || !profile.存档列表) {
-        return;
-      }
-
-      const saveData = this.toSaveData();
-      if (!saveData) {
-        return;
-      }
-
-      // 固定的时间点存档槽位名称
-      const saveSlotName = '时间点存档';
-      const timestamp = new Date();
-
-      // 如果不存在则创建，存在则覆盖
-      profile.存档列表[saveSlotName] = {
-        存档名: saveSlotName,
-        存档数据: JSON.parse(JSON.stringify(saveData)),
-        保存时间: profile.存档列表[saveSlotName]?.保存时间 || timestamp.toISOString(), // 保留创建时间
-        最后保存时间: timestamp.toISOString(),
-        境界: saveData.玩家角色状态.境界?.名称,
-        位置: saveData.玩家角色状态.位置?.描述,
-        游戏内时间: `${saveData.游戏时间.年}年${saveData.游戏时间.月}月${saveData.游戏时间.日}日`,
-        游戏时长: 0,
-        角色名字: this.character?.名字 || '未知'
-      };
-
-      await characterStore.commitToStorage();
+      // 新架构：委托给 characterStore 处理
+      await characterStore.saveToSlot('时间点存档');
       this.lastTimeBasedSave = now;
-      console.log(`[GameState] Time-based save slot updated: ${saveSlotName}`);
+      console.log('[GameState] Time-based save slot updated: 时间点存档');
     },
 
     /**

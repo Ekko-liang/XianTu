@@ -170,7 +170,7 @@ const checkDeviceAndSetup = () => {
 const panelRoutes = new Set([
   'Inventory', 'CharacterDetails', 'Memory', 'Relationships',
   'Cultivation', 'Techniques', 'ThousandDao', 'Settings', 'Save', 'WorldMap',
-  'Quests', 'Sect', 'TavernData'
+  'Quests', 'Sect', 'GameVariables'
 ]);
 
 // 右侧相关面板（应该影响右侧收缩按钮）
@@ -193,7 +193,7 @@ const panelTitles: Record<string, { title: string; icon: IconComponent }> = {
   WorldMap: { title: '世界地图', icon: Map },
   Quests: { title: '任务系统', icon: Scroll },
   Sect: { title: '宗门势力', icon: Home },
-  TavernData: { title: '酒馆数据', icon: Database }
+  GameVariables: { title: '游戏变量', icon: Database }
 };
 
 const isPanelOpen = computed(() => {
@@ -235,11 +235,11 @@ const panelActionMap: Record<string, Array<{ key: string; title: string; icon: I
   ThousandDao: [
     { key: 'refresh', title: '刷新', icon: RefreshCw, action: 'refresh' },
   ],
-  TavernData: [
+  GameVariables: [
     { key: 'refresh', title: '刷新数据', icon: RefreshCw, action: 'refresh' },
     { key: 'export', title: '导出JSON', icon: Save, action: 'export' },
     { key: 'stats', title: '数据统计', icon: BarChart3, action: 'stats' },
-  ],
+  ]
 };
 
 const currentPanelActions = computed(() => {

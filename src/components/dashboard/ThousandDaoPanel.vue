@@ -178,6 +178,7 @@ import { useCharacterStore } from '@/stores/characterStore';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
 import type { DaoData, ThousandDaoSystem } from '@/types/game.d.ts';
 import { panelBus } from '@/utils/panelBus';
+import { toast } from '@/utils/toast';
 
 const gameStateStore = useGameStateStore();
 const characterStore = useCharacterStore();
@@ -294,11 +295,18 @@ const cultivateDao = (daoName: string) => {
 const refreshDaoData = async () => {
   loading.value = true;
   try {
-    // 新架构下不再需要从酒馆同步，数据已在 Pinia Store 中
-    console.log('[三千大道面板] 数据已从 Pinia Store 获取');
-    toast.info('新架构下数据已统一由 Pinia Store 管理');
+    const activeSave = characterStore.rootState.当前激活存档;
+    if (activeSave) {
+      console.log(`[三千大道面板] Refreshing data from IndexedDB for ${activeSave.角色ID} - ${activeSave.存档槽位}`);
+      await gameStateStore.loadGame(activeSave.角色ID, activeSave.存档槽位);
+      toast.success('大道数据已刷新');
+    } else {
+      console.warn('[三千大道面板] No active character/slot found, skipping refresh.');
+      toast.warning('没有激活的存档，无法刷新数据');
+    }
   } catch (error) {
     console.error('[三千大道面板] 刷新数据失败:', error);
+    toast.error('刷新大道数据失败');
   } finally {
     loading.value = false;
   }

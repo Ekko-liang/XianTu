@@ -457,7 +457,7 @@ ${selectionsSummary}
         console.log('[初始化-诊断] 响应内容:', response);
 
         let parsedResponse: any;
-        
+
         if (typeof response === 'string') {
           // 尝试解析JSON字符串
           try {
@@ -585,6 +585,15 @@ ${selectionsSummary}
   // =================================================================
   // 步骤 3.4: 处理AI响应
   // =================================================================
+
+  // 🔥 [验证NPC生成] 打印AI返回的原始命令
+  console.log('<<<<< AI Raw Commands for NPC Validation >>>>>');
+  if (initialMessageResponse && Array.isArray((initialMessageResponse as any).tavern_commands)) {
+    const npcCommands = (initialMessageResponse as any).tavern_commands.filter((cmd: any) => cmd.key && cmd.key.startsWith('人物关系.'));
+    console.log(JSON.stringify(npcCommands, null, 2));
+  }
+  console.log('<<<<< End of AI Raw Commands >>>>>');
+
   const aiSystem = AIBidirectionalSystem.getInstance();
   const { saveData: saveDataAfterCommands, stateChanges } = await aiSystem.processGmResponse(initialMessageResponse as GM_Response, saveData, true);
 
@@ -720,7 +729,7 @@ function deriveBaseFieldsFromDetails(baseInfo: CharacterBaseInfo, worldName: str
             品级: '凡品',
             描述: '大道五十，天衍四九，人遁其一',
         };
-    } else {
+    } else{
         console.log('[数据校准] ✅ 检测到AI已生成具体灵根，保留AI结果:', (derivedInfo.灵根 as any).名称);
     }
   } else {
