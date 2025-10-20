@@ -553,8 +553,15 @@ const playerPosition = computed(() => {
     return { x: location.x, y: location.y };
   }
 
-  // 其次尝试经纬度坐标（兼容旧数据结构）
+  // 其次尝试 longitude, latitude 字段（AI设置的经纬度）
   const loc = location as any;
+  if (loc.longitude !== undefined && loc.latitude !== undefined) {
+    const virtualPos = geoToVirtual(loc.longitude, loc.latitude);
+    console.log('[玩家定位] 从 longitude/latitude 转换坐标:', virtualPos);
+    return virtualPos;
+  }
+
+  // 兼容旧数据：经度/纬度字段
   if (loc.经度 !== undefined && loc.纬度 !== undefined) {
     const virtualPos = geoToVirtual(loc.经度, loc.纬度);
     console.log('[玩家定位] 从经纬度转换坐标:', virtualPos);
@@ -562,6 +569,8 @@ const playerPosition = computed(() => {
   }
 
   console.warn('[玩家定位] 无法解析坐标，位置数据格式不正确');
+  console.warn('[玩家定位-诊断] 位置对象keys:', Object.keys(location));
+  console.warn('[玩家定位-诊断] 位置完整数据:', JSON.stringify(location));
   return null;
 });
 

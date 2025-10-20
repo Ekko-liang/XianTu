@@ -1604,7 +1604,8 @@ const getSpiritRootDescription = (spiritRoot: string | { 名称: string; 品级?
 
 const getSpiritRootClass = (spiritRoot: string | { 名称: string; 品级?: string; 描述?: string } | undefined): string => {
   const parsed = parseSpiritRoot(spiritRoot);
-  const grade = parsed.grade?.toLowerCase() || '';
+  // 🔥 修复: 确保 grade 是字符串类型
+  const grade = typeof parsed.grade === 'string' ? parsed.grade.toLowerCase() : String(parsed.grade || '').toLowerCase();
 
   if (grade.includes('神品')) return 'spirit-divine';
   if (grade.includes('极品')) return 'spirit-supreme';

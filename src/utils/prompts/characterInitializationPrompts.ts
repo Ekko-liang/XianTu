@@ -230,12 +230,12 @@ ${DATA_STRUCTURE_DEFINITIONS}
 `.trim();
 
 /**
- * 构建角色初始化的完整提示词结构
+ * 构建角色创建时用户选择的摘要，用于插入到用户消息中。
  * @param userSelections - The player's choices during character creation.
  * @param worldContext - The world information including continents and locations.
- * @returns 分离的提示词结构：系统提示、世界书、用户消息
+ * @returns A formatted string summarizing the player's selections.
  */
-export function buildCharacterInitializationPrompt(
+export function buildCharacterSelectionsSummary(
   userSelections: {
     name: string;
     gender: string;
@@ -490,8 +490,16 @@ ${locationsList}
 ---
 `;
 
-  // 将完整的用户选择数据前置于核心指令之前
-  return selectionsSummary + '\n' + CHARACTER_INITIALIZATION_PROMPT;
+  // This function now only returns the summary. The main prompt is returned by buildCharacterInitializationPrompt.
+  return selectionsSummary;
+}
+
+/**
+ * 构建角色初始化的系统提示词
+ * @returns The system prompt string.
+ */
+export function buildCharacterInitializationPrompt(): string {
+  return CHARACTER_INITIALIZATION_PROMPT;
 }
 
 /**

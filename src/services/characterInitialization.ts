@@ -13,7 +13,7 @@ import type { World } from '@/types';
 import type { GM_Response } from '@/types/AIGameMaster';
 import { AIBidirectionalSystem } from '@/utils/AIBidirectionalSystem';
 import { createEmptyThousandDaoSystem } from '@/data/thousandDaoData';
-import { buildCharacterInitializationPrompt } from '@/utils/prompts/characterInitializationPrompts';
+import { buildCharacterInitializationPrompt, buildCharacterSelectionsSummary } from '@/utils/prompts/characterInitializationPrompts';
 import { validateGameData } from '@/utils/dataValidation';
 // 移除未使用的旧生成器导入,改用增强版生成器
 // import { WorldGenerationConfig } from '@/utils/worldGeneration/gameWorldConfig';
@@ -412,7 +412,18 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
   console.log('  - 大陆数量:', worldContext.availableContinents.length);
   console.log('  - 地点数量:', worldContext.availableLocations.length);
 
-  const customInitPrompt = buildCharacterInitializationPrompt(userSelections, worldContext);
+  const systemPrompt = buildCharacterInitializationPrompt();
+  const selectionsSummary = buildCharacterSelectionsSummary(userSelections, worldContext);
+
+  const userPrompt = `我创建了角色"${baseInfo.名字}"，请根据我的选择生成开局故事和初始数据。
+
+${selectionsSummary}
+
+**重要提示**：
+- 严格按照我的角色设定来生成内容
+- 我选择的是什么样的出身、天赋、灵根，你就如实展现
+- 不要强加任何预设的剧情方向或生活方式
+- 这只是一个开始，我的人生我做主`;
 
   console.log(`[初始化] 准备生成开场剧情，角色: ${baseInfo.名字}`);
   console.log(`[初始化] 可用大陆列表:`, worldContext.availableContinents.map(c => c.名称));
@@ -431,14 +442,8 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
 
         const response = await tavernHelper.generateRaw({
           ordered_prompts: [
-            { role: 'system', content: customInitPrompt },
-            { role: 'user', content: `我创建了角色"${baseInfo.名字}"，请根据我的选择生成开局故事和初始数据。
-
-**重要提示**：
-- 严格按照我的角色设定来生成内容
-- 我选择的是什么样的出身、天赋、灵根，你就如实展现
-- 不要强加任何预设的剧情方向或生活方式
-- 这只是一个开始，我的人生我做主` }
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
           ],
           should_stream: false,
           use_world_info: false

@@ -547,38 +547,36 @@ export const useCharacterStore = defineStore('characterV3', () => {
 
     const characterName = rootState.value.角色列表[charId]?.角色基础信息.名字 || charId;
 
-    // 如果删除的是当前激活的角色，则需要清理Tavern环境
+    // 🔥 [新架构] 如果删除的是当前激活的角色，清理 gameStateStore
     if (rootState.value.当前激活存档?.角色ID === charId) {
-      console.log('[角色商店-删除] 删除的是当前激活角色，清理酒馆环境');
-      try {
-        await clearAllCharacterData();
-        toast.info('已同步清理酒馆环境变量。');
-      } catch (error) {
-        debug.error('角色商店', '删除角色时清理酒馆数据失败', error);
-        toast.error('清理酒馆环境变量失败，建议刷新页面。');
-      }
+      console.log('[角色商店-删除] 删除的是当前激活角色，重置 gameStateStore');
+      const gameStateStore = useGameStateStore();
+      gameStateStore.resetState();
       rootState.value.当前激活存档 = null;
     }
 
+    // 从 rootState 中删除角色数据
     console.log('[角色商店-删除] 执行 delete 操作');
     delete rootState.value.角色列表[charId];
 
     console.log('[角色商店-删除] 删除后角色列表:', Object.keys(rootState.value.角色列表));
     console.log('[角色商店-删除] 开始保存到 IndexedDB');
 
+    // 持久化到 IndexedDB
     await commitToStorage();
 
     console.log('[角色商店-删除] IndexedDB 保存完成');
 
-    // 🔥 同步到云端
+    // 🔥 [可选] 同步到云端（仅联机模式需要）
     try {
       await syncRootStateToCloud();
       debug.log('角色商店', '删除角色后已同步到云端');
     } catch (error) {
-      debug.error('角色商店', '删除角色后同步云端失败', error);
+      debug.warn('角色商店', '删除角色后同步云端失败（后端未启动）:', error);
+      // 不显示错误提示，因为单机模式不需要云端同步
     }
 
-    toast.success(`角色【${characterName}】已彻底删除。`);
+    toast.success(`角色【${characterName}】已从本地数据库删除。`);
     console.log('[角色商店-删除] 删除角色完成');
   };
 
