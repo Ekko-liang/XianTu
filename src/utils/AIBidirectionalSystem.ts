@@ -150,6 +150,41 @@ class AIBidirectionalSystemClass {
   }
 
   /**
+   * 🔥 [新架构] 专用于角色初始化的AI消息生成
+   * 封装了底层的 tavernHelper 调用，使 characterInitialization 服务解耦
+   */
+  public async generateInitialMessage(
+    systemPrompt: string,
+    userPrompt: string
+  ): Promise<GM_Response> {
+    const tavernHelper = getTavernHelper();
+    if (!tavernHelper) {
+      throw new Error('酒馆助手未初始化');
+    }
+
+    console.log('[AI系统:初始生成] 系统提示词长度:', systemPrompt.length);
+    console.log('[AI系统:初始生成] 用户提示词长度:', userPrompt.length);
+
+    const response = await tavernHelper.generateRaw({
+      ordered_prompts: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      should_stream: false,
+      use_world_info: false
+    });
+
+    const parsedResponse = this.parseAIResponse(response);
+    
+    if (!parsedResponse || !parsedResponse.text) {
+      console.error('[AI系统:初始生成] AI返回了无效响应:', parsedResponse);
+      throw new Error('AI生成器返回了无效的响应');
+    }
+
+    return parsedResponse;
+  }
+
+  /**
    * 🔥 [新架构] 解析AI响应
    */
   private parseAIResponse(response: unknown): GM_Response {

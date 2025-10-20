@@ -3,7 +3,6 @@
  * 负责角色创建生成和完整初始化流程，包括AI动态生成。
  */
 
-import { getTavernHelper } from '@/utils/tavern';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useCharacterCreationStore } from '@/stores/characterCreationStore';
@@ -430,59 +429,24 @@ ${selectionsSummary}
   console.log(`[初始化] 可用地点数量:`, worldContext.availableLocations?.length || 0);
 
   const initialMessageResponse = await robustAICall(
-    async () => {
-      console.log('[初始化] ===== 开始生成开场剧情 =====');
-      const startTime = Date.now();
-      try {
-        // 🔥 使用酒馆助手直接生成初始消息
-        const tavernHelper = getTavernHelper();
-        if (!tavernHelper) {
-          throw new Error('酒馆助手未初始化');
-        }
+async () => {
+  console.log('[初始化] ===== 开始生成开场剧情 =====');
+  const startTime = Date.now();
+  try {
+    // 🔥 [新架构] 使用 AIBidirectionalSystem 生成初始消息
+    const aiSystem = AIBidirectionalSystem.getInstance();
+    const response = await aiSystem.generateInitialMessage(systemPrompt, userPrompt);
+    
+    const elapsed = Date.now() - startTime;
+    console.log(`[初始化] ✅ AI生成完成,耗时: ${elapsed}ms`);
 
-        const response = await tavernHelper.generateRaw({
-          ordered_prompts: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt }
-          ],
-          should_stream: false,
-          use_world_info: false
-        });
-
-        const elapsed = Date.now() - startTime;
-        console.log(`[初始化] ✅ AI生成完成,耗时: ${elapsed}ms`);
-
-        // 🔥 修复：正确处理响应格式（可能是字符串或对象）
-        console.log('[初始化-诊断] 响应类型:', typeof response);
-        console.log('[初始化-诊断] 响应内容:', response);
-
-        let parsedResponse: any;
-
-        if (typeof response === 'string') {
-          // 尝试解析JSON字符串
-          try {
-            parsedResponse = JSON.parse(response);
-            console.log('[初始化] ✅ 成功解析JSON字符串响应');
-          } catch (e) {
-            console.warn('[初始化] ⚠️ 响应是纯文本（非JSON），使用parseAIResponse处理');
-            // 使用AIBidirectionalSystem的解析器
-            const aiSystem = AIBidirectionalSystem.getInstance();
-            parsedResponse = (aiSystem as any).parseAIResponse(response);
-          }
-        } else if (typeof response === 'object' && response !== null) {
-          parsedResponse = response;
-          console.log('[初始化] ✅ 响应已是对象格式');
-        } else {
-          throw new Error(`无效的AI响应类型: ${typeof response}`);
-        }
-
-        console.log('[初始化-诊断] 解析后的响应:', JSON.stringify(parsedResponse).substring(0, 500));
-        return parsedResponse;
-      } catch (error) {
-        console.error(`[初始化] ❌ AI生成失败:`, error);
-        throw error;
-      }
-    },
+    // generateInitialMessage 内部已经解析，这里直接返回
+    return response;
+  } catch (error) {
+    console.error(`[初始化] ❌ AI生成失败:`, error);
+    throw error;
+  }
+},
     (response: any) => {
       // 🔥 增强版验证器：提供详细的诊断信息
       console.log('[AI验证-诊断] ===== 开始验证AI响应 =====');

@@ -199,11 +199,6 @@ import { Package, User, Users, BookOpen, Zap, Brain, Map, Globe, Save, Settings,
 import { useCharacterStore } from '@/stores/characterStore';
 import { toast } from '@/utils/toast';
 import { useUIStore } from '@/stores/uiStore';
-import type { SystemTaskData } from '@/types/game';
-
-const props = defineProps<{
-  collapsed?: boolean;
-}>();
 
 const router = useRouter();
 const characterStore = useCharacterStore();
@@ -291,7 +286,7 @@ const handleBackToMenu = () => {
     onNeutral: async () => {
       console.log('[返回道途] 用户选择不保存直接退出...');
       toast.info('游戏进度未保存');
-      await exitToMenu(false); // 传入 false 表示不保存
+      await exitToMenu(); // 传入 false 表示不保存
     },
     onCancel: () => {
       console.log('[返回道途] 用户取消操作');
@@ -300,12 +295,12 @@ const handleBackToMenu = () => {
 };
 
 // 封装一个统一的退出函数，避免代码重复
-const exitToMenu = async (shouldSave = true) => {
+const exitToMenu = async () => {
   // 🔥 [新架构] 不再需要清理酒馆上下文，数据已在IndexedDB中管理
   console.log('[返回道途] 准备返回主菜单');
 
   characterStore.rootState.当前激活存档 = null;
-  await characterStore.commitToStorage();
+  await characterStore.commitMetadataToStorage();
   console.log('[返回道途] 已重置激活存档状态');
 
   uiStore.stopLoading();

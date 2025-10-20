@@ -10,17 +10,17 @@
       <div class="modal-body">
         <div class="stats-grid">
           <div class="stat-card">
-            <div class="stat-icon chat">
-              <MessageSquare :size="24" />
+            <div class="stat-icon core">
+              <Database :size="24" />
             </div>
             <div class="stat-info">
-              <div class="stat-value">{{ Object.keys(chatVariables).length }}</div>
-              <div class="stat-label">聊天变量</div>
+              <div class="stat-value">{{ Object.keys(coreDataViews).length }}</div>
+              <div class="stat-label">核心数据</div>
             </div>
           </div>
           <div class="stat-card">
             <div class="stat-icon global">
-              <Globe :size="24" />
+              <Settings :size="24" />
             </div>
             <div class="stat-info">
               <div class="stat-value">{{ Object.keys(customOptions).length }}</div>
@@ -51,8 +51,8 @@
           <h4>数据大小统计</h4>
           <div class="size-list">
             <div class="size-item">
-              <span>聊天变量大小:</span>
-              <span>{{ formatBytes(getDataSize(chatVariables)) }}</span>
+              <span>核心数据大小:</span>
+              <span>{{ formatBytes(getDataSize(coreDataViews)) }}</span>
             </div>
             <div class="size-item">
               <span>自定义选项大小:</span>
@@ -66,7 +66,7 @@
         </div>
 
         <div class="data-size-info" style="margin-top: 1rem;">
-          <h4>聊天变量详细大小（前10个最大的）</h4>
+          <h4>核心数据详细大小（前10个最大的）</h4>
           <div class="size-list">
             <div v-for="item in getTopLargestVariables()" :key="item.key" class="size-item">
               <span style="font-family: monospace; font-size: 0.8rem;">{{ item.key }}</span>
@@ -82,10 +82,10 @@
 </template>
 
 <script setup lang="ts">
-import { X, MessageSquare, Globe, Brain, Book } from 'lucide-vue-next'
+import { X, Database, Settings, Brain, Book } from 'lucide-vue-next'
 
 interface Props {
-  chatVariables: Record<string, any>
+  coreDataViews: Record<string, any>
   customOptions: Record<string, any>
   allGameData: any
   getMemoryCount: () => number
@@ -111,7 +111,7 @@ const formatBytes = (bytes: number): string => {
 }
 
 const getTopLargestVariables = () => {
-  const variables = Object.entries(props.chatVariables).map(([key, value]) => ({
+  const variables = Object.entries(props.coreDataViews).map(([key, value]) => ({
     key,
     size: getDataSize(value)
   }))
@@ -217,7 +217,7 @@ const getTopLargestVariables = () => {
   justify-content: center;
 }
 
-.stat-icon.chat {
+.stat-icon.core {
   background: rgba(59, 130, 246, 0.1);
   color: #3b82f6;
 }

@@ -1386,7 +1386,7 @@ const handleRemoveEffect = async (effectName: string) => {
 
     if (success) {
       // The `removeStatusEffect` mutates the object. Now we need to persist it.
-      await characterStore.commitToStorage();
+      await characterStore.saveCurrentGame();
       debug.log('角色详情面板', `已移除状态效果: ${effectName}`);
     } else {
       debug.warn('角色详情面板', `移除状态效果失败: ${effectName}`);

@@ -9,11 +9,6 @@
       @show-stats="showDataStats"
     />
 
-    <GameVariableDataStatus
-      :tavernConnected="tavernConnected"
-      :lastUpdateTime="lastUpdateTime"
-    />
-
     <GameVariableDataSelector
       :dataTypes="dataTypes"
       :selectedType="selectedDataType"
@@ -23,17 +18,16 @@
 
     <GameVariableDataDisplay
       :isLoading="isLoading"
-      :tavernConnected="tavernConnected"
       :selectedDataType="selectedDataType"
       :searchQuery="searchQuery"
-      :chatVariables="chatVariables"
+      :coreDataViews="coreDataViews"
       :customOptions="customOptions"
       :characterData="characterData"
       :saveData="saveData"
       :worldInfo="worldInfo"
       :memoryData="memoryData"
       :allGameData="allGameData"
-      :filteredChatVariables="filteredChatVariables"
+      :filteredCoreDataViews="filteredCoreDataViews"
       :filteredCustomOptions="filteredCustomOptions"
       @edit-variable="editVariable"
       @copy-variable="copyVariable"
@@ -51,7 +45,7 @@
 
     <GameVariableStatsModal
       v-if="showDataStatsModal"
-      :chatVariables="chatVariables"
+      :coreDataViews="coreDataViews"
       :customOptions="customOptions"
       :allGameData="allGameData"
       :getMemoryCount="getMemoryCount"
@@ -67,7 +61,6 @@ import { useGameStateStore } from '@/stores/gameStateStore'
 import { toast } from '@/utils/toast'
 import { panelBus } from '@/utils/panelBus'
 import GameVariableDataHeader from './components/GameVariableDataHeader.vue'
-import GameVariableDataStatus from './components/GameVariableDataStatus.vue'
 import GameVariableDataSelector from './components/GameVariableDataSelector.vue'
 import GameVariableDataDisplay from './components/GameVariableDataDisplay.vue'
 import GameVariableEditModal from './components/GameVariableEditModal.vue'
@@ -86,18 +79,17 @@ interface EditingItem {
 }
 
 // 状态管理
-const tavernConnected = ref(true) // 🔥 新架构下始终显示为连接状态（数据来自Pinia）
 const isLoading = ref(false)
 const isRefreshing = ref(false)
 const lastUpdateTime = ref('')
-const selectedDataType = ref('chat')
+const selectedDataType = ref('core') // 默认显示核心数据
 const searchQuery = ref('')
 const showDataStatsModal = ref(false)
 const editingItem = ref<EditingItem | null>(null)
 const showEditModal = ref(false)
 
-// 🔥 [新架构] 数据从 Pinia Store 获取，不再从酒馆助手获取
-const chatVariables = computed(() => {
+// 🔥 [新架构] 数据从 Pinia Store 获取
+const coreDataViews = computed(() => {
   const saveData = gameStateStore.toSaveData()
   if (!saveData) return {}
 
@@ -122,16 +114,16 @@ const saveData = computed(() => gameStateStore.toSaveData() || {})
 const worldInfo = computed(() => gameStateStore.worldInfo || {})
 const memoryData = computed(() => gameStateStore.memory || {})
 const allGameData = computed(() => ({
-  ...chatVariables.value,
+  ...coreDataViews.value,
   ...customOptions.value
 }))
 
 // 过滤后的变量（用于搜索）
-const filteredChatVariables = computed(() => {
-  if (!searchQuery.value) return chatVariables.value
+const filteredCoreDataViews = computed(() => {
+  if (!searchQuery.value) return coreDataViews.value
   const query = searchQuery.value.toLowerCase()
   return Object.fromEntries(
-    Object.entries(chatVariables.value).filter(([key]) =>
+    Object.entries(coreDataViews.value).filter(([key]) =>
       key.toLowerCase().includes(query)
     )
   )
@@ -150,7 +142,7 @@ const filteredCustomOptions = computed(() => {
 // 获取数据计数
 const getDataCount = (type: string) => {
   switch (type) {
-    case 'chat': return Object.keys(chatVariables.value).length
+    case 'core': return Object.keys(coreDataViews.value).length
     case 'custom': return Object.keys(customOptions.value).length
     case 'character': return Object.keys(characterData.value).length
     case 'saveData': return Object.keys(saveData.value).length
@@ -177,8 +169,8 @@ const getWorldItemCount = () => {
 
 // 数据类型配置
 const dataTypes = [
-  { key: 'chat',      label: '聊天变量', icon: 'MessageSquare' },
-  { key: 'custom',    label: '自定义选项', icon: 'Globe' },
+  { key: 'core',      label: '核心数据', icon: 'Database' },
+  { key: 'custom',    label: '自定义选项', icon: 'Settings' },
   { key: 'character', label: '角色数据', icon: 'Users' },
   { key: 'saveData',  label: '存档数据', icon: 'Archive' },
   { key: 'worldInfo', label: '世界信息', icon: 'Book' },
@@ -269,11 +261,11 @@ const debugLogData = () => {
   console.log('基本统计:', {
     游戏已加载: gameStateStore.isGameLoaded,
     角色名: gameStateStore.character?.名字,
-    chatVariablesCount: Object.keys(chatVariables.value).length,
+    coreDataViewsCount: Object.keys(coreDataViews.value).length,
     customOptionsCount: Object.keys(customOptions.value).length,
     lastUpdateTime: lastUpdateTime.value
   })
-  console.log('聊天变量键名:', Object.keys(chatVariables.value))
+  console.log('核心数据键名:', Object.keys(coreDataViews.value))
   console.log('自定义选项键名:', Object.keys(customOptions.value))
   console.log('完整SaveData:', gameStateStore.toSaveData())
   console.groupEnd()

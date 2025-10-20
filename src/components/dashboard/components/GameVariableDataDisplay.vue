@@ -5,11 +5,6 @@
       <p>正在加载数据...</p>
     </div>
 
-    <div v-else-if="!tavernConnected" class="no-connection">
-      <AlertCircle :size="48" />
-      <p>未检测到酒馆连接</p>
-      <p class="hint">Make sure the SillyTavern extension is enabled</p>
-    </div>
 
     <div v-else class="data-content">
       <div v-if="hasError" class="error-state">
@@ -46,17 +41,16 @@ type GameVariableValue = string | number | boolean | object | null | undefined
 
 interface Props {
   isLoading: boolean
-  tavernConnected: boolean
   selectedDataType: string
   searchQuery: string
-  chatVariables: Record<string, GameVariableValue>
+  coreDataViews: Record<string, GameVariableValue>
   customOptions: Record<string, GameVariableValue>
   characterData: Record<string, GameVariableValue>
   saveData: Record<string, GameVariableValue>
   worldInfo: Record<string, GameVariableValue>
   memoryData: Record<string, GameVariableValue>
   allGameData: Record<string, GameVariableValue>
-  filteredChatVariables: Record<string, GameVariableValue>
+  filteredCoreDataViews: Record<string, GameVariableValue>
   filteredCustomOptions: Record<string, GameVariableValue>
 }
 
@@ -79,7 +73,7 @@ const clearError = () => {
 
 const getCurrentDataComponent = () => {
   switch (props.selectedDataType) {
-    case 'chat':
+    case 'core':
     case 'custom':
       return CustomOptionsSection
     case 'character':
@@ -100,16 +94,16 @@ const getCurrentDataComponent = () => {
 const getCurrentDataProps = () => {
   const baseProps = {
     searchQuery: props.searchQuery,
-    chatVariables: props.chatVariables || {},
+    coreDataViews: props.coreDataViews || {},
     customOptions: props.customOptions || {},
   }
 
   switch (props.selectedDataType) {
-    case 'chat':
+    case 'core':
       return {
         ...baseProps,
-        type: 'chat' as const,
-        variables: props.filteredChatVariables || {}
+        type: 'core' as const,
+        variables: props.filteredCoreDataViews || {}
       }
     case 'custom':
       return {

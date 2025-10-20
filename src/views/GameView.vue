@@ -139,8 +139,6 @@ import LeftSidebar from '@/components/dashboard/LeftSidebar.vue'
 import RightSidebar from '@/components/dashboard/RightSidebar.vue'
 import CharacterManagement from '@/components/character-creation/CharacterManagement.vue';
 import ErrorBoundary from '@/components/common/ErrorBoundary.vue';
-import { getTavernHelper } from '@/utils/tavern';
-import { syncHeavenlyPrecalcToTavern } from '@/utils/judgement/heavenlyRules';
 import type { CharacterBaseInfo } from '@/types/game';
 
 const characterStore = useCharacterStore();
@@ -304,23 +302,6 @@ onMounted(async () => {
   // 监听窗口大小变化
   window.addEventListener('resize', checkDeviceAndSetup);
 
-  // 边玩边更：尝试刷新一次"天道演算"预计算，确保载入存档后也有数据
-  try {
-    const helper = getTavernHelper();
-    if (helper) {
-      const vars = await helper.getVariables({ type: 'chat' });
-      // storageSharding 已移除，此处注释掉相关逻辑
-      // const { assembleSaveData } = await import('@/utils/storageSharding');
-      // const saveData = assembleSaveData(vars as any);
-      const baseInfo = vars['基础信息'] as CharacterBaseInfo | undefined;
-      if (baseInfo) {
-        // await syncHeavenlyPrecalcToTavern(saveData, baseInfo as CharacterBaseInfo);
-        console.log('[GameView] 天道演算预计算已跳过（storageSharding已移除）');
-      }
-    }
-  } catch (e) {
-    console.warn('[GameView] 刷新天道演算失败（忽略）：', e);
-  }
 });
 
 // 组件卸载时清理
