@@ -525,8 +525,8 @@ async function onStoreCompleted(result: { success: boolean; message: string; pre
       
       // 构造预设数据
       const presetData = {
-        name: result.presetData.presetName,
-        description: result.presetData.presetDescription,
+        name: result.presetData.name,
+        description: result.presetData.description,
         data: {
           world: store.selectedWorld,
           talentTier: store.selectedTalentTier,

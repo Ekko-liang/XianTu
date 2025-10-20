@@ -97,7 +97,7 @@ async function loadPresetsList() {
     console.log('[预设加载对话框] 开始加载预设列表');
     const loadedPresets = await loadPresets();
     presets.value = loadedPresets;
-    console.log('[预设加载对话框] 成功加载', presets.value.length, '个预设');
+    console.log('[预设加载对话框] 成功加载', presets.value.length, '个预设',presets.value);
   } catch (error) {
     console.error('[预设加载对话框] 加载预设列表失败:', error);
     toast.error('加载预设列表失败');
