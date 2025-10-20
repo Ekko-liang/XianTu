@@ -155,13 +155,13 @@
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
           
-          <button class="function-btn system" @click="handleTavernData">
+          <button class="function-btn system" @click="handleGameVariables">
             <div class="btn-icon">
               <Database :size="18" />
             </div>
             <div class="btn-content">
-              <span class="btn-text">酒馆数据</span>
-              <span class="btn-desc">查看存储数据</span>
+              <span class="btn-text">游戏变量</span>
+              <span class="btn-desc">查看原始数据</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
@@ -263,8 +263,8 @@ const handleSettings = () => {
   router.push('/game/settings');
 };
 
-const handleTavernData = () => {
-  router.push('/game/tavern-data');
+const handleGameVariables = () => {
+  router.push('/game/game-variables');
 };
 
 const handleBackToMenu = () => {
