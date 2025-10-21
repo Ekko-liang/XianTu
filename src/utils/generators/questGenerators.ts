@@ -8,10 +8,10 @@ import type { Quest, SaveData } from '@/types/game';
 export async function generateQuest(saveData: SaveData): Promise<Quest | null> {
   try {
     const context = {
-      玩家姓名: saveData.玩家角色状态.基础信息.姓名,
-      当前境界: saveData.玩家角色状态.修为.境界,
+      玩家姓名: saveData.角色基础信息.名字,
+      当前境界: `${saveData.玩家角色状态.境界.名称}${saveData.玩家角色状态.境界.阶段}`,
       当前位置: saveData.玩家角色状态.位置.描述,
-      最近记忆: saveData.玩家角色状态.记忆.slice(-3).map(m => m.事件).join('；')
+      最近记忆: saveData.记忆.短期记忆?.slice(-3).join('；') || '无',
     };
 
     const prompt = QUEST_GENERATION_PROMPT

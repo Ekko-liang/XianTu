@@ -1916,11 +1916,7 @@ const loadSaveData = async (characterId: string, saveSlot: string): Promise<Save
 
       for (const slotKey of slotKeys) {
         const slot = profile.存档列表[slotKey];
-        // 🔥 跳过"上次对话"槽位，因为它是空的备份槽，只在需要时才写入
-        if (slotKey === '上次对话') {
-          continue;
-        }
-        // 只加载没有存档数据的槽位
+        // 只加载没有存档数据的槽位（包括"上次对话"）
         if (slot && !slot.存档数据) {
           const saveData = await storage.loadSaveData(charId, slotKey);
           if (saveData) {

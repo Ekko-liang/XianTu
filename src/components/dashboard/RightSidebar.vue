@@ -321,82 +321,97 @@ const showTalentDetail = (talent: string) => {
 };
 
 // 显示状态效果详情
-const showStatusDetail = (effect: StatusEffect) => {
-  // 完全使用AI生成的数据,不使用预设数据
-  const descriptionText = effect.状态描述 && String(effect.状态描述).trim()
-    ? String(effect.状态描述).trim()
-    : `${effect.状态名称 || '未知'}状态生效中`;
+const showStatusDetail = (effect: any) => { // 使用 any 以处理多种数据结构
+  // 优先使用“描述”字段，其次是“状态描述”，最后是回退文本
+  const descriptionText = effect.描述 || effect.状态描述 || `${effect.状态名称 || '未知'}状态生效中`;
 
-  // 从实际数据中获取更多信息
-  const additionalInfo: { label: string; value: string | number }[] = [];
+  let htmlContent = `<p style="margin-bottom: 1.5rem; line-height: 1.6;">${descriptionText}</p>`;
 
-  // 效果强度 - 更详细的描述
+  // 处理“效果”数组
+  if (effect.效果 && Array.isArray(effect.效果) && effect.效果.length > 0) {
+    htmlContent += `
+      <h4 style="font-size: 1rem; font-weight: 600; margin-bottom: 1rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">具体效果</h4>
+      <ul style="list-style-type: none; padding: 0; margin: 0 0 1.5rem 0;">
+    `;
+    effect.效果.forEach((eff: any) => {
+      let effectLine = `<strong>${eff.类型 || '未知效果'}:</strong> `;
+      if (eff.目标) {
+        effectLine += `${eff.目标} `;
+      }
+      if (eff.数值) {
+        effectLine += `${eff.数值 > 0 ? '+' : ''}${eff.数值}`;
+      }
+      if (eff.方式) {
+        effectLine += ` (${eff.方式})`;
+      }
+      htmlContent += `<li style="padding: 0.5rem 0; border-bottom: 1px solid var(--color-border-light);">${effectLine}</li>`;
+    });
+    htmlContent += `</ul>`;
+  }
+
+  // 构建基本信息表格
+  const tableData: { label: string; value: string | number }[] = [];
+
+  // 智能判断状态类型
+  let isBuff = false;
+  if (effect.类型) {
+    isBuff = String(effect.类型).toLowerCase() === 'buff';
+  } else if (effect.效果 && Array.isArray(effect.效果) && effect.效果.length > 0) {
+    const firstEffectType = effect.效果[0].类型 || '';
+    isBuff = firstEffectType.includes('增益') || firstEffectType.includes('提升');
+  }
+  const typeText = isBuff ? '增益状态 ✅' : '负面状态 ⚠️';
+  tableData.push({ label: '状态类型', value: typeText });
+
+  // 来源
+  if (effect.来源) {
+    tableData.push({ label: '来源', value: effect.来源 });
+  }
+
+  // 强度 (兼容旧数据)
   if (effect.强度) {
     const strengthText = effect.强度 >= 8 ? `极强(${effect.强度}/10)` :
                          effect.强度 >= 5 ? `中等(${effect.强度}/10)` :
                          `轻微(${effect.强度}/10)`;
-    additionalInfo.push({
-      label: '效果强度',
-      value: strengthText
-    });
+    tableData.push({ label: '效果强度', value: strengthText });
   }
 
-  // 优先显示剩余时间，如果没有或与总时间相同，则显示总持续时间
+  // 时间 (兼容旧数据)
   const remainingTime = effect.剩余时间;
   const totalTime = effect.时间;
-
-  // 智能时间显示逻辑：避免重复显示相同的时间信息
   if (remainingTime && totalTime && remainingTime !== totalTime) {
-    // 如果剩余时间和总时间都存在且不同，优先显示剩余时间
-    additionalInfo.push({
-      label: '剩余时间',
-      value: remainingTime
-    });
+    tableData.push({ label: '剩余时间', value: remainingTime });
   } else if (remainingTime) {
-    // 如果只有剩余时间，显示为持续时间
-    additionalInfo.push({
-      label: '持续时间',
-      value: remainingTime
-    });
+    tableData.push({ label: '持续时间', value: remainingTime });
   } else if (totalTime) {
-    // 如果只有总时间，格式化后显示
     const timeValue = formatTimeDisplay(totalTime);
-    additionalInfo.push({
-      label: '持续时间',
-      value: timeValue || totalTime
-    });
+    tableData.push({ label: '持续时间', value: timeValue || totalTime });
   }
 
-  if (effect.来源) {
-    additionalInfo.push({
-      label: '产生原因',
-      value: effect.来源
-    });
-  }
-
-  // 构建基本信息表格数据
-  const tableData: { label: string; value: string | number }[] = [];
-
-  // 状态类型
-  const typeText = String(effect.类型).toLowerCase() === 'buff' ? '增益状态✅' : '负面状态⚠️';
-  tableData.push({ label: '状态类型', value: typeText });
-
-  // 添加其他有效信息（包括已处理的时间信息）
-  tableData.push(...additionalInfo);
-
-  // 构建完整文本
-  let fullText = descriptionText;
-
+  // 渲染基本信息表格
   if (tableData.length > 0) {
-    fullText += '\n\n基本信息:';
+    htmlContent += `
+      <h4 style="font-size: 1rem; font-weight: 600; margin-bottom: 1rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.5rem;">基本信息</h4>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tbody>
+    `;
     tableData.forEach(item => {
-      fullText += `\n- ${item.label}: ${item.value}`;
+      htmlContent += `
+        <tr style="border-bottom: 1px solid var(--color-border-light);">
+          <td style="padding: 0.75rem 0; font-weight: 500; color: var(--color-text-secondary); width: 100px;">${item.label}</td>
+          <td style="padding: 0.75rem 0; font-weight: 600; color: var(--color-text);">${item.value}</td>
+        </tr>
+      `;
     });
+    htmlContent += `
+        </tbody>
+      </table>
+    `;
   }
 
   uiStore.showDetailModal({
     title: effect.状态名称,
-    content: fullText
+    content: htmlContent
   });
 };
 

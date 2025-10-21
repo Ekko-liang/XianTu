@@ -9,7 +9,7 @@
           </button>
         </div>
         <div class="modal-content">
-          <p>{{ uiStore.detailModalContent }}</p>
+          <div v-html="uiStore.detailModalContent"></div>
         </div>
       </div>
     </div>
