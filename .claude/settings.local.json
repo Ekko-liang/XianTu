@@ -10,7 +10,9 @@
       "Bash(awk:*)",
       "Bash(npx eslint --ext .ts,.vue src --max-warnings 0)",
       "Bash(findstr:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": [],

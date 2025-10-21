@@ -317,51 +317,120 @@ h2 {
 
 /* 响应式设计 */
 @media (max-width: 768px) {
+  .attribute-allocation-container {
+    padding-bottom: 1rem;
+  }
+
   .header {
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.5rem;
     text-align: center;
     padding-bottom: 0.75rem;
+    margin-bottom: 1rem;
   }
 
   .header h2 {
-    font-size: 1.4rem;
+    font-size: 1.3rem;
   }
 
   .points-display {
-    font-size: 1.1rem;
+    font-size: 1rem;
   }
 
   .points-display span {
-    font-size: 1.3rem;
+    font-size: 1.2rem;
+  }
+
+  .attributes-list {
+    margin-bottom: 0.5rem;
   }
 
   .attribute-item {
     flex-direction: row;
     gap: 0.75rem;
-    padding: 0.75rem 0;
+    padding: 0.75rem 0.5rem;
   }
 
   .attribute-info {
-    flex-basis: 60%;
+    flex: 1;
+    min-width: 0;
   }
 
   .attribute-name {
-    font-size: 1rem;
+    font-size: 0.95rem;
   }
 
   .attribute-desc {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
+    line-height: 1.3;
   }
 
   .attribute-controls {
     justify-content: flex-end;
-    gap: 0.75rem;
+    gap: 0.5rem;
+    flex-shrink: 0;
   }
 
   .attribute-controls button {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
+    font-size: 1.4rem;
+  }
+
+  .attribute-value {
+    font-size: 1.2rem;
+    min-width: 28px;
+  }
+
+  .actions {
+    gap: 0.5rem;
+    padding: 0.75rem 0;
+  }
+
+  .actions button {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    flex: 1;
+    min-width: 70px;
+  }
+}
+
+@media (max-width: 640px) {
+  .header {
+    gap: 0.5rem;
+  }
+
+  .header h2 {
+    font-size: 1.2rem;
+  }
+
+  .attribute-item {
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem 0.5rem;
+    align-items: center;
+  }
+
+  .attribute-info {
+    flex-basis: auto;
+    text-align: center;
+    width: 100%;
+  }
+
+  .attribute-name {
+    font-size: 1rem;
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+
+  .attribute-controls {
+    justify-content: center;
+    gap: 1rem;
+  }
+
+  .attribute-controls button {
+    width: 38px;
+    height: 38px;
     font-size: 1.6rem;
   }
 
@@ -371,97 +440,58 @@ h2 {
   }
 
   .actions {
-    gap: 0.75rem;
-    padding-top: 0.75rem;
+    gap: 0.5rem;
+    padding: 1rem 0 0.5rem;
   }
 
   .actions button {
-    padding: 0.6rem 1.5rem;
-    font-size: 0.95rem;
-  }
-}
-
-@media (max-width: 640px) {
-  .header {
-    gap: 1rem;
-  }
-
-  .attribute-item {
-    flex-direction: column;
-    gap: 1rem;
-    padding: 1.5rem 0;
-  }
-
-  .attribute-info {
-    flex-basis: auto;
-    text-align: center;
-  }
-
-  .attribute-controls {
-    justify-content: center;
-    gap: 1.5rem;
-  }
-
-  .attribute-controls button {
-    width: 40px;
-    height: 40px;
-    font-size: 1.8rem;
-  }
-
-  .attribute-value {
-    font-size: 1.6rem;
-    min-width: 40px;
-  }
-
-  .actions {
-    gap: 1rem;
-  }
-
-  .actions button {
-    padding: 0.75rem 2rem;
-    font-size: 1rem;
+    padding: 0.6rem 1.2rem;
+    font-size: 0.9rem;
   }
 }
 
 @media (max-width: 480px) {
   .header h2 {
-    font-size: 1.5rem;
+    font-size: 1.1rem;
   }
-  
+
   .points-display {
-    font-size: 1rem;
+    font-size: 0.9rem;
   }
-  
+
   .points-display span {
-    font-size: 1.3rem;
+    font-size: 1.1rem;
   }
-  
+
   .attribute-name {
-    font-size: 1rem;
+    font-size: 0.95rem;
   }
-  
+
   .attribute-desc {
-    font-size: 0.8rem;
+    font-size: 0.7rem;
   }
-  
+
   .attribute-controls button {
     width: 36px;
     height: 36px;
-    font-size: 1.6rem;
+    font-size: 1.5rem;
   }
-  
+
   .attribute-value {
-    font-size: 1.4rem;
+    font-size: 1.3rem;
+    min-width: 32px;
   }
-  
+
   .actions {
-    flex-direction: column;
-    align-items: center;
+    flex-wrap: wrap;
+    padding: 0.75rem 0;
   }
-  
+
   .actions button {
-    width: 100%;
-    max-width: 200px;
+    flex: 1 1 calc(33.333% - 0.5rem);
+    min-width: 80px;
+    padding: 0.6rem 0.75rem;
+    font-size: 0.85rem;
   }
 }
 </style>

@@ -41,17 +41,6 @@ export async function initializeCharacterOffline(
     y: 35.0     // 地图中心纬度
   };
 
-  // 3. 初始化系统任务
-  playerStatus.系统任务 = {
-    配置: {
-      启用: false,
-      任务类型: 'all',
-      颁发数量: 3
-    },
-    进行中任务: [],
-    已完成任务名称: []
-  };
-
   // 4. 构建一个符合最新数据结构的完整 SaveData 对象
   const saveData: SaveData = {
     角色基础信息: baseInfo,
@@ -84,6 +73,23 @@ export async function initializeCharacterOffline(
     人物关系: {},
     宗门系统: {
       availableSects: [], sectRelationships: {}, sectHistory: [],
+    },
+    任务系统: {
+      配置: {
+        启用系统任务: false,
+        系统任务类型: '修仙辅助系统',
+        系统任务提示词: '',
+        自动刷新: false,
+        默认任务数量: 3
+      },
+      当前任务列表: [],
+      已完成任务: [],
+      任务统计: {
+        完成总数: 0,
+        主线完成: 0,
+        支线完成: 0,
+        系统任务完成: 0
+      }
     },
     记忆: {
       短期记忆: [], // 初始为空，让AI生成真正的开局文本

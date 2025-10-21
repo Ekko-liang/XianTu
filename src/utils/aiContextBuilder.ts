@@ -101,7 +101,7 @@ export function buildCompactState(saveData: SaveData): CompactGameState {
       cultivationInfo = {
         名称: technique.名称,
         品质: technique.品质?.quality || '未知',
-        修炼进度: (technique as any).修炼进度 || 0
+        修炼进度: technique.修炼进度 || 0
       };
     }
   }
@@ -116,7 +116,7 @@ export function buildCompactState(saveData: SaveData): CompactGameState {
   // 精简人物关系
   const relationships: CompactGameState['人物关系'] = {};
   const npcRelations = saveData.人物关系 || {};
-  Object.entries(npcRelations).forEach(([key, npc]) => {
+  Object.entries(npcRelations).forEach(([, npc]) => {
     if (npc && npc.名字) {
       relationships[npc.名字] = {
         关系: npc.与玩家关系 || '陌生人',
@@ -132,7 +132,7 @@ export function buildCompactState(saveData: SaveData): CompactGameState {
     角色: {
       名字: baseInfo.名字,
       性别: baseInfo.性别,
-      年龄: baseInfo.年龄 || playerStatus.寿命?.当前 || 0,
+      年龄: playerStatus.寿命?.当前 || 18,
       种族: baseInfo.种族 || '人族'
     },
     境界: {
@@ -198,7 +198,7 @@ export function formatStateForAI(state: CompactGameState): string {
 
   // 人物关系
   const importantNPCs = Object.entries(state.人物关系)
-    .filter(([_, rel]) => rel.好感度 > 50 || rel.好感度 < -20)
+    .filter(([, rel]) => rel.好感度 > 50 || rel.好感度 < -20)
     .slice(0, 5);
   if (importantNPCs.length > 0) {
     lines.push(`【人物关系】`);

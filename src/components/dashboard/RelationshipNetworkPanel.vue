@@ -375,7 +375,7 @@
                   <div class="memory-list" v-if="selectedPerson.记忆?.length">
                     <div v-for="(memory, index) in paginatedMemory" :key="index" class="memory-item">
                       <div class="memory-content">
-                        <div class="memory-time">{{ getMemoryTime(memory) }}</div>
+                        <div v-if="getMemoryTime(memory)" class="memory-time">{{ getMemoryTime(memory) }}</div>
                         <div class="memory-event">{{ getMemoryEvent(memory) }}</div>
                       </div>
                       <div class="memory-actions">
@@ -719,35 +719,42 @@ const editMemory = async (index: number) => {
 
   const current = characterData.value.人物关系[key].记忆[index];
 
-  // 支持旧格式（字符串）和新格式（对象）
-  let currentTime = '';
-  let currentEvent = '';
-
+  // 新格式：字符串记忆
   if (typeof current === 'string') {
-    currentEvent = current;
-    currentTime = '未知时间';
-  } else if (current && typeof current === 'object') {
-    currentTime = current.时间 || '未知时间';
-    currentEvent = current.事件 || '';
+    const newEvent = window.prompt('编辑记忆内容', current);
+    if (newEvent === null || newEvent.trim() === '') return;
+
+    characterData.value.人物关系[key].记忆[index] = newEvent.trim();
+    selectedPerson.value = { ...characterData.value.人物关系[key] };
+
+    const { useGameStateStore } = await import('@/stores/gameStateStore');
+    const gameStateStore = useGameStateStore();
+    await gameStateStore.saveGame();
+    return;
   }
 
-  const newTime = window.prompt('编辑记忆时间', currentTime);
-  if (newTime === null) return;
+  // 旧格式兼容：对象记忆
+  if (current && typeof current === 'object') {
+    const currentTime = (current as { 时间?: string }).时间 || '未知时间';
+    const currentEvent = (current as { 事件?: string }).事件 || '';
 
-  const newEvent = window.prompt('编辑记忆事件', currentEvent);
-  if (newEvent === null) return;
+    const newTime = window.prompt('编辑记忆时间', currentTime);
+    if (newTime === null) return;
 
-  characterData.value.人物关系[key].记忆[index] = {
-    时间: newTime.trim(),
-    事件: newEvent.trim()
-  };
+    const newEvent = window.prompt('编辑记忆事件', currentEvent);
+    if (newEvent === null) return;
 
-  selectedPerson.value = { ...characterData.value.人物关系[key] };
+    characterData.value.人物关系[key].记忆[index] = {
+      时间: newTime.trim(),
+      事件: newEvent.trim()
+    };
 
-  // 使用 gameStateStore 保存
-  const { useGameStateStore } = await import('@/stores/gameStateStore');
-  const gameStateStore = useGameStateStore();
-  await gameStateStore.saveGame();
+    selectedPerson.value = { ...characterData.value.人物关系[key] };
+
+    const { useGameStateStore } = await import('@/stores/gameStateStore');
+    const gameStateStore = useGameStateStore();
+    await gameStateStore.saveGame();
+  }
 };
 
 const deleteMemory = async (index: number) => {

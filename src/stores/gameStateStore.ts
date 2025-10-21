@@ -32,10 +32,8 @@ interface GameState {
   thousandDao: any | null;
   // 宗门系统
   sectSystem: any | null;
-  // 穿越者系统
-  transmigratorSystem: any | null;
-  // 系统任务
-  systemTasks: any | null;
+  // 任务系统
+  questSystem: QuestSystem;
   // 修炼功法
   cultivationTechnique: any | null;
   // 掌握技能
@@ -68,8 +66,23 @@ export const useGameStateStore = defineStore('gameState', {
     // 其他游戏系统
     thousandDao: null,
     sectSystem: null,
-    transmigratorSystem: null,
-    systemTasks: null,
+    questSystem: {
+      配置: {
+        启用系统任务: false,
+        系统任务类型: '修仙辅助系统',
+        系统任务提示词: '',
+        自动刷新: false,
+        默认任务数量: 3
+      },
+      当前任务列表: [],
+      已完成任务: [],
+      任务统计: {
+        完成总数: 0,
+        主线完成: 0,
+        支线完成: 0,
+        系统任务完成: 0
+      }
+    },
     cultivationTechnique: null,
     masteredSkills: null,
     systemConfig: null,
@@ -149,8 +162,23 @@ export const useGameStateStore = defineStore('gameState', {
       // 加载其他系统数据
       this.thousandDao = saveData.三千大道 || null;
       this.sectSystem = saveData.宗门系统 || null;
-      this.transmigratorSystem = saveData.穿越者系统 || null;
-      this.systemTasks = saveData.系统任务 || null;
+      this.questSystem = saveData.任务系统 || {
+        配置: {
+          启用系统任务: false,
+          系统任务类型: '修仙辅助系统',
+          系统任务提示词: '',
+          自动刷新: false,
+          默认任务数量: 3
+        },
+        当前任务列表: [],
+        已完成任务: [],
+        任务统计: {
+          完成总数: 0,
+          主线完成: 0,
+          支线完成: 0,
+          系统任务完成: 0
+        }
+      };
       this.cultivationTechnique = saveData.修炼功法 || null;
       this.masteredSkills = saveData.掌握技能 || [];
       this.systemConfig = saveData.系统 || null;
@@ -181,14 +209,28 @@ export const useGameStateStore = defineStore('gameState', {
         // 其他系统数据
         三千大道: this.thousandDao || { 大道列表: {} },
         宗门系统: this.sectSystem || { availableSects: [], sectRelationships: {}, sectHistory: [] },
-        穿越者系统: this.transmigratorSystem || undefined,
-        系统任务: this.systemTasks || undefined,
+        任务系统: this.questSystem || {
+          配置: {
+            启用系统任务: false,
+            系统任务类型: '修仙辅助系统',
+            系统任务提示词: '',
+            自动刷新: false,
+            默认任务数量: 3
+          },
+          当前任务列表: [],
+          已完成任务: [],
+          任务统计: {
+            完成总数: 0,
+            主线完成: 0,
+            支线完成: 0,
+            系统任务完成: 0
+          }
+        },
         修炼功法: this.cultivationTechnique || null,
         掌握技能: this.masteredSkills || [],
         系统: this.systemConfig || undefined,
         叙事历史: this.narrativeHistory || [],
-        身体部位开发: this.bodyPartDevelopment || undefined,
-        任务系统: this.任务系统 || { 当前任务列表: [], 已完成任务: [], 任务统计: { 完成总数: 0, 主线完成: 0, 支线完成: 0 } },
+        身体部位开发: this.bodyPartDevelopment || undefined
       };
     },
 
@@ -281,8 +323,23 @@ export const useGameStateStore = defineStore('gameState', {
       // 重置其他系统数据
       this.thousandDao = null;
       this.sectSystem = null;
-      this.transmigratorSystem = null;
-      this.systemTasks = null;
+      this.questSystem = {
+        配置: {
+          启用系统任务: false,
+          系统任务类型: '修仙辅助系统',
+          系统任务提示词: '',
+          自动刷新: false,
+          默认任务数量: 3
+        },
+        当前任务列表: [],
+        已完成任务: [],
+        任务统计: {
+          完成总数: 0,
+          主线完成: 0,
+          支线完成: 0,
+          系统任务完成: 0
+        }
+      };
       this.cultivationTechnique = null;
       this.masteredSkills = null;
       this.systemConfig = null;

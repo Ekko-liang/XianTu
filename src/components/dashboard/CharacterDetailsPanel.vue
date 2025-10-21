@@ -959,8 +959,8 @@ const currentAge = computed(() => {
     return calculateAgeFromBirthdate(fullBirthdate, gameTime);
   }
 
-  // 兜底：返回存储的年龄或寿命
-  return baseInfo.value?.年龄 || playerStatus.value?.寿命?.当前 || 0;
+  // 兜底：返回寿命的当前值
+  return playerStatus.value?.寿命?.当前 || 0;
 });
 
 // fullCultivationTechnique数据 - 从背包中解析完整功法数据

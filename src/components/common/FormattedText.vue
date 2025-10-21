@@ -278,10 +278,12 @@ const parsedText = computed(() => {
 
   let currentIndex = 0
   // 统一换行并规范化引号（压缩重复的中英文引号，避免解析异常）
-  // 🔥 增强：将各种Unicode引号统一转换为标准引号
+  // 🔥 增强：将各种Unicode引号统一转换为标准引号，并处理转义反斜杠
   const processedText = text
-    .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n')
+    .replace(/\\\\/g, '\n')     // 处理 \\ 转义的换行符
+    .replace(/\\n/g, '\n')       // 处理 \n 换行符
+    .replace(/\r\n/g, '\n')      // 统一 Windows 换行符
+    .replace(/\r/g, '\n')        // 统一 Mac 换行符
 
   while (currentIndex < processedText.length) {
     // 查找标记的顺序：先找最近的开始标记

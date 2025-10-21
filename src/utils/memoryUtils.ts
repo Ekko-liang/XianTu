@@ -1,17 +1,20 @@
+/**
+ * 获取记忆的时间
+ * 记忆是字符串数组，不再有时间字段
+ */
 export const getMemoryTime = (memory: unknown): string => {
-  if (typeof memory === 'string') {
-    return '未知时间';
-  } else if (memory && typeof memory === 'object') {
-    return (memory as { 时间?: string }).时间 || '未知时间';
-  }
-  return '未知时间';
+  // 字符串记忆没有时间
+  return '';
 };
 
+/**
+ * 获取记忆的事件内容
+ * 直接返回字符串
+ */
 export const getMemoryEvent = (memory: unknown): string => {
+  // 字符串就是记忆内容
   if (typeof memory === 'string') {
     return memory;
-  } else if (memory && typeof memory === 'object') {
-    return (memory as { 事件?: string }).事件 || '';
   }
   return '';
 };

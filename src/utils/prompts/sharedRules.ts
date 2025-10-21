@@ -84,39 +84,39 @@ export const CORE_SYNC_RULES = `
 获得1把剑:
 \`\`\`json
 [
-  {"action":"add","scope":"chat","key":"游戏时间.分钟","value":1},
-  {"action":"set","scope":"chat","key":"背包.物品.sword_001","value":{"物品ID":"sword_001","名称":"青锋剑","类型":"武器","品质":{"quality":"玄","grade":3},"数量":1,"描述":"锋利的玄品长剑"}}
+  {"action":"add","key":"游戏时间.分钟","value":1},
+  {"action":"set","key":"背包.物品.sword_001","value":{"物品ID":"sword_001","名称":"青锋剑","类型":"武器","品质":{"quality":"玄","grade":3},"数量":1,"描述":"锋利的玄品长剑"}}
 ]
 \`\`\`
 
 消耗1颗丹药:
 \`\`\`json
 [
-  {"action":"add","scope":"chat","key":"游戏时间.分钟","value":1},
-  {"action":"add","scope":"chat","key":"背包.物品.pill_001.数量","value":-1}
+  {"action":"add","key":"游戏时间.分钟","value":1},
+  {"action":"add","key":"背包.物品.pill_001.数量","value":-1}
 ]
 \`\`\`
 
 增加NPC好感度:
 \`\`\`json
 [
-  {"action":"add","scope":"chat","key":"游戏时间.分钟","value":5},
-  {"action":"add","scope":"chat","key":"人物关系.张三.好感度","value":5}
+  {"action":"add","key":"游戏时间.分钟","value":5},
+  {"action":"add","key":"人物关系.张三.好感度","value":5}
 ]
 \`\`\`
 
 炼气圆满突破到筑基初期:
 \`\`\`json
 [
-  {"action":"add","scope":"chat","key":"游戏时间.分钟","value":60},
-  {"action":"set","scope":"chat","key":"玩家角色状态.境界.名称","value":"筑基"},
-  {"action":"set","scope":"chat","key":"玩家角色状态.境界.阶段","value":"初期"},
-  {"action":"set","scope":"chat","key":"玩家角色状态.境界.当前进度","value":0},
-  {"action":"set","scope":"chat","key":"玩家角色状态.境界.下一级所需","value":200},
-  {"action":"set","scope":"chat","key":"玩家角色状态.境界.突破描述","value":"借筑基丹之力凝聚道台，灵气化液如江河"},
-  {"action":"add","scope":"chat","key":"玩家角色状态.气血.上限","value":1200},
-  {"action":"add","scope":"chat","key":"玩家角色状态.灵气.上限","value":1300},
-  {"action":"add","scope":"chat","key":"玩家角色状态.寿命.上限","value":130}
+  {"action":"add","key":"游戏时间.分钟","value":60},
+  {"action":"set","key":"玩家角色状态.境界.名称","value":"筑基"},
+  {"action":"set","key":"玩家角色状态.境界.阶段","value":"初期"},
+  {"action":"set","key":"玩家角色状态.境界.当前进度","value":0},
+  {"action":"set","key":"玩家角色状态.境界.下一级所需","value":200},
+  {"action":"set","key":"玩家角色状态.境界.突破描述","value":"借筑基丹之力凝聚道台，灵气化液如江河"},
+  {"action":"add","key":"玩家角色状态.气血.上限","value":1200},
+  {"action":"add","key":"玩家角色状态.灵气.上限","value":1300},
+  {"action":"add","key":"玩家角色状态.寿命.上限","value":130}
 ]
 \`\`\`
 
@@ -233,8 +233,8 @@ export const JSON_RULES = `
   "text": "玩家修炼三天，境界进度增加10点。",
   "mid_term_memory": "玩家闭关修炼三日，境界进度略有提升。",
   "tavern_commands": [
-    {"action":"add","scope":"chat","key":"游戏时间.分钟","value":4320},
-    {"action":"add","scope":"chat","key":"玩家角色状态.境界.当前进度","value":10}
+    {"action":"add","key":"游戏时间.分钟","value":4320},
+    {"action":"add","key":"玩家角色状态.境界.当前进度","value":10}
   ]
 }
 \`\`\`
@@ -246,8 +246,8 @@ export const JSON_RULES = `
   "mid_term_memory": "玩家闭关修炼三日，境界进度略有提升。",
   "tavern_commands": [
     // 这是注释（禁止）
-    {"action":"add","scope":"chat","key":"游戏时间.分钟","value":4320},
-    {"action":"add","scope":"chat","key":"玩家角色状态.境界.当前进度","value":"10"}, // 错误：value应该是数字不是字符串
+    {"action":"add","key":"游戏时间.分钟","value":4320},
+    {"action":"add","key":"玩家角色状态.境界.当前进度","value":"10"}, // 错误：value应该是数字不是字符串
   ] // 错误：数组末尾有尾随逗号
 }
 \`\`\`
@@ -288,8 +288,8 @@ export const INNATE_ATTRIBUTES_RULE = `
 
 **修改方式**:
 \`\`\`json
-{"action":"add","scope":"chat","key":"角色基础信息.后天六司.根骨","value":1}
-{"action":"add","scope":"chat","key":"角色基础信息.后天六司.灵性","value":2}
+{"action":"add","key":"角色基础信息.后天六司.根骨","value":1}
+{"action":"add","key":"角色基础信息.后天六司.灵性","value":2}
 \`\`\`
 
 使用add操作而不是set，因为后天六司是累加的

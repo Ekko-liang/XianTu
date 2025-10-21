@@ -141,16 +141,7 @@ export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: num
     灵气: { 当前: 初始灵气, 上限: 初始灵气 },
     神识: { 当前: 初始神识, 上限: 初始神识 },
     寿命: { 当前: age, 上限: 最大寿命 },
-    状态效果: [], // 使用新的StatusEffect数组格式
-    系统任务: {
-      配置: {
-        启用: false,
-        任务类型: 'all',
-        颁发数量: 3
-      },
-      进行中任务: [],
-      已完成任务名称: []
-    }
+    状态效果: [] // 使用新的StatusEffect数组格式
   };
 }
 
@@ -180,10 +171,6 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
     processedBaseInfo = baseInfo;
   }
 
-  // 确保年龄信息存在
-  if (!processedBaseInfo.年龄) {
-    processedBaseInfo.年龄 = age;
-  }
 
   // 设置出生日期（根据开局年龄和游戏时间推算）
   const 游戏时间 = { 年: 1000, 月: 1, 日: 1, 小时: Math.floor(Math.random() * 12) + 6, 分钟: Math.floor(Math.random() * 60) };
@@ -241,12 +228,20 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
     人物关系: {},
     宗门系统: { availableSects: [], sectRelationships: {}, sectHistory: [] },
     任务系统: {
+      配置: {
+        启用系统任务: false,
+        系统任务类型: '修仙辅助系统',
+        系统任务提示词: '',
+        自动刷新: false,
+        默认任务数量: 3
+      },
       当前任务列表: [],
       已完成任务: [],
       任务统计: {
         完成总数: 0,
         主线完成: 0,
-        支线完成: 0
+        支线完成: 0,
+        系统任务完成: 0
       }
     },
     记忆: { 短期记忆: [], 中期记忆: [], 长期记忆: [] },
@@ -729,7 +724,6 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
     名字: baseInfo.名字,
     性别: baseInfo.性别,
     种族: baseInfo.种族,
-    年龄: age,
     先天六司: baseInfo.先天六司,
     天赋: baseInfo.天赋, // 强制使用玩家选择的完整天赋列表
   };
@@ -912,21 +906,7 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
   }
   */
 
-  // 7. 🔥 保存创角数据到存档
-  saveData.创角数据 = {
-    名字: baseInfo.名字,
-    性别: baseInfo.性别,
-    种族: baseInfo.种族,
-    年龄: age,
-    先天六司: baseInfo.先天六司,
-    天赋: baseInfo.天赋.map(t => ({ 名称: t.name, 描述: t.description })),
-    灵根: typeof baseInfo.灵根 === 'object' ? (baseInfo.灵根 as SpiritRoot).name : baseInfo.灵根,
-    出生: typeof baseInfo.出生 === 'object' ? (baseInfo.出生 as Origin).name : baseInfo.出生,
-    世界: world.name,
-    天资: baseInfo.天资.name
-  };
-
-  // 8. 🔥 [新架构] 跳过酒馆同步
+  // 7. 🔥 [新架构] 跳过酒馆同步
   // 新架构不再使用酒馆变量存储游戏状态
   // 数据已经在 Pinia Store 中，会自动保存到 IndexedDB
   console.log('[初始化流程] ✅ 角色创建完成（新架构跳过酒馆同步）');

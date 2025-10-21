@@ -480,6 +480,7 @@ async function createCharacter() {
       gender: store.characterPayload.gender,
     };
 
+    console.log('🔥 [角色创建] 当前选择的开局年龄:', store.characterPayload.current_age);
     console.log('发射creation-complete事件，载荷:', creationPayload);
 
     // 发射事件让App.vue处理创建逻辑
@@ -1016,23 +1017,52 @@ async function onLoadCompleted(result: { success: boolean; message: string; pres
   }
 
   .navigation-buttons {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      padding: 1rem 0 0.5rem 0;
-      flex-shrink: 0;
-    }
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    margin: 0 -0.75rem -0.75rem -0.75rem;
+    flex-shrink: 0;
+    border-radius: 0;
+    overflow: hidden; /* 防止内容溢出 */
+  }
 
   .points-display {
-    order: 0;
-    margin-bottom: 0.75rem;
+    width: 100%;
+    flex-basis: 100%;
+    order: -1;
+    margin-bottom: 0.5rem;
+    position: static;
+    transform: none;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .destiny-points,
+  .attribute-points {
+    padding: 0.35rem 0.7rem;
+    font-size: 0.8rem;
+  }
+
+  .points-label {
+    font-size: 0.7rem;
+    white-space: nowrap;
+  }
+
+  .points-value {
+    font-size: 0.95rem;
   }
 
   .navigation-buttons button {
-    width: 100%;
-    min-width: auto;
-    padding: 0.8rem 1rem; /* 增加按钮高度，更易点击 */
-    font-size: 1rem; /* 增大字体，更易阅读 */
+    flex: 1 1 calc(50% - 0.25rem);
+    min-width: 0;
+    max-width: calc(50% - 0.25rem);
+    padding: 0.7rem 0.5rem;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 </style>

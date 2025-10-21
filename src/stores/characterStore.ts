@@ -129,8 +129,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
           角色名字: profile.角色基础信息.名字,
           境界: slot.存档数据?.玩家角色状态?.境界?.名称 || '凡人',
           位置: slot.存档数据?.玩家角色状态?.位置?.描述 || '初始地',
-          游戏时长: 0, // TODO: 从存档数据中计算实际游戏时长
-          最后保存时间: slot.最后保存时间 || slot.保存时间
+          游戏时长: 0 // TODO: 从存档数据中计算实际游戏时长
         };
         return enhancedSlot;
       });
@@ -142,8 +141,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
         角色名字: profile.角色基础信息.名字,
         境界: profile.存档.存档数据?.玩家角色状态?.境界?.名称 || '凡人',
         位置: profile.存档.存档数据?.玩家角色状态?.位置?.描述 || '初始地',
-        游戏时长: 0, // TODO: 从存档数据中计算实际游戏时长
-        最后保存时间: profile.存档.最后保存时间 || profile.存档.保存时间
+        游戏时长: 0 // TODO: 从存档数据中计算实际游戏时长
       };
       return [enhancedSlot];
     }
@@ -245,9 +243,9 @@ export const useCharacterStore = defineStore('characterV3', () => {
       // TODO: [架构重构] 分片存储已废弃，现在直接保存到 IndexedDB
       debug.log('角色商店', '[同步] 直接保存到 IndexedDB（架构已重构）');
 
-      // 3. 更新存档槽位的最后保存时间和元数据
+      // 3. 更新存档槽位的保存时间和元数据
       // 注意：保存时间（创建时间）只在创建时设置，不再修改
-      slot.最后保存时间 = new Date().toISOString();
+      slot.保存时间 = new Date().toISOString();
 
       // 提取元数据用于存档列表显示
       slot.角色名字 = slot.存档数据.角色基础信息?.名字;
@@ -430,7 +428,6 @@ export const useCharacterStore = defineStore('characterV3', () => {
             '存档1': {
               存档名: '存档1',
               保存时间: now,
-              最后保存时间: now,
               游戏内时间: '修仙元年 春',
               角色名字: authoritativeBaseInfo.名字,
               境界: '凡人',
@@ -441,7 +438,6 @@ export const useCharacterStore = defineStore('characterV3', () => {
             '上次对话': {
               存档名: '上次对话',
               保存时间: null,
-              最后保存时间: null,
               存档数据: null
             }
           },
@@ -832,7 +828,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
           [slotId]: {
             ...profile.存档列表[slotId],
             存档数据: saveData,
-            最后保存时间: new Date().toISOString()
+            保存时间: new Date().toISOString()
           }
         };
       } else if (profile.模式 === '联机' && profile.存档) {
@@ -840,7 +836,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
         rootState.value.角色列表[charId].存档 = {
           ...profile.存档,
           存档数据: saveData,
-          最后保存时间: new Date().toISOString()
+          保存时间: new Date().toISOString()
         };
       }
 
@@ -894,14 +890,14 @@ export const useCharacterStore = defineStore('characterV3', () => {
         [slotId]: {
           ...profile.存档列表[slotId],
           存档数据: updatedSaveData,
-          最后保存时间: new Date().toISOString()
+          保存时间: new Date().toISOString()
         }
       };
     } else if (profile.模式 === '联机' && profile.存档) {
       rootState.value.角色列表[charId].存档 = {
         ...profile.存档,
         存档数据: updatedSaveData,
-        最后保存时间: new Date().toISOString()
+        保存时间: new Date().toISOString()
       };
     }
 
@@ -954,7 +950,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       debug.log('角色商店', `✅ 存档内容已保存到 IndexedDB (Key: ${active.角色ID}_${active.存档槽位})`);
 
       // 4. 更新Pinia Store中的 *元数据*
-      slot.最后保存时间 = new Date().toISOString();
+      slot.保存时间 = new Date().toISOString();
       const playerState = currentSaveData.玩家角色状态;
       if (playerState) {
         slot.境界 = playerState.境界?.名称 || '凡人';
@@ -1088,7 +1084,6 @@ export const useCharacterStore = defineStore('characterV3', () => {
     profile.存档列表[saveName] = {
       存档名: saveName,
       保存时间: null,
-      最后保存时间: null,
       存档数据: null
     };
 
@@ -1132,7 +1127,6 @@ export const useCharacterStore = defineStore('characterV3', () => {
       const newSlot: SaveSlot = {
         存档名: saveName,
         保存时间: now,
-        最后保存时间: now,
         游戏内时间: currentSlot.游戏内时间,
         游戏时长: currentSlot.游戏时长,
         角色名字: currentSlot.角色名字,
@@ -1231,8 +1225,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       // 4. 构建完整的槽位数据
       const newSlotData: SaveSlot = {
         存档名: slotName,
-        保存时间: existingSlot?.保存时间 || now, // 保留原创建时间，如果不存在则用当前时间
-        最后保存时间: now,
+        保存时间: now,
         存档数据: currentSaveData,
         角色名字: currentSaveData.角色基础信息?.名字,
         境界: playerState?.境界?.名称 || '凡人',
@@ -1354,14 +1347,14 @@ export const useCharacterStore = defineStore('characterV3', () => {
         [slotId]: {
           ...profile.存档列表[slotId],
           存档数据: cloneDeep(save.存档数据), // 深拷贝确保响应式更新
-          最后保存时间: new Date().toISOString()
+          保存时间: new Date().toISOString()
         }
       };
     } else if (profile.模式 === '联机' && profile.存档) {
       rootState.value.角色列表[charId].存档 = {
         ...profile.存档,
         存档数据: cloneDeep(save.存档数据), // 深拷贝确保响应式更新
-        最后保存时间: new Date().toISOString()
+        保存时间: new Date().toISOString()
       };
     }
 
@@ -1543,7 +1536,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
     }
 
     activeSlot.存档数据 = JSON.parse(JSON.stringify(lastConversationData));
-    activeSlot.最后保存时间 = new Date().toISOString();
+    activeSlot.保存时间 = new Date().toISOString();
 
     // 2. 保存到IndexedDB
     await commitMetadataToStorage();
@@ -1694,7 +1687,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       }
 
       // 5. 保存并重新加载
-      targetSlot.最后保存时间 = new Date().toISOString();
+      targetSlot.保存时间 = new Date().toISOString();
       await commitMetadataToStorage();
 
       toast.success('AI已完成存档修复！正在重新加载游戏...');

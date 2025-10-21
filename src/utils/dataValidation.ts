@@ -90,7 +90,7 @@ export function validateAndRepairNpcProfile(npcData: unknown): [boolean, NpcProf
 
   // 2. 修复与默认值填充
   if (typeof repairedNpc.性别 !== 'string') repairedNpc.性别 = '其他';
-  if (typeof repairedNpc.年龄 !== 'number') repairedNpc.年龄 = undefined;
+  // 年龄已从出生日期自动计算,不需要验证
   if (typeof repairedNpc.与玩家关系 !== 'string') repairedNpc.与玩家关系 = '相识';
   if (typeof repairedNpc.好感度 !== 'number') repairedNpc.好感度 = 0;
   if (!Array.isArray(repairedNpc.记忆)) repairedNpc.记忆 = [];

@@ -396,21 +396,22 @@ const persistAIProcessingState = () => {
 const restoreAIProcessingState = () => {
   const saved = sessionStorage.getItem('ai-processing-state');
   const timestamp = sessionStorage.getItem('ai-processing-timestamp');
+  const TIMEOUT_DURATION = 2 * 60 * 1000; // 2分钟超时
 
   if (saved === 'true' && timestamp) {
     const elapsed = Date.now() - parseInt(timestamp);
-    // 如果超过30秒，认为已超时，清除状态
-    if (elapsed < 30 * 1000) {
+    // 如果超过2分钟，认为已超时，清除状态
+    if (elapsed < TIMEOUT_DURATION) {
       isAIProcessing.value = true;
       console.log('[状态恢复] 恢复AI处理状态');
 
-      // 30秒后自动清除状态
+      // 2分钟后自动清除状态
       setTimeout(() => {
         if (isAIProcessing.value) {
           console.log('[状态恢复] AI处理超时，自动清除状态');
           forceResetAIProcessingState();
         }
-      }, 30 * 1000);
+      }, TIMEOUT_DURATION - elapsed); // 从剩余时间开始计时
     } else {
       console.log('[状态恢复] AI处理状态已超时，清除状态');
       sessionStorage.removeItem('ai-processing-state');

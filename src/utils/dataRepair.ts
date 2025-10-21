@@ -26,6 +26,7 @@ export function repairSaveData(saveData: SaveData | null | undefined): SaveData 
     repaired.角色基础信息 = {
       名字: '无名修士',
       性别: '男',
+      出生日期: { 年: 982, 月: 1, 日: 1 },
       世界: '朝天大陆' as any,
       天资: '凡人' as any,
       出生: '散修',
@@ -39,6 +40,11 @@ export function repairSaveData(saveData: SaveData | null | undefined): SaveData 
     repaired.角色基础信息.名字 = repaired.角色基础信息.名字 || '无名修士';
     repaired.角色基础信息.性别 = repaired.角色基础信息.性别 || '男';
     repaired.角色基础信息.世界 = repaired.角色基础信息.世界 || '朝天大陆';
+
+    // 确保出生日期字段存在
+    if (!repaired.角色基础信息.出生日期) {
+      repaired.角色基础信息.出生日期 = { 年: 982, 月: 1, 日: 1 };
+    }
 
     // 修复先天六司
     if (!repaired.角色基础信息.先天六司 || typeof repaired.角色基础信息.先天六司 !== 'object') {
@@ -392,7 +398,8 @@ function repairNpc(npc: NpcProfile): NpcProfile {
   // 确保基础字段
   repaired.名字 = repaired.名字 || '无名';
   repaired.性别 = repaired.性别 || '男';
-  repaired.年龄 = validateNumber(repaired.年龄, 1, 10000, 20);
+
+  // 年龄已自动从出生日期计算,删除年龄字段
 
   // 修复境界
   repaired.境界 = repairRealm(repaired.境界);
@@ -474,6 +481,7 @@ function createMinimalSaveData(): SaveData {
     角色基础信息: {
       名字: '无名修士',
       性别: '男',
+      出生日期: { 年: 982, 月: 1, 日: 1 },
       世界: '朝天大陆' as any,
       天资: '凡人' as any,
       出生: '散修',
@@ -496,13 +504,21 @@ function createMinimalSaveData(): SaveData {
       sectHistory: []
     },
     任务系统: {
+      配置: {
+        启用系统任务: false,
+        系统任务类型: '修仙辅助系统',
+        系统任务提示词: '',
+        自动刷新: false,
+        默认任务数量: 3
+      },
       当前任务列表: [],
       已完成任务: [],
       任务统计: {
         完成总数: 0,
         主线完成: 0,
         支线完成: 0,
-      },
+        系统任务完成: 0
+      }
     },
     记忆: {
       短期记忆: [],
