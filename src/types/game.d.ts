@@ -513,7 +513,7 @@ export interface WorldContinent {
   修真环境?: string;
   气候?: string;
   天然屏障?: string[];
-  大洲边界?: { longitude: number; latitude: number }[];
+  大洲边界?: { x: number; y: number }[];
   主要势力?: (string | number)[]; // 兼容id和名称
   factions?: (string | number)[]; // 兼容英文名
 }
@@ -525,8 +525,8 @@ export interface WorldFaction {
   类型: '修仙宗门' | '魔道宗门' | '中立宗门' | '修仙世家' | '魔道势力' | '商会组织' | '散修联盟' | string;
   等级: '超级' | '一流' | '二流' | '三流' | string;
   所在大洲?: string; // 增加可选的所在大洲字段
-  位置?: string | { longitude: number; latitude: number }; // 支持字符串描述或坐标
-  势力范围?: string[] | { longitude: number; latitude: number }[]; // 支持字符串数组或坐标数组
+  位置?: string | { x: number; y: number }; // 支持字符串描述或坐标
+  势力范围?: string[] | { x: number; y: number }[]; // 支持字符串数组或坐标数组
   描述: string;
   特色: string | string[]; // 支持字符串或字符串数组
   // 实力评估: string | number; // removed: 不再生成/存储该字段
@@ -577,7 +577,7 @@ export interface WorldLocation {
   名称: string;
   类型: '城池' | '宗门' | '秘境' | '险地' | '商会' | '坊市' | '洞府' | string;
   位置: string;
-  coordinates?: { longitude: number; latitude: number }; // 原始坐标数据
+  coordinates?: { x: number; y: number }; // 原始坐标数据
   描述: string;
   特色: string;
   安全等级: '安全' | '较安全' | '危险' | '极危险' | string;

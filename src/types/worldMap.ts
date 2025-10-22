@@ -75,8 +75,8 @@ export interface CultivationContinent {
   名称?: string;
   description?: string;
   描述?: string;
-  continent_bounds?: { longitude: number; latitude: number }[];
-  大洲边界?: { longitude: number; latitude: number }[];
+  continent_bounds?: { x: number; y: number }[];
+  大洲边界?: { x: number; y: number }[];
   climate?: string;
   气候?: string;
   terrain_features?: string[];
@@ -91,8 +91,8 @@ export interface CultivationContinent {
 export interface WorldMapConfig {
   width: number; // Virtual width of the map
   height: number; // Virtual height of the map
-  minLng: number; // Minimum longitude for geo-to-virtual conversion
-  maxLng: number; // Maximum longitude
-  minLat: number; // Minimum latitude
-  maxLat: number; // Maximum latitude
+  minLng: number; // Minimum x for geo-to-virtual conversion
+  maxLng: number; // Maximum x
+  minLat: number; // Minimum y
+  maxLat: number; // Maximum y
 }

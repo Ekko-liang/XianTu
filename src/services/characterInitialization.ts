@@ -3,12 +3,11 @@
  * 负责角色创建生成和完整初始化流程，包括AI动态生成。
  */
 
-import { useGameStateStore } from '@/stores/gameStateStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useCharacterCreationStore } from '@/stores/characterCreationStore';
 import { toast } from '@/utils/toast';
-import type { CharacterBaseInfo, SaveData, PlayerStatus, WorldInfo, Continent, Location } from '@/types/game';
-import type { World, TalentTier, Origin, SpiritRoot, Talent } from '@/types';
+import type { CharacterBaseInfo, SaveData, PlayerStatus, WorldInfo, Continent } from '@/types/game';
+import type { World, Origin, SpiritRoot } from '@/types';
 import type { GM_Response, TavernCommand } from '@/types/AIGameMaster';
 import { AIBidirectionalSystem } from '@/utils/AIBidirectionalSystem';
 import { createEmptyThousandDaoSystem } from '@/data/thousandDaoData';
@@ -104,7 +103,7 @@ async function robustAICall<T>(
  * 计算角色的初始属性值
  */
 export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: number): PlayerStatus {
-  const { 先天六司, 天赋 } = baseInfo;
+  const { 先天六司 } = baseInfo;
 
   // 确保先天六司都是有效的数值，避免NaN
   // ⚠️ 使用 ?? 而不是 ||，因为 || 会将 0 视为 falsy 值
@@ -384,12 +383,12 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
   // 🔥 准备世界上下文信息
   const worldContext = {
     worldInfo: saveData.世界信息,
-    availableContinents: saveData.世界信息?.大陆信息?.map((continent: any) => ({
-      名称: continent.name || continent.名称,
-      描述: continent.description || continent.描述,
-      大洲边界: continent.continent_bounds || continent.大洲边界
+    availableContinents: saveData.世界信息?.大陆信息?.map((continent: Continent) => ({
+      名称: continent.名称,
+      描述: continent.描述,
+      大洲边界: continent.大洲边界
     })) || [],
-    availableLocations: saveData.世界信息?.地点信息?.map((location: any) => ({
+    availableLocations: saveData.世界信息?.地点信息?.map((location: { name?: string; 名称?: string; type?: string; 类型?: string; description?: string; 描述?: string; faction?: string; 所属势力?: string; coordinates?: unknown }) => ({
       名称: location.name || location.名称,
       类型: location.type || location.类型,
       描述: location.description || location.描述,
@@ -428,7 +427,7 @@ async () => {
   const startTime = Date.now();
   try {
     // 🔥 [新架构] 使用 AIBidirectionalSystem 生成初始消息
-    const aiSystem = AIBidirectionalSystem.getInstance();
+    const aiSystem = AIBidirectionalSystem;
     const response = await aiSystem.generateInitialMessage(systemPrompt, userPrompt);
     
     const elapsed = Date.now() - startTime;
@@ -552,7 +551,7 @@ async () => {
   }
   console.log('<<<<< End of AI Raw Commands >>>>>');
 
-  const aiSystem = AIBidirectionalSystem.getInstance();
+  const aiSystem = AIBidirectionalSystem;
   const { saveData: saveDataAfterCommands, stateChanges } = await aiSystem.processGmResponse(initialMessageResponse as GM_Response, saveData, true);
 
   const openingStory = String(initialMessageResponse.text || '');
@@ -623,7 +622,7 @@ async () => {
  * @param worldName - 世界名称
  * @returns 派生了基础字段的基础信息
  */
-function deriveBaseFieldsFromDetails(baseInfo: CharacterBaseInfo, worldName: string): CharacterBaseInfo {
+function deriveBaseFieldsFromDetails(baseInfo: CharacterBaseInfo): CharacterBaseInfo {
   const derivedInfo = { ...baseInfo };
   const creationStore = useCharacterCreationStore();
 
@@ -648,11 +647,13 @@ function deriveBaseFieldsFromDetails(baseInfo: CharacterBaseInfo, worldName: str
     console.log(`[数据校准] ✅ 同步用户选择的出身: ${authoritativeOrigin.name}`);
     derivedInfo.出生 = authoritativeOrigin;
   } else if (creationStore.characterPayload.origin_id === null) {
-    if (typeof derivedInfo.出生 !== 'object' || !derivedInfo.出生 || (derivedInfo.出生 as Origin).name.includes('随机')) {
+    // 🔥 修复：安全检查，防止访问undefined对象的属性
+    const 出生对象 = derivedInfo.出生;
+    if (typeof 出生对象 !== 'object' || !出生对象 || !(出生对象 as Origin).name || (出生对象 as Origin).name.includes('随机')) {
         console.log('[数据校准] 🎲 用户选择随机出身，当前无有效值，标记为随机');
         derivedInfo.出生 = '随机出身';
     } else {
-        console.log('[数据校准] ✅ 检测到AI已生成具体出身，保留AI结果:', (derivedInfo.出生 as Origin).name);
+        console.log('[数据校准] ✅ 检测到AI已生成具体出身，保留AI结果:', (出生对象 as Origin).name);
     }
   } else {
     console.warn('[数据校准] 警告: 无法找到权威的出身数据。');
@@ -664,11 +665,13 @@ function deriveBaseFieldsFromDetails(baseInfo: CharacterBaseInfo, worldName: str
     console.log(`[数据校准] ✅ 同步用户选择的灵根: ${authoritativeSpiritRoot.name} (${authoritativeSpiritRoot.tier})`);
     derivedInfo.灵根 = authoritativeSpiritRoot;
   } else if (creationStore.characterPayload.spirit_root_id === null) {
-    if (typeof derivedInfo.灵根 !== 'object' || !derivedInfo.灵根 || (derivedInfo.灵根 as SpiritRoot).name.includes('随机')) {
+    // 🔥 修复：安全检查，防止访问undefined对象的属性
+    const 灵根对象 = derivedInfo.灵根;
+    if (typeof 灵根对象 !== 'object' || !灵根对象 || !(灵根对象 as SpiritRoot).name || (灵根对象 as SpiritRoot).name.includes('随机')) {
         console.log('[数据校准] 🎲 用户选择随机灵根，当前无有效值，标记为随机');
         derivedInfo.灵根 = '随机灵根';
     } else{
-        console.log('[数据校准] ✅ 检测到AI已生成具体灵根，保留AI结果:', (derivedInfo.灵根 as SpiritRoot).name);
+        console.log('[数据校准] ✅ 检测到AI已生成具体灵根，保留AI结果:', (灵根对象 as SpiritRoot).name);
     }
   } else {
     console.warn('[数据校准] 警告: 无法找到权威的灵根数据。');
@@ -806,7 +809,7 @@ async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseIn
   }
 
   // 2. 从详情对象派生基础字段，确保数据一致性
-  const finalBaseInfo = deriveBaseFieldsFromDetails(mergedBaseInfo, world.name);
+  const finalBaseInfo = deriveBaseFieldsFromDetails(mergedBaseInfo);
   saveData.角色基础信息 = finalBaseInfo;
 
   // 3. 核心状态权威性校准

@@ -410,6 +410,80 @@ export async function deleteSaveData(
 }
 
 /**
+ * 🔥 新增：批量删除指定角色的所有存档数据
+ * @param characterId 角色ID
+ * @returns 删除的记录数量
+ */
+export async function deleteAllSaveDataForCharacter(characterId: string): Promise<number> {
+  try {
+    const db = await openDatabase();
+    const prefix = `${SAVEDATA_KEY_PREFIX}${characterId}_`;
+    
+    console.log(`【乾坤宝库-IDB】开始清理角色 ${characterId} 的所有存档...`);
+    
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([STORE_NAME], 'readwrite');
+      const objectStore = transaction.objectStore(STORE_NAME);
+      
+      // 获取所有键
+      const getAllKeysRequest = objectStore.getAllKeys();
+      
+      getAllKeysRequest.onsuccess = () => {
+        const allKeys = getAllKeysRequest.result as string[];
+        // 筛选出该角色的所有存档键
+        const keysToDelete = allKeys.filter(key =>
+          typeof key === 'string' && key.startsWith(prefix)
+        );
+        
+        console.log(`【乾坤宝库-IDB】找到 ${keysToDelete.length} 个存档记录待删除:`, keysToDelete);
+        
+        if (keysToDelete.length === 0) {
+          console.log(`【乾坤宝库-IDB】没有找到需要删除的存档`);
+          resolve(0);
+          return;
+        }
+        
+        // 批量删除
+        let deleteCount = 0;
+        let errorCount = 0;
+        
+        keysToDelete.forEach(key => {
+          const deleteRequest = objectStore.delete(key);
+          
+          deleteRequest.onsuccess = () => {
+            deleteCount++;
+            console.log(`【乾坤宝库-IDB】✅ 已删除: ${key}`);
+            
+            if (deleteCount + errorCount === keysToDelete.length) {
+              console.log(`【乾坤宝库-IDB】批量删除完成，成功 ${deleteCount} 个，失败 ${errorCount} 个`);
+              resolve(deleteCount);
+            }
+          };
+          
+          deleteRequest.onerror = () => {
+            errorCount++;
+            console.error(`【乾坤宝库-IDB】❌ 删除失败: ${key}`, deleteRequest.error);
+            
+            if (deleteCount + errorCount === keysToDelete.length) {
+              console.log(`【乾坤宝库-IDB】批量删除完成，成功 ${deleteCount} 个，失败 ${errorCount} 个`);
+              resolve(deleteCount);
+            }
+          };
+        });
+      };
+      
+      getAllKeysRequest.onerror = () => {
+        console.error('【乾坤宝库-IDB】获取所有键失败:', getAllKeysRequest.error);
+        reject(getAllKeysRequest.error);
+      };
+    });
+  } catch (error) {
+    console.error('【乾坤宝库-IDB】批量删除存档数据时出错:', error);
+    throw error;
+  }
+}
+
+/**
  * 从 IndexedDB 加载任意数据
  * @param key 要加载的数据的键
  * @returns 数据或 null

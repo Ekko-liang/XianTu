@@ -552,26 +552,6 @@ const filteredSects = computed(() => {
   return filtered.sort((a, b) => rank(a.等级) - rank(b.等级));
 });
 
-// 🔥 [清理] 移除未使用的 formatLocation 函数
-// const formatLocation = (location: unknown): string => {
-//   if (!location) return '未知';
-//   if (typeof location === 'string') return location;
-//   if (typeof location === 'object' && location !== null) {
-//     const loc = location as { 名称?: string; 大洲?: string; longitude?: number; latitude?: number };
-//     // 如果有具体地名信息，优先显示
-//     if (loc.名称 && loc.大洲) {
-//       return `${loc.名称} (${loc.大洲})`;
-//     }
-//     if (loc.名称) {
-//       return loc.名称;
-//     }
-//     if (loc.大洲) {
-//       return `位于${loc.大洲}`;
-//     }
-//   }
-//   return '未知';
-// };
-
 // 获取大洲名称
 const getContinentName = (sect: WorldFaction): string => {
   // 优先使用大洲字段
@@ -603,9 +583,9 @@ const getContinentName = (sect: WorldFaction): string => {
   }
 
   // 如果都找不到，根据位置推测
-  if (sect.位置 && typeof sect.位置 === 'object' && 'longitude' in sect.位置 && 'latitude' in sect.位置) {
-    const lng = sect.位置.longitude;
-    const lat = sect.位置.latitude;
+  if (sect.位置 && typeof sect.位置 === 'object' && 'x' in sect.位置 && 'y' in sect.位置) {
+    const lng = sect.位置.x;
+    const lat = sect.位置.y;
 
     // 简单的地理分区推测（可根据实际坐标范围调整）
     if (lng < 110 && lat > 40) return '北境雪域';

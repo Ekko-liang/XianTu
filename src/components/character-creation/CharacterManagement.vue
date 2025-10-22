@@ -460,12 +460,22 @@ const updateScreenWidth = () => {
   }
 };
 
-onMounted(() => {
+onMounted(async () => {
   window.addEventListener('resize', updateScreenWidth);
   updateScreenWidth(); // 初始化时设置
 
+  // 预加载所有角色的存档数据以正确显示存档数量
+  const characterIds = Object.keys(characterStore.rootState.角色列表);
+  for (const charId of characterIds) {
+    try {
+      await characterStore.loadCharacterSaves(charId);
+    } catch (error) {
+      console.warn(`[CharacterManagement] 预加载角色 ${charId} 存档失败:`, error);
+    }
+  }
+
   // 自动选中第一个角色（如果存在）
-  const firstCharId = Object.keys(characterStore.rootState.角色列表)[0];
+  const firstCharId = characterIds[0];
   if (firstCharId) {
     selectCharacter(firstCharId);
   }

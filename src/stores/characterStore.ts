@@ -531,6 +531,16 @@ export const useCharacterStore = defineStore('characterV3', () => {
       rootState.value.当前激活存档 = null;
     }
 
+    // 🔥 [核心修复] 级联删除：清理 IndexedDB 中该角色的所有存档数据
+    try {
+      console.log('[角色商店-删除] 开始清理 IndexedDB 中的所有存档数据...');
+      const deletedCount = await storage.deleteAllSaveDataForCharacter(charId);
+      console.log(`[角色商店-删除] ✅ 已清理 ${deletedCount} 个存档记录`);
+    } catch (error) {
+      console.error('[角色商店-删除] 清理 IndexedDB 存档数据失败:', error);
+      toast.warning('清理存档数据时出现错误，部分数据可能未删除');
+    }
+
     // 从 rootState 中删除角色数据
     console.log('[角色商店-删除] 执行 delete 操作');
     delete rootState.value.角色列表[charId];
@@ -1035,6 +1045,16 @@ export const useCharacterStore = defineStore('characterV3', () => {
       rootState.value.当前激活存档 = null;
     }
 
+    // 🔥 [核心修复] 从 IndexedDB 删除存档数据
+    try {
+      console.log(`[角色商店-删除存档] 从 IndexedDB 删除存档: ${charId}/${slotKey}`);
+      await storage.deleteSaveData(charId, slotKey);
+      console.log('[角色商店-删除存档] ✅ IndexedDB 存档数据已删除');
+    } catch (error) {
+      console.error('[角色商店-删除存档] 删除 IndexedDB 存档数据失败:', error);
+      toast.warning('清理存档数据时出现错误');
+    }
+
     // 删除存档
     console.log('[角色商店-删除存档] 执行 delete 操作');
     delete profile.存档列表[slotKey];
@@ -1524,25 +1544,62 @@ export const useCharacterStore = defineStore('characterV3', () => {
       throw new Error('无法执行回滚：无效的存档状态');
     }
 
-    const lastConversationData = profile.存档列表['上次对话']?.存档数据;
-    if (!lastConversationData) {
-      throw new Error('没有可用于回滚的“上次对话”存档');
+    const lastConversationSlot = profile.存档列表['上次对话'];
+
+    // 🔥 修复：如果"上次对话"存档数据不在内存中，先从IndexedDB加载
+    if (!lastConversationSlot?.存档数据) {
+      debug.log('角色商店', '从IndexedDB加载"上次对话"存档数据');
+      const loadedData = await storage.loadSaveData(active.角色ID, '上次对话');
+      if (!loadedData) {
+        throw new Error('没有可用于回滚的"上次对话"存档');
+      }
+      if (lastConversationSlot) {
+        lastConversationSlot.存档数据 = loadedData;
+      }
     }
 
-    // 1. 用“上次对话”的数据深拷贝覆盖当前激活的存档数据
+    const lastConversationData = lastConversationSlot?.存档数据;
+    if (!lastConversationData) {
+      throw new Error('没有可用于回滚的"上次对话"存档');
+    }
+
+    // 1. 用"上次对话"的数据深拷贝覆盖当前激活的存档数据
     const activeSlot = profile.存档列表[active.存档槽位];
     if (!activeSlot) {
       throw new Error(`找不到当前激活的存档槽位: ${active.存档槽位}`);
     }
 
-    activeSlot.存档数据 = JSON.parse(JSON.stringify(lastConversationData));
+    const rolledBackData = JSON.parse(JSON.stringify(lastConversationData));
+    activeSlot.存档数据 = rolledBackData;
     activeSlot.保存时间 = new Date().toISOString();
 
+    // 🔥 修复：更新元数据
+    const playerState = rolledBackData.玩家角色状态;
+    if (playerState) {
+      activeSlot.境界 = playerState.境界?.名称 || '凡人';
+      activeSlot.位置 = playerState.位置?.描述 || '未知';
+    }
+    if (rolledBackData.游戏时间) {
+      const time = rolledBackData.游戏时间;
+      activeSlot.游戏内时间 = `${time.年}年${time.月}月${time.日}日`;
+    }
+
+    // 🔥 修复：触发响应式更新
+    if (profile.模式 === '单机' && profile.存档列表) {
+      rootState.value.角色列表[active.角色ID].存档列表 = {
+        ...profile.存档列表,
+        [active.存档槽位]: { ...activeSlot }
+      };
+    }
+    triggerRef(rootState);
+
     // 2. 保存到IndexedDB
+    await storage.saveSaveData(active.角色ID, active.存档槽位, rolledBackData);
     await commitMetadataToStorage();
 
-    // 3. 保存更新后的数据到 IndexedDB
-    await saveActiveCharacterToStorage(active.角色ID);
+    // 🔥 修复：同步到gameStateStore，确保UI立即更新
+    const gameStateStore = useGameStateStore();
+    gameStateStore.loadFromSaveData(rolledBackData);
 
     debug.log('角色商店', '✅ 已成功回滚到上次对话前的状态');
   };

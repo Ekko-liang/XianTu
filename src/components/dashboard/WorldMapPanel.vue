@@ -96,8 +96,8 @@
               <!-- 大洲范围多边形 - 优化紧密分布的显示效果 -->
               <polygon
                 v-if="(continent.continent_bounds || continent.大洲边界) && (continent.continent_bounds || continent.大洲边界)!.length > 0"
-                :points="(continent.continent_bounds || continent.大洲边界)!.map((point: { longitude: number; latitude: number; }) => {
-                  const coords = geoToVirtual(point.longitude, point.latitude);
+                :points="(continent.continent_bounds || continent.大洲边界)!.map((point: { x: number; y: number; }) => {
+                  const coords = geoToVirtual(point.x, point.y);
                   return `${coords.x},${coords.y}`;
                 }).join(' ')"
                 fill="rgba(59, 130, 246, 0.12)"
@@ -435,7 +435,7 @@ import { useGameStateStore } from '@/stores/gameStateStore';
 // Note: Local CultivationLocation interface is removed, using WorldLocation from types.
 
 // 额外的辅助类型，移除 any 使用，保证属性访问安全
-type LngLat = { longitude: number; latitude: number };
+type LngLat = { x: number; y: number };
 
 // 原始势力/地点输入的最小形状（只描述本组件访问到的字段）
 interface RawFaction {
@@ -553,11 +553,11 @@ const playerPosition = computed(() => {
     return { x: location.x, y: location.y };
   }
 
-  // 其次尝试 longitude, latitude 字段（AI设置的经纬度）
+  // 其次尝试 x, y 字段（AI设置的坐标）
   const loc = location as any;
-  if (loc.longitude !== undefined && loc.latitude !== undefined) {
-    const virtualPos = geoToVirtual(loc.longitude, loc.latitude);
-    console.log('[玩家定位] 从 longitude/latitude 转换坐标:', virtualPos);
+  if (loc.x !== undefined && loc.y !== undefined) {
+    const virtualPos = geoToVirtual(loc.x, loc.y);
+    console.log('[玩家定位] 从 x/y 转换坐标:', virtualPos);
     return virtualPos;
   }
 
@@ -889,18 +889,18 @@ const getTerritoryCenter = (bounds: { x: number; y: number }[]): { x: number; y:
 };
 
 // 计算大洲范围中心点
-const getContinentCenter = (bounds: { longitude: number; latitude: number }[]): { x: number; y: number } => {
+const getContinentCenter = (bounds: { x: number; y: number }[]): { x: number; y: number } => {
   if (!bounds || bounds.length === 0) {
     return { x: 0, y: 0 };
   }
 
-  const sumLng = bounds.reduce((sum, point) => sum + point.longitude, 0);
-  const sumLat = bounds.reduce((sum, point) => sum + point.latitude, 0);
-  
-  const centerLng = sumLng / bounds.length;
-  const centerLat = sumLat / bounds.length;
+  const sumX = bounds.reduce((sum, point) => sum + point.x, 0);
+  const sumY = bounds.reduce((sum, point) => sum + point.y, 0);
 
-  return geoToVirtual(centerLng, centerLat);
+  const centerX = sumX / bounds.length;
+  const centerY = sumY / bounds.length;
+
+  return geoToVirtual(centerX, centerY);
 };
 
 // 计算弹窗位置样式
@@ -1374,10 +1374,10 @@ const loadFactionsData = async () => {
           if (territoryData && Array.isArray(territoryData) && territoryData.length >= 3) {
             const converted: { x: number; y: number }[] = [];
             territoryData.forEach((point: any) => {
-              const lng = Number(point?.longitude);
-              const lat = Number(point?.latitude);
-              if (Number.isFinite(lng) && Number.isFinite(lat)) {
-                const v = geoToVirtual(lng, lat);
+              const x = Number(point?.x);
+              const y = Number(point?.y);
+              if (Number.isFinite(x) && Number.isFinite(y)) {
+                const v = geoToVirtual(x, y);
                 converted.push({ x: v.x, y: v.y });
               }
             });
@@ -1389,9 +1389,9 @@ const loadFactionsData = async () => {
           // 总部位置
           let headquarters: { x: number; y: number } | undefined;
           const hqData = factionObj.位置 || factionObj.headquarters || factionObj.总部位置;
-          if (hqData && typeof hqData === 'object' && 'longitude' in hqData && 'latitude' in hqData) {
+          if (hqData && typeof hqData === 'object' && 'x' in hqData && 'y' in hqData) {
             const hqCoords = hqData as LngLat;
-            headquarters = geoToVirtual(hqCoords.longitude, hqCoords.latitude);
+            headquarters = geoToVirtual(hqCoords.x, hqCoords.y);
           } else if (typeof hqData === 'string') {
             const m = hqData.match(/(-?\d+\.?\d*)\D+(-?\d+\.?\d*)/);
             if (m) {
@@ -1477,22 +1477,22 @@ const loadLocationsData = async () => {
           const locationObj = location as RawLocation;
           // 处理坐标 - 兼容不同的数据格式
           let coordinates: { x: number; y: number };
-          if (locationObj.coordinates && typeof locationObj.coordinates === 'object' && 'longitude' in locationObj.coordinates) {
-            // WorldLocation中的coordinates字段：{ coordinates: { longitude, latitude } }
+          if (locationObj.coordinates && typeof locationObj.coordinates === 'object' && 'x' in locationObj.coordinates) {
+            // WorldLocation中的coordinates字段：{ coordinates: { x, y } }
             const coords = locationObj.coordinates as LngLat;
-            coordinates = geoToVirtual(Number((coords as any).longitude), Number((coords as any).latitude));
+            coordinates = geoToVirtual(Number((coords as any).x), Number((coords as any).y));
             console.log(`🏯 [地点加载] 使用coordinates字段加载地点: ${locationObj.名称 || locationObj.name}`, locationObj.coordinates);
-          } else if (locationObj.位置 && typeof locationObj.位置 === 'object' && 'longitude' in locationObj.位置) {
-            // 新格式：{ 位置: { longitude, latitude } }
+          } else if (locationObj.位置 && typeof locationObj.位置 === 'object' && 'x' in locationObj.位置) {
+            // 新格式：{ 位置: { x, y } }
             const pos = locationObj.位置 as LngLat;
-            coordinates = geoToVirtual(Number(pos.longitude), Number(pos.latitude));
+            coordinates = geoToVirtual(Number(pos.x), Number(pos.y));
             console.log(`🏯 [地点加载] 使用位置字段加载地点: ${locationObj.名称 || locationObj.name}`, locationObj.位置);
           } else {
-            // 生成合理经纬度范围再转换，避免像素随机导致分布失真
-            const fallbackLng = 107 + Math.random() * 7; // 107-114
-            const fallbackLat = 33 + Math.random() * 5;  // 33-38
-            coordinates = geoToVirtual(fallbackLng, fallbackLat);
-            console.warn(`🏯 [地点加载] 地点坐标缺失，使用经纬度回退: ${locationObj.名称 || locationObj.name}`, { longitude: fallbackLng, latitude: fallbackLat });
+            // 生成合理坐标范围再转换，避免像素随机导致分布失真
+            const fallbackX = 107 + Math.random() * 7; // 107-114
+            const fallbackY = 33 + Math.random() * 5;  // 33-38
+            coordinates = geoToVirtual(fallbackX, fallbackY);
+            console.warn(`🏯 [地点加载] 地点坐标缺失，使用坐标回退: ${locationObj.名称 || locationObj.name}`, { x: fallbackX, y: fallbackY });
           }
 
           // 处理不同的数据结构格式
