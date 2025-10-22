@@ -331,7 +331,7 @@ ${this.previousErrors.join('\n')}
           势力范围: faction.territory || faction.territory_bounds || faction.势力范围 || [],
           描述: faction.description || faction.描述,
           特色: faction.specialties || faction.features || faction.特色 || [],
-          与玩家关系: faction.player_relationship || faction.与玩家关系 || '中立',
+          与玩家关系: faction.与玩家关系 || '中立',
           声望值: calculated.声望值,
           
           // 组织架构（如果AI返回了则映射并补充）
@@ -371,7 +371,7 @@ ${this.previousErrors.join('\n')}
       地点信息: (rawData.locations || []).map((location: Record<string, any>) => ({
         名称: location.name || location.名称,
         类型: location.type || location.类型,
-        位置: location.position || location.location || location.位置,
+        位置: location.位置,
         coordinates: location.coordinates,
         描述: location.description || location.描述,
         特色: location.features || location.特色,

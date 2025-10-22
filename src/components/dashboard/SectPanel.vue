@@ -362,19 +362,19 @@
                   <div class="member-status">
                     <div class="status-item">
                       <span class="status-label">职位</span>
-                      <span class="status-value position">{{ playerSectInfo?.position || '散修' }}</span>
+                      <span class="status-value position">{{ playerSectInfo?.职位 || '散修' }}</span>
                     </div>
                     <div class="status-item">
                       <span class="status-label">贡献点</span>
-                      <span class="status-value contribution">{{ playerSectInfo?.contribution || 0 }}</span>
+                      <span class="status-value contribution">{{ playerSectInfo?.贡献 || 0 }}</span>
                     </div>
                     <div class="status-item">
                       <span class="status-label">声望</span>
-                      <span class="status-value reputation">{{ playerSectInfo?.reputation || 0 }}</span>
+                      <span class="status-value reputation">{{ playerSectInfo?.声望 || 0 }}</span>
                     </div>
                     <div class="status-item">
                       <span class="status-label">加入时间</span>
-                      <span class="status-value join-date">{{ formatJoinDate(playerSectInfo?.joinDate) }}</span>
+                      <span class="status-value join-date">{{ formatJoinDate(playerSectInfo?.加入日期) }}</span>
                     </div>
                   </div>
                 </div>
@@ -489,7 +489,7 @@ const sectSystemData = computed(() => {
       等级: s.level,
       描述: s.description,
       特色: s.specialties,
-      与玩家关系: s.relationshipToPlayer,
+      与玩家关系: s.与玩家关系,
     })) as WorldFaction[];
     availableSects = [...availableSects, ...sectsFromSystem];
   }
@@ -745,7 +745,7 @@ const getRelationshipClass = (relationship: string): string => {
 };
 
 const isCurrentSect = (sect: WorldFaction): boolean => {
-  return playerSectInfo.value?.sectName === sect.名称;
+  return playerSectInfo.value?.宗门名称 === sect.名称;
 };
 
 const formatJoinDate = (dateStr: string | undefined): string => {

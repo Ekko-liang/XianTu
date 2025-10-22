@@ -122,7 +122,7 @@ export interface GameCharacter {
   // ==================== 社交关系 ====================
   social: {
     faction?: string;
-    position?: string;
+    职位?: string;
     master?: string;
     disciples?: string[];
     dao_companion?: string;
@@ -130,7 +130,7 @@ export interface GameCharacter {
       value: number;
       type: string;
     }>;
-    reputation: Record<string, number>;
+    声望: Record<string, number>;
   };
 
   // ==================== 隐藏状态 ====================

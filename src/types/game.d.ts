@@ -295,14 +295,14 @@ export type RealmLevel = '练气' | '筑基' | '金丹' | '元婴' | '化神' | 
 
 /** 宗门成员信息 */
 export interface SectMemberInfo {
-  sectName: string; // 宗门名称
-  sectType: SectType; // 宗门类型
-  position: SectPosition; // 在宗门中的职位
-  contribution: number; // 贡献点数
-  relationship: SectRelationship; // 与宗门的关系
-  reputation: number; // 在宗门中的声望
-  joinDate: string; // 加入日期
-  description?: string; // 描述
+  宗门名称: string;
+  宗门类型: SectType;
+  职位: SectPosition;
+  贡献: number;
+  关系: SectRelationship;
+  声望: number;
+  加入日期: string;
+  描述?: string;
   // 新增字段（简化版）
   师父?: string; // 师父姓名
   同门关系?: string[]; // 同门师兄弟姓名列表
@@ -319,8 +319,8 @@ export interface SectInfo {
   specialties: string[]; // 宗门特色
   // removed: 不再存储数值型“实力评估”
   memberCount: SectMemberCount; // 成员数量统计
-  relationshipToPlayer: SectRelationship; // 与玩家的关系
-  reputation: number; // 玩家在该宗门的声望
+  与玩家关系: SectRelationship; // 与玩家的关系
+  声望: number; // 玩家在该宗门的声望
   canJoin: boolean; // 是否可以加入
   joinRequirements?: string[]; // 加入条件
   benefits?: string[]; // 加入后的好处
@@ -491,7 +491,7 @@ export interface CharacterStatusForDisplay {
   mana: string;
   spirit: string;
   lifespan: ValuePair<number>;
-  reputation: number;
+  声望: number;
   cultivation_exp: number;
   cultivation_exp_max: number;
   root_bone: number;

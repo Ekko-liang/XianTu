@@ -703,22 +703,22 @@
             </h3>
             <div class="sect-info">
               <div class="sect-header">
-                <h4 class="sect-name">{{ playerStatus?.宗门信息?.sectName }}</h4>
-                <span class="sect-type">{{ playerStatus?.宗门信息?.sectType }}</span>
+                <h4 class="sect-name">{{ playerStatus?.宗门信息?.宗门名称 }}</h4>
+                <span class="sect-type">{{ playerStatus?.宗门信息?.宗门类型 }}</span>
               </div>
               <div class="sect-details">
                 <div class="detail-row">
                   <span class="detail-label">职位</span>
-                  <span class="detail-value">{{ playerStatus?.宗门信息?.position }}</span>
+                  <span class="detail-value">{{ playerStatus?.宗门信息?.职位 }}</span>
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">贡献值</span>
-                  <span class="detail-value">{{ playerStatus?.宗门信息?.contribution }}</span>
+                  <span class="detail-value">{{ playerStatus?.宗门信息?.贡献 }}</span>
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">关系</span>
-                  <span class="detail-value" :class="`relationship-${playerStatus?.宗门信息?.relationship}`">
-                    {{ playerStatus?.宗门信息?.relationship }}
+                  <span class="detail-value" :class="`relationship-${playerStatus?.宗门信息?.关系}`">
+                    {{ playerStatus?.宗门信息?.关系 }}
                   </span>
                 </div>
               </div>
