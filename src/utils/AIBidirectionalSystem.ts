@@ -159,7 +159,7 @@ ${DATA_STRUCTURE_DEFINITIONS}
       // 如果有短期记忆，作为独立的 assistant 消息发送
       if (shortTermMemory.length > 0) {
         injects.push({
-          content: `# 短期记忆\n${shortTermMemory.join('\n')}`,
+          content: `# 【最近事件】\n${shortTermMemory.join('\n')}。根据这刚刚发生的文本事件，合理生成下一次文本信息，要保证衔接流畅，没有断层或者不合理的文本信息`,
           role: 'assistant',
           depth: 0,
           position: 'before',

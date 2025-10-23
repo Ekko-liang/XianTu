@@ -70,11 +70,13 @@ export const LOCAL_WORLDS: Omit<World, 'source'>[] = [
 //                           本地天资数据
 // =======================================================================
 export const LOCAL_TALENT_TIERS: Omit<TalentTier, 'source'>[] = [
-  { id: 1, name: '废柴', description: '资质平平，毫无出奇之处。', total_points: 10, rarity: 1, color: '#808080' },
-  { id: 2, name: '凡人', description: '芸芸众生中的一员，不好不坏。', total_points: 20, rarity: 2, color: '#FFFFFF' },
-  { id: 3, name: '俊杰', description: '百里挑一的人才，略有不凡。', total_points: 30, rarity: 3, color: '#4169E1' },
-  { id: 4, name: '天骄', description: '千年难遇的奇才，注定耀眼。', total_points: 40, rarity: 4, color: '#9932CC' },
-  { id: 5, name: '妖孽', description: '万古无一的怪物，逆天而行。', total_points: 50, rarity: 5, color: '#FFD700' },
+  { id: 1, name: '废柴', description: '资质平平，毫无出奇之处，仙路渺茫。', total_points: 10, rarity: 1, color: '#808080' },
+  { id: 2, name: '凡人', description: '芸芸众生中的一员，不好不坏，有缘可入仙途。', total_points: 20, rarity: 2, color: '#FFFFFF' },
+  { id: 3, name: '俊杰', description: '百里挑一的人才，略有不凡，在宗门中可为内门弟子。', total_points: 30, rarity: 3, color: '#4169E1' },
+  { id: 4, name: '天骄', description: '千年难遇的奇才，注定耀眼，是宗门未来的希望。', total_points: 40, rarity: 4, color: '#9932CC' },
+  { id: 5, name: '妖孽', description: '万古无一的怪物，逆天而行，可与上古神魔比肩。', total_points: 50, rarity: 5, color: '#FFD700' },
+  { id: 6, name: '谪仙转世', description: '仙人转世，天生道胎，记忆蒙尘但灵性不昧，修行一日千里。', total_points: 60, rarity: 6, color: '#FF4500' },
+  { id: 7, name: '大道之子', description: '大道化身，天生与道相合，万法皆通，是此纪元的应劫之人。', total_points: 70, rarity: 7, color: '#DAA520' },
 ];
 
 // =======================================================================

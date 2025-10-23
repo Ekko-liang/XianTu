@@ -505,6 +505,12 @@ export const useGameStateStore = defineStore('gameState', {
       if (!Array.isArray(this.memory.短期记忆)) {
         this.memory.短期记忆 = [];
       }
+      if (!Array.isArray(this.memory.中期记忆)) {
+        this.memory.中期记忆 = [];
+      }
+      if (!Array.isArray(this.memory.隐式中期记忆)) {
+        this.memory.隐式中期记忆 = [];
+      }
 
       // 添加时间前缀（使用"仙道"与其他地方保持一致）
       const gameTime = this.gameTime;
@@ -517,6 +523,25 @@ export const useGameStateStore = defineStore('gameState', {
       const finalContent = hasTimePrefix ? content : `${timePrefix}${content}`;
 
       this.memory.短期记忆.unshift(finalContent); // 最新的在前
+      this.memory.隐式中期记忆.unshift(finalContent); // 同步添加到隐式中期记忆
+
+      // 检查溢出，从localStorage读取配置
+      const maxShortTerm = (() => {
+        try {
+          const settings = localStorage.getItem('memory-settings');
+          return settings ? JSON.parse(settings).maxShortTerm || 3 : 3;
+        } catch { return 3; }
+      })();
+
+      while (this.memory.短期记忆.length > maxShortTerm) {
+        this.memory.短期记忆.pop(); // 移除最旧的
+        const implicit = this.memory.隐式中期记忆.pop();
+        if (implicit && !this.memory.中期记忆.includes(implicit)) {
+          this.memory.中期记忆.push(implicit);
+          console.log('[gameStateStore] ✅ 短期记忆溢出，已转移到中期记忆');
+        }
+      }
+
       console.log('[gameStateStore] ✅ 已添加到短期记忆', finalContent.substring(0, 50) + '...');
     }
   },

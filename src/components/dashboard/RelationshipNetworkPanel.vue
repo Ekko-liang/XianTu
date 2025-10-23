@@ -151,7 +151,7 @@
                    <div v-if="selectedPerson.天赋?.length">
                       <h6 class="subsection-title">天赋能力</h6>
                       <div class="talents-grid">
-                        <span v-for="(talent, index) in selectedPerson.天赋" :key="index" class="talent-tag" :title="getTalentDescription(talent)">
+                        <span v-for="(talent, index) in selectedPerson.天赋" :key="index" class="talent-tag" @click="showTalentDetail(talent)" style="cursor: pointer;">
                           {{ getTalentName(talent) }}
                         </span>
                       </div>
@@ -272,7 +272,7 @@
                         <div class="exp-icon">💕</div>
                         <div class="exp-content">
                           <div class="exp-label">性交总次数</div>
-                          <div class="exp-value">{{ selectedPerson.私密信息.性经验总次数 || 0 }}次</div>
+                          <div class="exp-value">{{ selectedPerson.私密信息.性交总次数 || 0 }}次</div>
                         </div>
                       </div>
                       <div class="exp-item">
@@ -310,44 +310,15 @@
                           <div class="part-stat">
                             <span class="stat-label">开发度</span>
                             <div class="stat-bar-mini">
-                              <div class="stat-bar-fill development" :style="{ width: (part.开发程度 || 0) + '%' }"></div>
+                              <div class="stat-bar-fill development" :style="{ width: (part.开发度 || 0) + '%' }"></div>
                             </div>
-                            <span class="stat-value">{{ part.开发程度 || 0 }}%</span>
+                            <span class="stat-value">{{ part.开发度 || 0 }}%</span>
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <!-- 身体部位开发 -->
-                  <div class="nsfw-subsection" v-if="selectedPerson.私密信息.身体部位?.length">
-                    <h6 class="subsection-title">身体部位开发</h6>
-                    <div class="body-parts-list">
-                      <div v-for="part in selectedPerson.私密信息.身体部位" :key="part.部位名称" class="body-part-item">
-                        <div class="part-header">
-                          <span class="part-name">{{ part.部位名称 }}</span>
-                          <span v-if="part.特殊标记" class="part-mark">{{ part.特殊标记 }}</span>
-                        </div>
-                        <div v-if="part.描述" class="part-description">{{ part.描述 }}</div>
-                        <div class="part-stats">
-                          <div class="part-stat">
-                            <span class="stat-label">敏感度</span>
-                            <div class="stat-bar-mini">
-                              <div class="stat-bar-fill sensitivity" :style="{ width: (part.敏感度 || 0) + '%' }"></div>
-                            </div>
-                            <span class="stat-value">{{ part.敏感度 || 0 }}%</span>
-                          </div>
-                          <div class="part-stat">
-                            <span class="stat-label">开发度</span>
-                            <div class="stat-bar-mini">
-                              <div class="stat-bar-fill development" :style="{ width: (part.开发程度 || 0) + '%' }"></div>
-                            </div>
-                            <span class="stat-value">{{ part.开发程度 || 0 }}%</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
 
                   <!-- 体液状态 -->
                   <div class="nsfw-subsection" v-if="selectedPerson.私密信息.体液分泌状态">
@@ -992,6 +963,15 @@ const getTalentDescription = (talent: any): string => {
     return talent.描述 || talent.description || talent['描述'] || talent['description'] || '';
   }
   return '';
+};
+
+// 显示天赋详情
+const showTalentDetail = (talent: any) => {
+  const name = getTalentName(talent);
+  const desc = getTalentDescription(talent);
+  if (desc) {
+    uiStore.showInfoDialog({ title: name, message: desc });
+  }
 };
 
 const confirmDeleteNpc = (person: NpcProfile) => {

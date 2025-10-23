@@ -29,13 +29,12 @@
       <div class="current-narrative">
         <!-- AI处理时显示 -->
         <div v-if="isAIProcessing" class="ai-processing-display">
-          <!-- 如果有流式内容则显示 -->
-          <div v-if="useStreaming && streamingContent" class="streaming-content">
+          <div class="streaming-content">
             <div class="narrative-meta streaming-meta">
               <span class="narrative-time">{{ formatCurrentTime() }}</span>
               <div class="streaming-indicator">
                 <span class="streaming-dot"></span>
-                <span v-if="streamingContent" class="streaming-text">{{ streamingCharCount }} 字</span>
+                <span class="streaming-text">{{ streamingContent ? `${streamingCharCount} 字` : '天道感应中...' }}</span>
               </div>
               <!-- 重置按钮 - 右侧 -->
               <button
@@ -46,35 +45,8 @@
                 <RotateCcw :size="16" />
               </button>
             </div>
-            <div class="narrative-text">
+            <div class="narrative-text" v-if="streamingContent">
               <FormattedText :text="streamingContent" />
-            </div>
-          </div>
-          <!-- 等待响应的加载动画 -->
-          <div v-else class="waiting-for-stream">
-            <div class="narrative-meta streaming-meta">
-              <span class="narrative-time">{{ formatCurrentTime() }}</span>
-              <div class="streaming-indicator">
-                <span class="streaming-dot"></span>
-                <span class="streaming-text">天道感应中...</span>
-              </div>
-              <!-- 重置按钮 - 右侧 -->
-              <button
-                @click="forceResetAIProcessingState"
-                class="reset-state-btn"
-                title="如果长时间无响应，点击此处重置状态"
-              >
-                <RotateCcw :size="16" />
-              </button>
-            </div>
-            <div class="narrative-text">
-              <div class="waiting-animation">
-                <div class="thinking-dots">
-                  <div class="dot"></div>
-                  <div class="dot"></div>
-                  <div class="dot"></div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -1038,7 +1010,6 @@ const retryAIResponse = async (
 const handleStreamingResponse = (chunk: string) => {
   if (streamingMessageIndex.value !== null) {
     streamingContent.value += chunk;
-    // 自动滚动到底部
     nextTick(() => {
       if (contentAreaRef.value) {
         contentAreaRef.value.scrollTop = contentAreaRef.value.scrollHeight;
