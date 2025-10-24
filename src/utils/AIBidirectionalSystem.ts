@@ -249,12 +249,17 @@ ${DATA_STRUCTURE_DEFINITIONS}
       saveData.叙事历史 = [];
     }
 
+    // 处理text：添加到叙事历史和短期记忆
     if (response.text?.trim()) {
+      const timePrefix = this._formatGameTime(saveData.游戏时间);
+      const textContent = response.text.trim();
+
+      // 1. 添加到叙事历史（用于UI显示）
       const newNarrative = {
         type: 'gm' as const,
         role: 'assistant' as const,
-        content: `${this._formatGameTime(saveData.游戏时间)}${response.text.trim()}`,
-        time: this._formatGameTime(saveData.游戏时间)
+        content: `${timePrefix}${textContent}`,
+        time: timePrefix
       };
       saveData.叙事历史.push(newNarrative);
       changes.push({
@@ -263,6 +268,11 @@ ${DATA_STRUCTURE_DEFINITIONS}
         oldValue: undefined,
         newValue: cloneDeep(newNarrative)
       });
+
+      // 2. 添加到短期记忆（用于AI上下文）
+      if (!saveData.记忆) saveData.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [], 隐式中期记忆: [] };
+      if (!saveData.记忆.短期记忆) saveData.记忆.短期记忆 = [];
+      saveData.记忆.短期记忆.push(`${timePrefix}${textContent}`);
     }
 
     // 处理mid_term_memory：添加到隐式中期记忆
