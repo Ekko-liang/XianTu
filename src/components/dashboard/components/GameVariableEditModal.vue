@@ -233,6 +233,10 @@ const handleSave = () => {
 
   // 更新 localEditingItem 的值为正确的类型
   try {
+    console.log('=== [Modal诊断] 开始保存 ===')
+    console.log('[Modal-1] editingValue.value (原始字符串):', editingValue.value)
+    console.log('[Modal-2] selectedType:', selectedType.value)
+
     let finalValue: any = editingValue.value
 
     switch (selectedType.value) {
@@ -248,7 +252,10 @@ const handleSave = () => {
         break
       case 'object':
       case 'array':
+        console.log('[Modal-3] 解析前的JSON字符串:', editingValue.value)
         finalValue = JSON.parse(editingValue.value)
+        console.log('[Modal-4] 解析后的对象:', finalValue)
+        console.log('[Modal-5] 解析后的JSON:', JSON.stringify(finalValue))
         break
       case 'string':
       default:
@@ -257,6 +264,8 @@ const handleSave = () => {
     }
 
     localEditingItem.value.value = finalValue
+    console.log('[Modal-6] 即将emit的localEditingItem:', localEditingItem.value)
+    console.log('[Modal-7] 即将emit的finalValue:', finalValue, 'JSON:', JSON.stringify(finalValue))
     emit('save', localEditingItem.value)
   } catch (e) {
     jsonError.value = '保存失败: ' + (e instanceof Error ? e.message : '未知错误')

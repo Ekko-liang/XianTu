@@ -46,7 +46,7 @@ class AIBidirectionalSystemClass {
   public async processPlayerAction(
     userMessage: string,
     character: CharacterProfile,
-    options?: ProcessOptions
+    options?: ProcessOptions & { generation_id?: string }
   ): Promise<GM_Response | null> {
     const gameStateStore = useGameStateStore();
     const tavernHelper = getTavernHelper();
@@ -54,6 +54,9 @@ class AIBidirectionalSystemClass {
     if (!tavernHelper) {
       throw new Error('TavernHelper 未初始化，请检查配置');
     }
+
+    // 生成唯一的generation_id，如果未提供
+    const generationId = options?.generation_id || `gen_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     // 1. 获取当前存档数据
     options?.onProgressUpdate?.('获取存档数据…');
@@ -168,6 +171,7 @@ ${DATA_STRUCTURE_DEFINITIONS}
       const response = await tavernHelper!.generate({
         user_input: userActionForAI,
         should_stream: options?.useStreaming || false,
+        generation_id: generationId, // 传入generation_id以支持事件监听
         ...(options?.onStreamChunk ? { onStreamChunk: options.onStreamChunk } : {}),
         injects,
       });

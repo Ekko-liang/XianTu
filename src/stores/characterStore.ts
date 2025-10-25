@@ -585,10 +585,13 @@ export const useCharacterStore = defineStore('characterV3', () => {
 
       // 🔥 [关键修复] 如果存档数据不在内存中，先从 IndexedDB 加载
       if (!targetSlot.存档数据) {
+        console.log('=== [诊断日志-loadGame] 从IndexedDB加载 ===')
+        console.log('[14] 加载Key:', { 角色ID: charId, 存档槽位: slotKey })
         debug.log('角色商店', `存档数据不在内存中，从 IndexedDB 加载: ${charId}/${slotKey}`);
         try {
           const saveData = await storage.loadSaveData(charId, slotKey);
           if (saveData) {
+            console.log('[15] 从IndexedDB加载的背包.灵石数据:', saveData.背包?.灵石)
             targetSlot.存档数据 = saveData;
             debug.log('角色商店', `✅ 已从 IndexedDB 加载存档数据`);
           } else {
@@ -924,6 +927,9 @@ export const useCharacterStore = defineStore('characterV3', () => {
       // 静默保存，不显示loading
       // toast.loading('正在保存进度...', { id: saveId });
 
+      console.log('=== [诊断日志-characterStore] 开始保存游戏 ===')
+      console.log('[10] 当前激活存档:', { 角色ID: active.角色ID, 存档槽位: active.存档槽位 })
+
       // 1. 从 gameStateStore 获取最新、最完整的游戏状态
       const gameStateStore = useGameStateStore();
       const currentSaveData = gameStateStore.toSaveData();
@@ -931,6 +937,8 @@ export const useCharacterStore = defineStore('characterV3', () => {
       if (!currentSaveData) {
         throw new Error('无法生成存档数据，游戏状态不完整。');
       }
+
+      console.log('[11] toSaveData()返回的背包.灵石数据:', currentSaveData.背包?.灵石)
 
       // 2. 自动更新年龄、技能等派生数据
       updateLifespanFromGameTime(currentSaveData);
@@ -943,8 +951,15 @@ export const useCharacterStore = defineStore('characterV3', () => {
         });
       }
 
+      console.log('[12] 即将保存到IndexedDB的数据:', {
+        角色ID: active.角色ID,
+        存档槽位: active.存档槽位,
+        背包灵石: currentSaveData.背包?.灵石
+      })
+
       // 3. 🔥 核心变更：将巨大的SaveData独立保存到IndexedDB
       await storage.saveSaveData(active.角色ID, active.存档槽位, currentSaveData);
+      console.log('[13] IndexedDB保存完成')
       debug.log('角色商店', `✅ 存档内容已保存到 IndexedDB (Key: ${active.角色ID}_${active.存档槽位})`);
 
       // 4. 更新Pinia Store中的 *元数据*

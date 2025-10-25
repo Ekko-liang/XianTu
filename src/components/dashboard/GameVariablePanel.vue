@@ -88,17 +88,31 @@ const showDataStatsModal = ref(false)
 const editingItem = ref<EditingItem | null>(null)
 const showEditModal = ref(false)
 
-// 🔥 [新架构] 数据从 Pinia Store 获取
+// 🔥 [新架构] 数据从 Pinia Store 获取 - 直接使用响应式引用
 const coreDataViews = computed(() => {
-  const saveData = gameStateStore.toSaveData()
-  if (!saveData) return {}
+  if (!gameStateStore.isGameLoaded) return {}
 
-  // 将SaveData放在第一个位置
   return {
-    '存档数据 (SaveData)': saveData,
-    '角色数据': saveData.角色基础信息,
-    '记忆数据': saveData.记忆,
-    '世界信息': saveData.世界信息
+    '存档数据 (SaveData)': {
+      角色基础信息: gameStateStore.character,
+      玩家角色状态: gameStateStore.playerStatus,
+      背包: gameStateStore.inventory,
+      装备栏: gameStateStore.equipment,
+      人物关系: gameStateStore.relationships,
+      记忆: gameStateStore.memory,
+      游戏时间: gameStateStore.gameTime,
+      世界信息: gameStateStore.worldInfo,
+      三千大道: gameStateStore.thousandDao,
+      任务系统: gameStateStore.questSystem,
+      修炼功法: gameStateStore.cultivationTechnique,
+      掌握技能: gameStateStore.masteredSkills,
+      系统: gameStateStore.systemConfig,
+      叙事历史: gameStateStore.narrativeHistory,
+      身体部位开发: gameStateStore.bodyPartDevelopment
+    },
+    '角色数据': gameStateStore.character,
+    '记忆数据': gameStateStore.memory,
+    '世界信息': gameStateStore.worldInfo
   }
 })
 
@@ -111,7 +125,27 @@ const customOptions = computed(() => {
 })
 
 const characterData = computed(() => gameStateStore.character || {})
-const saveData = computed(() => gameStateStore.toSaveData() || {})
+const saveData = computed(() => {
+  if (!gameStateStore.isGameLoaded) return {}
+
+  return {
+    角色基础信息: gameStateStore.character,
+    玩家角色状态: gameStateStore.playerStatus,
+    背包: gameStateStore.inventory,
+    装备栏: gameStateStore.equipment,
+    人物关系: gameStateStore.relationships,
+    记忆: gameStateStore.memory,
+    游戏时间: gameStateStore.gameTime,
+    世界信息: gameStateStore.worldInfo,
+    三千大道: gameStateStore.thousandDao,
+    任务系统: gameStateStore.questSystem,
+    修炼功法: gameStateStore.cultivationTechnique,
+    掌握技能: gameStateStore.masteredSkills,
+    系统: gameStateStore.systemConfig,
+    叙事历史: gameStateStore.narrativeHistory,
+    身体部位开发: gameStateStore.bodyPartDevelopment
+  }
+})
 const worldInfo = computed(() => gameStateStore.worldInfo || {})
 const memoryData = computed(() => gameStateStore.memory || {})
 const allGameData = computed(() => ({
@@ -247,14 +281,14 @@ const deleteVariable = async () => {
   toast.warning('新架构下不支持直接删除变量，请通过游戏操作修改数据')
 }
 
-const saveVariable = async () => {
-  if (!editingItem.value) {
+const saveVariable = async (item: EditingItem) => {
+  if (!item) {
     toast.error('没有要保存的数据')
     return
   }
 
   try {
-    const { key, value } = editingItem.value
+    const { key, value } = item
 
     // 解析JSON字符串（如果是对象类型）
     let parsedValue = value
@@ -266,7 +300,11 @@ const saveVariable = async () => {
       }
     }
 
-    console.log('[游戏变量-保存前] Key:', key, 'Value:', parsedValue)
+    console.log('=== [诊断日志] 开始保存变量 ===')
+    console.log('[1] 原始Key:', key)
+    console.log('[2-A] editingItem.value完整对象:', editingItem.value)
+    console.log('[2-B] 解构后的value:', value, 'typeof:', typeof value)
+    console.log('[2-C] parsedValue:', parsedValue, 'typeof:', typeof parsedValue)
 
     // 🔥 关键修复：直接使用完整的 key，先转换为 store 的路径格式
     const keyPrefixMap: Record<string, string> = {
@@ -296,14 +334,50 @@ const saveVariable = async () => {
       }
     }
 
-    console.log('[游戏变量-转换后路径]', path)
+    console.log('[3] 转换后路径:', path)
+
+    // 🔥 关键诊断：检查 parsedValue 是否正确
+    console.log('[3.5] 🔍 即将传给updateState的值:', parsedValue, '类型:', typeof parsedValue)
+
+    // 🔥 检查 updateState 前的值
+    const pathParts = path.split('.')
+    let beforeValue = gameStateStore as any
+    for (const part of pathParts) {
+      beforeValue = beforeValue?.[part]
+    }
+    console.log('[4] updateState前的Store值:', beforeValue)
+
+    // 🔥 关键诊断：检查传递给updateState的值
+    console.log('[4-CRITICAL] 即将传递给updateState的parsedValue:', parsedValue, 'typeof:', typeof parsedValue, 'JSON:', JSON.stringify(parsedValue))
 
     // 🔥 直接使用 updateState 更新
     gameStateStore.updateState(path, parsedValue);
-    console.log('[游戏变量-更新后] Store中的值:', gameStateStore.$state)
+
+    // 🔥 检查 updateState 后的值
+    let afterValue = gameStateStore as any
+    for (const part of pathParts) {
+      afterValue = afterValue?.[part]
+    }
+    console.log('[5] updateState后的Store值:', afterValue)
+
+    // 🔥 检查 toSaveData() 的结果
+    const saveDataBefore = gameStateStore.toSaveData()
+    console.log('[6] toSaveData()返回的完整数据:', saveDataBefore)
+
+    // 检查具体路径在 SaveData 中的值
+    const chinesePathParts = key.split('.')
+    let saveDataValue = saveDataBefore as any
+    for (const part of chinesePathParts) {
+      saveDataValue = saveDataValue?.[part]
+    }
+    console.log(`[7] toSaveData()中${key}的值:`, saveDataValue)
 
     // 保存到数据库
+    console.log('[8] 开始调用 gameStateStore.saveGame()')
     await gameStateStore.saveGame()
+    console.log('[9] gameStateStore.saveGame() 完成')
+
+    console.log('=== [诊断日志] 保存变量结束 ===')
 
     toast.success(`✅ 已成功更新 ${key}`)
     closeEditModal()

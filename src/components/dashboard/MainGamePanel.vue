@@ -27,66 +27,59 @@
     <div class="content-area" ref="contentAreaRef">
       <!-- 左侧：当前叙述 -->
       <div class="current-narrative">
-        <!-- AI处理时显示 -->
-        <div v-if="isAIProcessing" class="ai-processing-display">
-          <div class="streaming-content">
-            <div class="narrative-meta streaming-meta">
-              <span class="narrative-time">{{ formatCurrentTime() }}</span>
-              <div class="streaming-indicator">
-                <span class="streaming-dot"></span>
-                <span class="streaming-text">{{ streamingContent ? `${streamingCharCount} 字` : '天道感应中...' }}</span>
-              </div>
-              <!-- 重置按钮 - 右侧 -->
-              <button
-                @click="forceResetAIProcessingState"
-                class="reset-state-btn"
-                title="如果长时间无响应，点击此处重置状态"
-              >
-                <RotateCcw :size="16" />
-              </button>
+        <!-- AI生成状态指示器（生成时显示在顶部） -->
+        <div v-if="isAIProcessing" class="ai-processing-indicator">
+          <div class="streaming-meta">
+            <span class="narrative-time">{{ formatCurrentTime() }}</span>
+            <div class="streaming-indicator">
+              <span class="streaming-dot"></span>
+              <span class="streaming-text">{{ streamingContent ? `${streamingCharCount} 字` : '天道感应中...' }}</span>
             </div>
-            <div class="narrative-text" v-if="streamingContent">
-              <FormattedText :text="streamingContent" />
-            </div>
+            <!-- 重置按钮 - 右侧 -->
+            <button
+              @click="forceResetAIProcessingState"
+              class="reset-state-btn"
+              title="如果长时间无响应，点击此处重置状态"
+            >
+              <RotateCcw :size="16" />
+            </button>
           </div>
         </div>
 
-        <!-- 非AI处理时显示 -->
-        <template v-else>
-          <div v-if="currentNarrative" class="narrative-content">
-            <div class="narrative-meta">
-              <span class="narrative-time">{{ currentNarrative.time }}</span>
-              <div class="meta-buttons">
-                <!-- 回滚按钮 -->
-                <button
-                  v-if="canRollback"
-                  @click="rollbackToLastConversation"
-                  class="header-action-btn rollback-btn"
-                  title="回滚到上次对话前的状态"
-                >
-                  <RotateCcw :size="24" />
-                </button>
-                <!-- 命令日志按钮 -->
-                <button
-                  @click="showStateChanges(currentNarrative.stateChanges)"
-                  class="variable-updates-toggle"
-                  :class="{ disabled: currentNarrativeStateChanges.length === 0 }"
-                  :disabled="currentNarrativeStateChanges.length === 0"
-                  :title="currentNarrativeStateChanges.length > 0 ? '查看本次对话的变更日志' : '本次对话无变更记录'"
-                >
-                  <ScrollText :size="16" />
-                  <span class="update-count">{{ currentNarrativeStateChanges.length }}</span>
-                </button>
-              </div>
-            </div>
-            <div class="narrative-text">
-              <FormattedText :text="currentNarrative.content" />
+        <!-- 上一次的叙述内容（始终显示） -->
+        <div v-if="currentNarrative" class="narrative-content">
+          <div class="narrative-meta" v-if="!isAIProcessing">
+            <span class="narrative-time">{{ currentNarrative.time }}</span>
+            <div class="meta-buttons">
+              <!-- 回滚按钮 -->
+              <button
+                v-if="canRollback"
+                @click="rollbackToLastConversation"
+                class="header-action-btn rollback-btn"
+                title="回滚到上次对话前的状态"
+              >
+                <RotateCcw :size="24" />
+              </button>
+              <!-- 命令日志按钮 -->
+              <button
+                @click="showStateChanges(currentNarrative.stateChanges)"
+                class="variable-updates-toggle"
+                :class="{ disabled: currentNarrativeStateChanges.length === 0 }"
+                :disabled="currentNarrativeStateChanges.length === 0"
+                :title="currentNarrativeStateChanges.length > 0 ? '查看本次对话的变更日志' : '本次对话无变更记录'"
+              >
+                <ScrollText :size="16" />
+                <span class="update-count">{{ currentNarrativeStateChanges.length }}</span>
+              </button>
             </div>
           </div>
-          <div v-else class="empty-narrative">
-            静待天机变化...
+          <div class="narrative-text">
+            <FormattedText :text="currentNarrative.content" />
           </div>
-        </template>
+        </div>
+        <div v-else class="empty-narrative">
+          静待天机变化...
+        </div>
       </div>
     </div>
 
@@ -438,6 +431,9 @@ const streamingMessageIndex = ref<number | null>(null);
 const streamingContent = ref('');
 const useStreaming = ref(true);
 const streamingCharCount = computed(() => streamingContent.value.length);
+
+// 当前正在处理的 generation_id
+const currentGenerationId = ref<string | null>(null);
 
 // 图片上传相关
 const selectedImages = ref<File[]>([]);
@@ -1122,8 +1118,8 @@ const sendMessage = async () => {
   // 用户消息只作为行动趋向提示词，不添加到记忆中
   isAIProcessing.value = true;
 
-  // 强制清空当前叙述，为流式响应或等待动画做准备，彻底避免内容重叠
-  // currentNarrative 现在自动显示最新短期记忆
+  // 🔥 [用户要求] 生成时不清空正文内容，保留上一次的内容显示
+  // 生成完成后会通过 currentNarrative 自动显示新内容
   streamingContent.value = ''; // 重置流式内容
   streamingMessageIndex.value = 1; // 设置一个虚拟索引以启用流式处理
 
@@ -1159,6 +1155,11 @@ const sendMessage = async () => {
         options.onStreamChunk = handleStreamingResponse;
         options.useStreaming = true;
       }
+      // 生成唯一的 generation_id
+      const generationId = `gen_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      currentGenerationId.value = generationId;
+      options.generation_id = generationId;
+      
       // 添加图片上传支持
       if (selectedImages.value.length > 0) {
         options.image = selectedImages.value;
@@ -1643,24 +1644,137 @@ onMounted(async () => {
       }
     });
 
-    // 监听 AI 生成完成事件
+    // 🔥 监听酒馆助手的生成事件
     const helper = getTavernHelper();
     if (helper && helper.registerSlashCommand) {
-      console.log('[主面板] 注册 AI 生成完成监听');
+      console.log('[主面板] 注册酒馆事件监听');
 
-      // 使用 event-emit 监听生成完成
-      helper.registerSlashCommand('event-emit', async (args: unknown) => {
-        const argsObj = args as Record<string, unknown>;
-        const event = argsObj?.event;
-        if (event === 'MESSAGE_GENERATED' || event === 'GENERATION_COMPLETED') {
-          console.log('[主面板] 检测到 AI 生成完成事件');
+      // 辅助函数：解析事件参数（处理多种格式）
+      const parseEventArgs = (args: any): { text?: string; generationId?: string } => {
+        try {
+          // 格式1：对象 { text, generation_id }
+          if (args && typeof args === 'object' && !Array.isArray(args)) {
+            return {
+              text: args.text || args[0] || '',
+              generationId: args.generation_id || args[1] || ''
+            };
+          }
+          // 格式2：数组 [text, generation_id]
+          if (Array.isArray(args)) {
+            return {
+              text: args[0] || '',
+              generationId: args[1] || ''
+            };
+          }
+          // 格式3：字符串（仅 generation_id）
+          if (typeof args === 'string') {
+            return {
+              generationId: args
+            };
+          }
+        } catch (error) {
+          console.error('[事件解析] 解析失败:', error, args);
+        }
+        return {};
+      };
+
+      // 监听生成开始事件
+      helper.registerSlashCommand('iframe_events.GENERATION_STARTED', async (args: any) => {
+        try {
+          const { generationId } = parseEventArgs(args);
+          console.log('[事件监听] 生成开始', {
+            generationId,
+            当前generation_id: currentGenerationId.value,
+            是否匹配: generationId === currentGenerationId.value
+          });
+          
+          if (generationId === currentGenerationId.value) {
+            console.log('[事件监听] ✅ 生成开始 - 匹配当前请求');
+            // 可选：设置超时保护
+            setTimeout(() => {
+              if (currentGenerationId.value === generationId && isAIProcessing.value) {
+                console.warn('[事件监听] ⚠️ 生成超时（2分钟），自动清除状态');
+                forceResetAIProcessingState();
+                toast.warning('AI生成超时，已自动重置');
+              }
+            }, 120000); // 2分钟超时
+          }
+        } catch (error) {
+          console.error('[事件监听] GENERATION_STARTED 处理失败:', error);
+        }
+      });
+
+      // 监听生成结束事件 - 核心功能
+      helper.registerSlashCommand('iframe_events.GENERATION_ENDED', async (args: any) => {
+        try {
+          const { text, generationId } = parseEventArgs(args);
+          
+          console.log('[事件监听] 生成结束', {
+            generationId,
+            当前generation_id: currentGenerationId.value,
+            文本长度: text?.length || 0,
+            是否匹配: generationId === currentGenerationId.value,
+            当前AI处理状态: isAIProcessing.value
+          });
+          
+          // 只处理当前请求的生成结束事件
+          if (generationId === currentGenerationId.value) {
+            console.log('[事件监听] ✅ 生成结束 - 匹配当前请求，清除状态');
+            
+            // 清除 AI 处理状态
+            if (isAIProcessing.value) {
+              console.log('[事件监听] 通过事件自动清除 AI 处理状态');
+              isAIProcessing.value = false;
+              persistAIProcessingState();
+            } else {
+              console.warn('[事件监听] ⚠️ 状态已经被清除（可能被其他逻辑处理）');
+            }
+            
+            // 清除当前 generation_id
+            currentGenerationId.value = null;
+            
+            // 清除流式内容（如果有）
+            if (streamingContent.value) {
+              console.log('[事件监听] 清除流式内容，长度:', streamingContent.value.length);
+              streamingContent.value = '';
+              streamingMessageIndex.value = null;
+            }
+          } else {
+            console.log('[事件监听] ⚠️ 生成结束 - ID不匹配，忽略', {
+              期望: currentGenerationId.value,
+              实际: generationId
+            });
+          }
+        } catch (error) {
+          console.error('[事件监听] GENERATION_ENDED 处理失败:', error);
+          // 发生错误时也要清除状态，避免卡住
           if (isAIProcessing.value) {
-            console.log('[主面板] 自动清除 AI 处理状态');
-            isAIProcessing.value = false;
-            persistAIProcessingState();
+            console.log('[事件监听] 因错误清除 AI 处理状态');
+            forceResetAIProcessingState();
           }
         }
       });
+
+      // 监听流式传输事件（完整文本）
+      helper.registerSlashCommand('iframe_events.STREAM_TOKEN_RECEIVED_FULLY', async (args: any) => {
+        try {
+          const { text: fullText, generationId } = parseEventArgs(args);
+          
+          if (generationId === currentGenerationId.value && useStreaming.value) {
+            // 更新流式内容显示
+            if (fullText) {
+              streamingContent.value = fullText;
+              console.log('[事件监听] 流式完整文本更新，长度:', fullText.length);
+            }
+          }
+        } catch (error) {
+          console.error('[事件监听] STREAM_TOKEN_RECEIVED_FULLY 处理失败:', error);
+        }
+      });
+
+      console.log('[主面板] ✅ 事件监听器注册完成');
+    } else {
+      console.warn('[主面板] ⚠️ 酒馆助手不可用，事件监听未注册');
     }
 
   } catch (error) {
@@ -2100,10 +2214,15 @@ const syncGameState = async () => {
 }
 
 
-/* AI处理时的显示样式 */
-.ai-processing-display {
+/* AI处理状态指示器（生成时显示在顶部） */
+.ai-processing-indicator {
   width: 100%;
-  background: var(--color-surface); /* 确保AI处理区域使用主题表面颜色 */
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
 }
 
 /* 重置状态按钮 */
@@ -2129,33 +2248,22 @@ const syncGameState = async () => {
   transform: translateY(-1px);
 }
 
-/* 流式内容显示 */
-.streaming-content {
-  width: 100%;
-}
-
+/* 流式状态元数据布局 */
 .streaming-meta {
-  justify-content: center !important; /* 强制居中，覆盖 narrative-meta 的 space-between */
-  position: relative; /* 添加相对定位，让时间和按钮可以绝对定位 */
-}
-
-.streaming-meta .narrative-time {
-  position: absolute;
-  left: 0;
-}
-
-.streaming-meta .reset-state-btn {
-  position: absolute;
-  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 12px;
 }
 
 .streaming-indicator {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   color: var(--color-primary);
-  /* 现在这个会真正居中 */
+  font-weight: 500;
 }
 
 

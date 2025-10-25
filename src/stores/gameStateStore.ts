@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { set } from 'lodash';
+import { set, get } from 'lodash';
 import type {
   CharacterBaseInfo,
   PlayerStatus,
@@ -471,27 +471,46 @@ export const useGameStateStore = defineStore('gameState', {
      * @param value 要设置的值
      */
     updateState(path: string, value: any) {
+      console.log(`[诊断-updateState] 开始更新路径: ${path}`)
+      console.log(`[诊断-updateState] 要设置的值:`, value)
+
       // 🔥 修复：确保响应式系统能追踪到深层对象的变化
       const parts = path.split('.');
       const rootKey = parts[0];
 
+      console.log(`[诊断-updateState] rootKey:`, rootKey)
+      console.log(`[诊断-updateState] 路径部分:`, parts)
+
       // 对于顶层属性，直接设置
       if (parts.length === 1) {
         (this as any)[rootKey] = value;
+        console.log(`[诊断-updateState] 顶层属性直接设置完成`)
         return;
       }
 
       // 🔥 关键修复：对于嵌套属性，创建新对象以触发 Vue 3 响应式
       const currentRoot = (this as any)[rootKey];
+      console.log(`[诊断-updateState] 当前rootKey的值:`, currentRoot)
+
       if (currentRoot && typeof currentRoot === 'object') {
         // 深拷贝当前对象
         const newRoot = JSON.parse(JSON.stringify(currentRoot));
+        console.log(`[诊断-updateState] 深拷贝后的newRoot:`, newRoot)
+
         // 使用 lodash set 修改副本
-        set(newRoot, parts.slice(1).join('.'), value);
+        const nestedPath = parts.slice(1).join('.');
+        console.log(`[诊断-updateState] 嵌套路径:`, nestedPath);
+        console.log(`[诊断-updateState] set前的value类型:`, typeof value, 'value:', value);
+        set(newRoot, nestedPath, value);
+        console.log(`[诊断-updateState] lodash set后的newRoot:`, newRoot);
+        console.log(`[诊断-updateState] set后检查实际值:`, get(newRoot, nestedPath));
+
         // 替换整个根对象以触发 Vue 3 响应式
         (this as any)[rootKey] = newRoot;
+        console.log(`[诊断-updateState] 已替换整个root对象`)
         console.log(`[gameStateStore] ✅ 已更新 ${path} = ${JSON.stringify(value).substring(0, 100)}`);
       } else {
+        console.log(`[诊断-updateState] currentRoot不是对象，使用lodash set`)
         set(this, path, value);
       }
     },
