@@ -286,7 +286,9 @@ const currentSave = computed(() => {
 
 // 是否可以存档
 const canSave = computed(() => {
-  return characterStore.activeCharacterProfile !== null;
+  // 检查是否有激活的角色配置或游戏状态数据
+  return characterStore.activeCharacterProfile !== null ||
+         (gameStateStore.character !== null && gameStateStore.character !== undefined);
 });
 
 // 计算可删除的存档数量（排除三个不可删除的存档）

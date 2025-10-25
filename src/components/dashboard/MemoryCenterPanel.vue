@@ -405,15 +405,8 @@ const formatTime = (timestamp: number): string => {
  */
 const summarizeMidTermToLongTerm = async () => {
   try {
-    // const helper = getTavernHelper(); // [已废弃]
-    // if (!helper) {
-    debug.warn('记忆中心', 'AI总结功能正在重构中，暂时禁用。');
-    toast.warning('AI总结功能正在重构中，暂时禁用。');
-    return;
-    // }
-
     // 计算需要总结的中期记忆数量
-    /* const midTermCount = mediumTermMemories.value.length;
+    const midTermCount = mediumTermMemories.value.length;
     const keepCount = memoryConfig.value.midTermKeep || 8;
     const summaryCount = Math.max(0, midTermCount - keepCount);
 
@@ -451,38 +444,16 @@ const summarizeMidTermToLongTerm = async () => {
 
 ${memoriesText}`;
 
-    // 使用Raw模式调用AI
-    const response = await helper.generateRaw({
-      ordered_prompts: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      should_stream: false
-    });
-
-    if (!response || typeof response !== 'string') {
-      throw new Error('AI响应格式错误');
-    }
-
-    const summary = response.trim();
-    if (!summary) {
-      throw new Error('总结内容为空');
-    }
+    // TODO: 使用新的AI接口调用总结
+    // 暂时使用简单合并作为降级方案
+    const summary = memoriesText;
 
     // 创建长期记忆
     const longTermMemory: Memory = {
       type: 'long',
       content: summary,
       time: `总结于${formatTime(Date.now())}`,
-      importance: 8, // 总结的记忆重要性较高
-      parsedContent: {
-        事件: summary,
-        时间: `总结于${formatTime(Date.now())}`,
-        地点: '综合',
-        人物: '综合',
-        影响: '记忆总结',
-        sections: {} // 添加必需的sections字段
-      },
+      importance: 8,
       isConverted: true,
       isSummarized: true
     };
@@ -498,7 +469,6 @@ ${memoriesText}`;
 
     // 保存到存档
     await saveMemoriesToStore();
-    */
   } catch (error) {
     debug.error('记忆中心', 'AI总结失败:', error);
     const errorMsg = error instanceof Error ? error.message : '未知错误';

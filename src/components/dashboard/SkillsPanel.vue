@@ -230,7 +230,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { Zap, BookOpen, Sparkles, PackageOpen, ScrollText, Package, Check, Lock } from 'lucide-vue-next';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { useCharacterStore } from '@/stores/characterStore';
@@ -384,6 +384,40 @@ const handleCultivationConfirm = async (totalDays: number) => {
     console.error('[SkillsPanel] Add deep cultivation action failed:', error);
   }
 };
+
+// 🔥 [修复] 页面加载时自动检查并解锁应该解锁的技能
+const checkAndUnlockSkills = () => {
+  if (!cultivationSkills.value) return;
+
+  const technique = cultivationSkills.value;
+  if (!technique.功法技能 || !Array.isArray(technique.功法技能)) return;
+
+  const currentProgress = technique.修炼进度 || 0;
+  let unlocked = false;
+
+  if (!technique.已解锁技能) {
+    technique.已解锁技能 = [];
+  }
+
+  technique.功法技能.forEach(skill => {
+    const unlockThreshold = skill.解锁需要熟练度 || 0;
+    if (currentProgress >= unlockThreshold && !technique.已解锁技能!.includes(skill.技能名称)) {
+      technique.已解锁技能!.push(skill.技能名称);
+      console.log(`[SkillsPanel] 自动解锁技能: ${skill.技能名称} (阈值: ${unlockThreshold}%)`);
+      unlocked = true;
+    }
+  });
+
+  if (unlocked) {
+    // 保存更新
+    characterStore.saveCurrentGame();
+  }
+};
+
+// 监听 cultivationSkills 变化，自动检查技能解锁
+watch(cultivationSkills, () => {
+  checkAndUnlockSkills();
+}, { immediate: true });
 </script>
 
 <style scoped>

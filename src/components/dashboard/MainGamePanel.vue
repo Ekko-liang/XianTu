@@ -1236,38 +1236,21 @@ const sendMessage = async () => {
 
       console.log('[AI响应处理] 最终文本内容预览:', finalText.substring(0, 100) + '...');
 
-      // 如果最终有文本内容，先添加到记忆系统
-      // 注意：必须在 syncFromTavern 之前执行，这样syncFromTavern可以保留本地记忆
+      // 🔥 [重要] 记忆处理已在 AIBidirectionalSystem.processGmResponse 中完成
+      // 包括：短期记忆、隐式中期记忆、叙事历史的添加
+      // 这里只需要更新UI显示状态
       if (finalText) {
-        console.log('[AI响应处理] 开始处理最终文本...');
+        console.log('[AI响应处理] 文本处理完成，记忆已由 AIBidirectionalSystem 处理');
         latestMessageText.value = gmResp?.text || null;
-
-        // 🔥 统一使用现实世界时间前缀
-        const realTimePrefix = `【${formatCurrentTime()}】`;
-        // 检查finalText是否已意外包含前缀，避免重复添加
-        const hasExistingPrefix = finalText.match(/^【.*?】/);
-        const prefixedContent = hasExistingPrefix ? finalText : `${realTimePrefix} ${finalText}`;
 
         // 更新UI显示
         if (currentNarrative.value) {
           // currentNarrative 现在自动显示最新短期记忆
-          console.log('[AI响应处理] 已更新UI显示（使用带前缀内容）');
+          console.log('[AI响应处理] 已更新UI显示');
         }
-
-        // 添加到短期记忆，并传递中期记忆总结（如果有）
-        console.log('[AI响应处理] 准备将文本添加到短期记忆...');
-        const midTermSummary = gmResp?.mid_term_memory && typeof gmResp.mid_term_memory === 'string'
-          ? gmResp.mid_term_memory
-          : undefined;
-        
-        // 🔥 [核心修复] 调用本地的 addToShortTermMemory 函数，分别处理叙事和总结
-        // prefixedContent 是完整的叙事 (text)，midTermSummary 是总结 (mid_term_memory)
-        await addToShortTermMemory(prefixedContent, 'assistant', midTermSummary);
-        
-        console.log('[AI响应处理] 记忆处理完成。短期记忆内容长度:', prefixedContent.length, '隐式中期记忆内容:', midTermSummary || '无');
       } else {
         latestMessageText.value = null;
-        console.error('[AI响应处理] 没有找到有效的文本内容，跳过记忆保存');
+        console.error('[AI响应处理] 没有找到有效的文本内容');
       }
 
       // 🔥 核心修复：记忆数据已在本地处理完毕，直接保存即可
@@ -1395,83 +1378,9 @@ const sendMessage = async () => {
   }
 };
 
-// 🔥 移除复杂的中期记忆缓存系统，改为直接处理
-// 中期记忆现在直接在 AIBidirectionalSystem.ts 的 processGmResponse 中处理
-const addToShortTermMemory = async (
-content: string,
-_role: 'user' | 'assistant' = 'assistant',  // eslint-disable-line @typescript-eslint/no-unused-vars
-midTermSummary?: string  // AI生成的中期记忆总结
-) => {
-try {
-  if (!gameStateStore.isGameLoaded || !gameStateStore.memory) {
-    console.warn('[记忆管理] 游戏状态未加载，无法存储短期记忆', {
-      isGameLoaded: gameStateStore.isGameLoaded,
-      hasMemory: !!gameStateStore.memory
-    });
-    return;
-  }
-
-  const memory = gameStateStore.memory;
-
-  // 确保记忆结构存在
-  if (!Array.isArray(memory.短期记忆)) memory.短期记忆 = [];
-  if (!Array.isArray(memory.中期记忆)) memory.中期记忆 = [];
-  if (!Array.isArray(memory.长期记忆)) memory.长期记忆 = [];
-  if (!Array.isArray(memory.隐式中期记忆)) memory.隐式中期记忆 = [];
-
-  const gameTime = gameStateStore.gameTime;
-  const timePrefix = gameTime ? formatGameTimeString(gameTime) : '【未知时间】';
-
-  // 添加时间前缀
-  const hasTimePrefix = content.startsWith('【仙道') || content.startsWith('【未知时间】') || content.startsWith('【仙历');
-  const finalContent = hasTimePrefix ? content : `${timePrefix}${content}`;
-
-  // 🔥 [核心修复] 先添加到短期记忆和隐式中期记忆，再检查溢出
-  memory.短期记忆.push(finalContent);
-  
-  // 处理中期记忆（同步添加到隐式中期记忆）
-  if (midTermSummary?.trim()) {
-    memory.隐式中期记忆.push(`${timePrefix}${midTermSummary}`);
-  } else {
-    // 🔥 [核心修复] 如果AI没有返回中期记忆总结，生成一个截断的摘要作为备用，并发出警告
-    const fallbackSummary = `${timePrefix}${content.substring(0, 100)}... (自动摘要)`;
-    memory.隐式中期记忆.push(fallbackSummary);
-    console.warn('[记忆管理] AI未返回中期记忆总结，已生成备用截断摘要。');
-    toast.warning('AI未提供记忆摘要，已自动生成简略版');
-  }
-
-  // 🔥 [核心修复] 添加后检查是否溢出，溢出的转移到中期记忆
-  while (memory.短期记忆.length > maxShortTermMemories.value) {
-    memory.短期记忆.shift(); // 移除最旧的短期记忆
-    const implicit = memory.隐式中期记忆.shift(); // 移除对应的隐式中期记忆
-    
-    if (implicit && !memory.中期记忆.includes(implicit)) {
-      memory.中期记忆.push(implicit); // 转移到中期记忆
-      console.log('[记忆管理] ✅ 短期记忆溢出，已转移到中期记忆', {
-        中期记忆总数: memory.中期记忆.length,
-        内容预览: implicit.substring(0, 50) + '...'
-      });
-    }
-
-    // 检查中期记忆是否溢出
-    if (memory.中期记忆.length > maxMidTermMemories.value) {
-      await transferToLongTermMemory();
-    }
-  }
-  console.log('[记忆管理] ✅ 已添加到短期记忆', {
-    内容长度: finalContent.length,
-    短期记忆总数: memory.短期记忆.length,
-    内容预览: finalContent.substring(0, 50) + '...'
-  });
-
-  console.log('[记忆管理] 记忆已更新到 gameStateStore');
-
-} catch (error) {
-  console.error('[记忆管理] 添加短期记忆失败:', error);
-}
-};
-
-// transferToMidTermMemory 函数已被合并到 addToShortTermMemory 中，故移除
+// 🔥 [已废弃] addToShortTermMemory 函数已移除
+// 记忆处理现在完全由 AIBidirectionalSystem.processGmResponse 统一处理
+// 包括：短期记忆、隐式中期记忆、叙事历史的添加和管理
 
 // 转移到长期记忆 - 直接操作 gameStateStore
 const transferToLongTermMemory = async () => {

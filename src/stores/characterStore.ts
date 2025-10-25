@@ -1532,23 +1532,36 @@ export const useCharacterStore = defineStore('characterV3', () => {
       throw new Error('无法执行回滚：无效的存档状态');
     }
 
-    const lastConversationSlot = profile.存档列表['上次对话'];
+    let lastConversationSlot = profile.存档列表['上次对话'];
 
-    // 🔥 修复：如果"上次对话"存档数据不在内存中，先从IndexedDB加载
-    if (!lastConversationSlot?.存档数据) {
+    // 🔥 修复：如果"上次对话"存档槽位不存在或数据不在内存中，先从IndexedDB加载
+    if (!lastConversationSlot || !lastConversationSlot.存档数据) {
       debug.log('角色商店', '从IndexedDB加载"上次对话"存档数据');
       const loadedData = await storage.loadSaveData(active.角色ID, '上次对话');
       if (!loadedData) {
-        throw new Error('没有可用于回滚的"上次对话"存档');
+        throw new Error('没有可用于回滚的"上次对话"存档。请确保已启用"对话前自动备份"功能。');
       }
-      if (lastConversationSlot) {
+
+      // 如果槽位不存在，创建新槽位
+      if (!lastConversationSlot) {
+        lastConversationSlot = {
+          id: '上次对话',
+          存档名: '上次对话',
+          角色名字: loadedData.角色基础信息?.名字 || profile.角色基础信息?.名字 || '未知',
+          境界: '未知',
+          位置: '未知',
+          保存时间: new Date().toISOString(),
+          存档数据: loadedData
+        };
+        profile.存档列表['上次对话'] = lastConversationSlot;
+      } else {
         lastConversationSlot.存档数据 = loadedData;
       }
     }
 
-    const lastConversationData = lastConversationSlot?.存档数据;
+    const lastConversationData = lastConversationSlot.存档数据;
     if (!lastConversationData) {
-      throw new Error('没有可用于回滚的"上次对话"存档');
+      throw new Error('没有可用于回滚的"上次对话"存档。请确保已启用"对话前自动备份"功能。');
     }
 
     // 1. 用"上次对话"的数据深拷贝覆盖当前激活的存档数据
@@ -1855,13 +1868,16 @@ const equipTechnique = async (itemId: string) => {
   // 检查哪些技能应该立即解锁（解锁阈值 <= 当前进度）
   if (item.功法技能 && Array.isArray(item.功法技能)) {
     const currentProgress = item.修炼进度 || 0;
+    debug.log('角色商店', `[技能解锁检查] 功法: ${item.名称}, 进度: ${currentProgress}%, 技能数: ${item.功法技能.length}`);
     item.功法技能.forEach((skill: any) => {
       const unlockThreshold = skill.解锁需要熟练度 || 0;
+      debug.log('角色商店', `  检查技能: ${skill.技能名称}, 阈值: ${unlockThreshold}%, 当前进度: ${currentProgress}%, 应解锁: ${currentProgress >= unlockThreshold}`);
       if (currentProgress >= unlockThreshold && !item.已解锁技能!.includes(skill.技能名称)) {
         item.已解锁技能!.push(skill.技能名称);
-        debug.log('角色商店', `立即解锁技能: ${skill.技能名称} (阈值: ${unlockThreshold}%)`);
+        debug.log('角色商店', `  ✅ 立即解锁技能: ${skill.技能名称} (阈值: ${unlockThreshold}%)`);
       }
     });
+    debug.log('角色商店', `[技能解锁结果] 已解锁技能数组:`, item.已解锁技能);
   }
 
   // 3. 创建或更新修炼槽位（只存储引用）
@@ -1884,6 +1900,26 @@ const equipTechnique = async (itemId: string) => {
 
   // 🔥 [修复] 更新 gameStateStore 并保存完整存档数据
   gameStateStore.loadFromSaveData(saveData);
+
+  // 🔥 [关键修复] loadFromSaveData 后再次确保技能解锁状态正确
+  // 因为 loadFromSaveData 可能会创建新对象
+  const itemInStore = gameStateStore.inventory?.物品?.[itemId];
+  if (itemInStore && itemInStore.类型 === '功法') {
+    if (!itemInStore.已解锁技能) {
+      itemInStore.已解锁技能 = [];
+    }
+    const currentProgress = itemInStore.修炼进度 || 0;
+    if (itemInStore.功法技能 && Array.isArray(itemInStore.功法技能)) {
+      itemInStore.功法技能.forEach((skill: any) => {
+        const unlockThreshold = skill.解锁需要熟练度 || 0;
+        if (currentProgress >= unlockThreshold && !itemInStore.已解锁技能!.includes(skill.技能名称)) {
+          itemInStore.已解锁技能!.push(skill.技能名称);
+          debug.log('角色商店', `[二次确认] 解锁技能: ${skill.技能名称}`);
+        }
+      });
+    }
+  }
+
   await saveCurrentGame(); // 使用 saveCurrentGame 保存完整存档数据
 
   // 🔍 调试：同步后再次检查品质数据

@@ -354,8 +354,8 @@ ${DATA_STRUCTURE_DEFINITIONS}
           throw new Error(`PUSH操作要求数组类型，但 ${path} 是 ${typeof array}`);
         }
         let valueToPush: unknown = value ?? null;
-        // 当向记忆数组推送时，自动添加时间戳
-        if (typeof valueToPush === 'string' && path.startsWith('记忆.')) {
+        // 当向记忆数组推送时，自动添加时间戳（但跳过隐式中期记忆，因为已在processGmResponse中处理）
+        if (typeof valueToPush === 'string' && path.startsWith('记忆.') && path !== '记忆.隐式中期记忆') {
           if (!valueToPush.trim()) {
             break;
           }

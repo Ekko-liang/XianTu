@@ -42,15 +42,28 @@ export function calculateMasteredSkills(saveData: SaveData): MasteredSkill[] {
 
     debug.log('掌握技能计算', `检查功法 ${technique.名称}，修炼进度: ${currentProgress}`);
 
-    // 遍历功法的所有技能
-    for (const [skillName, skill] of Object.entries(technique.功法技能)) {
+    // 🔥 修复：功法技能是数组，不是对象
+    // 初始化已解锁技能数组
+    if (!technique.已解锁技能) {
+      technique.已解锁技能 = [];
+    }
+
+    // 遍历功法的所有技能（数组）
+    for (const skill of technique.功法技能) {
+      const skillName = skill.技能名称;
       // 获取技能解锁所需的熟练度阈值
-      const unlockThreshold = (skill as any).解锁需要熟练度 || 0;
+      const unlockThreshold = skill.解锁需要熟练度 || 0;
 
       debug.log('掌握技能计算', `  技能 ${skillName}，解锁阈值: ${unlockThreshold}`);
 
       // 判断是否已解锁该技能
       if (currentProgress >= unlockThreshold) {
+        // 🔥 同步更新功法的已解锁技能数组
+        if (!technique.已解锁技能.includes(skillName)) {
+          technique.已解锁技能.push(skillName);
+          debug.log('掌握技能计算', `  ✅ 添加到已解锁技能: ${skillName}`);
+        }
+
         // 查找技能是否已存在于掌握技能列表中
         const existingSkill = masteredSkills.find(s =>
           s.技能名称 === skillName && s.来源 === technique.名称
@@ -60,9 +73,9 @@ export function calculateMasteredSkills(saveData: SaveData): MasteredSkill[] {
           // 添加新技能到掌握技能列表
           masteredSkills.push({
             技能名称: skillName,
-            技能描述: (skill as any).技能描述 || (skill as any).描述 || '',
+            技能描述: skill.技能描述 || '',
             来源: technique.名称,
-            消耗: (skill as any).消耗 || '',
+            消耗: skill.消耗 || '',
             熟练度: 0, // 技能独立的熟练度，初始为0
             使用次数: 0
           });

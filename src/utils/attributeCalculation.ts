@@ -27,22 +27,36 @@ export function calculateEquipmentBonuses(equipment: Equipment, inventory: SaveD
     心性: 0
   };
 
+  console.log('[装备加成计算] 开始计算装备加成');
+  console.log('[装备加成计算] 装备栏数据:', equipment);
+  console.log('[装备加成计算] 背包物品数据:', inventory?.物品);
+
   // 遍历装备栏中的每个装备槽位
-  Object.values(equipment).forEach(itemId => {
+  Object.entries(equipment).forEach(([slot, itemId]) => {
+    console.log(`[装备加成计算] 检查槽位 ${slot}, itemId: ${itemId}`);
+
     if (itemId && inventory.物品 && inventory.物品[itemId]) {
       const item: Item = inventory.物品[itemId];
-      
+      console.log(`[装备加成计算] 找到物品:`, item);
+
       // 检查装备是否有后天六司加成
       if ('装备增幅' in item && item.装备增幅?.后天六司) {
+        console.log(`[装备加成计算] 物品有装备增幅:`, item.装备增幅);
         Object.entries(item.装备增幅.后天六司).forEach(([attr, value]) => {
           if (attr in bonuses && typeof value === 'number') {
+            console.log(`[装备加成计算] 添加属性加成: ${attr} +${value}`);
             (bonuses as InnateAttributes)[attr as keyof InnateAttributes] += value;
           }
         });
+      } else {
+        console.log(`[装备加成计算] 物品没有装备增幅或后天六司属性`);
       }
+    } else {
+      console.log(`[装备加成计算] 槽位 ${slot} 为空或物品不存在`);
     }
   });
 
+  console.log('[装备加成计算] 最终装备加成:', bonuses);
   return bonuses;
 }
 
