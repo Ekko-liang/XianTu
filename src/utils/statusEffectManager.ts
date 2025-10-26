@@ -42,6 +42,9 @@ export function gameTimeToTotalMinutes(gameTime: GameTime): number {
 export function formatMinutesToDuration(minutes: number): string {
   if (minutes <= 0) return '已过期';
 
+  // 永久效果处理
+  if (minutes >= 99999) return '永久';
+
   const years = Math.floor(minutes / (365 * 24 * 60));
   const months = Math.floor((minutes % (365 * 24 * 60)) / (30 * 24 * 60));
   const days = Math.floor((minutes % (30 * 24 * 60)) / (24 * 60));
@@ -110,6 +113,11 @@ export function parseDurationToMinutes(duration: string): number {
 export function isStatusEffectExpired(effect: StatusEffect, currentGameTime: GameTime): boolean {
   // 新格式：使用数值化时间计算
   if (effect.生成时间 && typeof effect.持续时间分钟 === 'number') {
+    // 特殊值处理：负数或99999表示永久效果
+    if (effect.持续时间分钟 < 0 || effect.持续时间分钟 >= 99999) {
+      return false;
+    }
+
     const effectStartTime = gameTimeToTotalMinutes(effect.生成时间);
     const currentTime = gameTimeToTotalMinutes(currentGameTime);
     const elapsedMinutes = currentTime - effectStartTime;
@@ -136,6 +144,11 @@ export function isStatusEffectExpired(effect: StatusEffect, currentGameTime: Gam
 export function calculateRemainingMinutes(effect: StatusEffect, currentGameTime: GameTime): number {
   // 新格式：使用数值化时间计算
   if (effect.生成时间 && typeof effect.持续时间分钟 === 'number') {
+    // 特殊值处理：负数或99999表示永久效果
+    if (effect.持续时间分钟 < 0 || effect.持续时间分钟 >= 99999) {
+      return 99999; // 返回永久标记
+    }
+
     const effectStartTime = gameTimeToTotalMinutes(effect.生成时间);
     const currentTime = gameTimeToTotalMinutes(currentGameTime);
     const elapsedMinutes = currentTime - effectStartTime;
