@@ -1027,7 +1027,11 @@ const sendMessage = async () => {
   const actionQueueText = actionQueue.getActionPrompt();
 
   // 🔥 用户输入外层包裹格式化标签
-  const formattedUserMessage = userMessage ? `<用户行动趋向>${userMessage}</用户行动趋向>` : '';
+  const formattedUserMessage = userMessage ? `
+  <用户行动趋向>${userMessage}</用户行动趋向>
+  <强调用户行动趋向>${userMessage}</强调用户行动趋向>
+  <再次强调用户行动趋向>${userMessage}</再次强调用户行动趋向>
+  ` : '';
 
   // 将格式化后的用户输入和动作队列文本合并
   const finalUserMessage = actionQueueText ?
