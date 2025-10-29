@@ -116,7 +116,10 @@ class AIBidirectionalSystemClass {
         }
 
         if (playerStatus.状态效果 && playerStatus.状态效果.length > 0) {
-          coreStatusSummary += `\n- 状态: ${playerStatus.状态效果.map((e: StatusEffect) => e.状态名称).join(', ')}`;
+          coreStatusSummary += `\n- 状态: ${playerStatus.状态效果
+            .filter((e: StatusEffect) => e && typeof e === 'object' && e.状态名称)
+            .map((e: StatusEffect) => e.状态名称)
+            .join(', ')}`;
         }
       }
       if (character?.天赋) {

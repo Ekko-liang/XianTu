@@ -683,8 +683,7 @@ export interface QuestSystemConfig {
 /** 任务系统（统一管理所有任务） */
 export interface QuestSystem {
   配置: QuestSystemConfig;
-  当前任务列表: Quest[]; // 所有进行中的任务
-  已完成任务: Quest[]; // 保留完整任务信息
+  当前任务列表: Quest[]; // 包含所有任务（进行中、已完成等）
   任务统计: {
     完成总数: number;
     各类型完成: Record<QuestType, number>; // 按类型统计

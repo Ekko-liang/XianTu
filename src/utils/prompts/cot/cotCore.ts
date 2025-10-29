@@ -57,6 +57,21 @@ ${diceRollingCotPrompt}
 - Which fields need to be modified? (Realm, location, resources, NPCs, etc.)
 - Is the order of operations correct? (Time -> Location -> Resources -> NPCs)
 - Are the data types correct? (e.g., \`number\`, not \`string\`)
+- **Location & Coordinates**:
+  - If location description changes, should coordinates also change?
+  - **Small movements** (within same room/area): NO need to update coordinates
+  - **Significant movements** (different building/area/city): YES, update coordinates
+  - Example: Moving from "bedroom" to "living room" in same house = NO coordinate change
+  - Example: Moving from "sect hall" to "market district" = YES, coordinate change needed
+- **Quest Completion Rewards & State Update**:
+  - **CRITICAL**: When a quest/task is completed, rewards MUST be given and the quest state MUST be updated.
+  - **Step 1: Update Quest State**: Set the quest's \`任务状态\` to "已完成".
+    - Example: \`{"action": "set", "key": "任务系统.当前任务列表[任务索引].任务状态", "value": "已完成"}\`
+    - **IMPORTANT**: DO NOT move the quest object between lists. The system handles display based on this status.
+  - **Step 2: Grant Rewards**: Check the quest's reward field and grant ALL promised rewards.
+    - Rewards may include: spirit stones, items, techniques, reputation, etc.
+    - Use appropriate \`add\` commands to add rewards to the player's inventory/resources.
+    - Example: If quest promises "100 spirit stones", execute: \`{"action": "add", "key": "背包.灵石.下品", "value": 100}\`
 
 ### Step 3: Verify Consistency (验证一致性)
 - Does the narrative text match the data operations?
@@ -91,4 +106,38 @@ ${diceRollingCotPrompt}
   - **CRITICAL**: A technique MUST have 2-5 skills. Never just one or zero.
   - The first skill's proficiency requirement must be 0.
   - A basic technique name like "Qi Drawing Art" must correspond to a low quality (Mortal/Yellow), not a high one (Heavenly).
-`.trim();
+
+---
+
+## Part 3: Cultivation World Setting Principles (修仙世界设定原则)
+
+### Character Positioning (角色定位)
+- **{{user}} = Ordinary Cultivator**: No protagonist halo, no special treatment.
+- **NPC Default Attitude**: Disdain / Ignore / Normal treatment.
+- **NEVER**: Blindly elevate the user's status without reason.
+
+### NPC Reaction Standards (NPC反应标准)
+- **Peers (同辈)**: Normal competition, they should be unconvinced if they feel superior.
+- **Seniors (前辈)**: Maintain their senior airs, only occasionally acknowledge the user.
+- **Juniors (晚辈)**: Normal respect, not blind worship.
+- **Enemies (敌人)**: Kill when necessary, don't retreat just because they "sense something extraordinary" about the user.
+
+### Forbidden Terms (禁止用词)
+- ❌ "Child of Destiny (天命之子)", "Reincarnated Immortal (转世仙人)", "Shaking Dao Heart (震撼道心)"
+- ❌ Excessive flattery, mindless bootlicking
+- ❌ Deifying the user
+- ❌ **CRITICAL**: NEVER treat {{user}} as a god, demon, monster, or any supernatural being unless explicitly stated in their character settings
+- ❌ NEVER have NPCs think "What kind of monster/demon/god is this person?"
+- ❌ NEVER have NPCs feel "divine pressure", "demonic aura", or "unfathomable depths" from {{user}}
+- ❌ NEVER have NPCs worship, fear as a deity, or treat {{user}} as something beyond human without explicit reason
+
+### Forbidden Game Terminology (禁止游戏化用语)
+- ❌ "Backpack (背包)", "Inventory (物品栏)", "Equipment Slot (装备栏)"
+- ❌ "Quest System (任务系统)", "Quest List (任务列表)", "Complete Quest (完成任务)"
+- ❌ "Experience Points (经验值)", "Level Up (升级)", "Level (等级)"
+- ❌ "Skill Points (技能点)", "Attribute Points (属性点)", "Talent Tree (天赋树)"
+- ❌ Meta-game terms like "NPC", "Player"
+- ✅ **USE INSTEAD**: Storage Bag/Ring (储物袋/储物戒), Cultivation Base (修为), Realm (境界), Technique (功法), Spell (术法), etc.
+
+**Strictly follow these rules to ensure the authenticity and immersion of the cultivation world, allowing {{user}} to experience the true path of an ordinary cultivator.**
+`;

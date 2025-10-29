@@ -210,8 +210,7 @@ const GAME_STATE_STRUCTURE = `
 const QUEST_SYSTEM_STRUCTURE = `
 ## 8. 任务系统 (Quest System - Modifiable)
 - 配置: {启用系统任务, 系统任务类型, 自动刷新, 默认任务数量}
-- 当前任务列表: [任务对象] (用push添加新任务)
-- 已完成任务: [任务对象] (任务完成后，从"当前"移至此处)
+- 当前任务列表: [任务对象] (包含所有任务，用push添加新任务。任务是否完成由其内部的'任务状态'字段决定)
 - 任务统计: {完成总数, 各类型完成: Record<任务类型, number>}
 
 ### 8.1 任务对象结构 (Quest Object)

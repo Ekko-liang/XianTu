@@ -101,6 +101,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue';
 import { toast } from '@/utils/toast';
+import { generateMachineCode as generateMachineCodeUtil } from '@/utils/machineCode';
 
 // Props
 interface Props {
@@ -147,33 +148,12 @@ const isFormValid = computed(() => {
 // Methods
 const generateMachineCode = async () => {
   try {
-    // 检查是否有统一机器码系统
-    if (typeof (window as any).generateStableMachineCode === 'function') {
-      const machineCode = await (window as any).generateStableMachineCode();
-      formData.machineCode = machineCode;
-    } else {
-      // 降级方案：生成简单的机器码
-      const userAgent = navigator.userAgent;
-      const screen = `${window.screen.width}x${window.screen.height}`;
-      const platform = navigator.platform;
-      const language = navigator.language;
-
-      const rawString = `${userAgent}-${screen}-${platform}-${language}`;
-      const hash = await simpleHash(rawString);
-      formData.machineCode = `UMC-${hash.substring(0, 8).toUpperCase()}`;
-    }
+    const machineCode = await generateMachineCodeUtil();
+    formData.machineCode = machineCode;
   } catch (error) {
-    console.error('生成机器码失败:', error);
-    toast.error('生成机器码失败，请手动输入');
+    console.error('[机器码生成] 失败:', error);
+    toast.error('机器码生成失败');
   }
-};
-
-const simpleHash = async (str: string): Promise<string> => {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(str);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 };
 
 const handleVerify = async () => {
@@ -249,8 +229,12 @@ const handleClose = () => {
 
 // Lifecycle
 onMounted(() => {
-  // 自动生成机器码
-  if (formData.machineCode === '') {
+  // 优先从 localStorage 读取已缓存的机器码
+  const cachedMachineCode = localStorage.getItem('auth_machine_code');
+  if (cachedMachineCode) {
+    formData.machineCode = cachedMachineCode;
+  } else if (formData.machineCode === '') {
+    // 只有在没有缓存且表单为空时才生成新机器码
     generateMachineCode();
   }
 });

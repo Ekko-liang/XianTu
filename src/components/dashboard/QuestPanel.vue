@@ -113,6 +113,7 @@
         :key="quest.任务ID"
         class="quest-item"
         :class="[getQuestTypeClass(quest.任务类型), { completed: quest.任务状态 === '已完成' }]"
+        @click="openQuestDetails(quest)"
       >
         <div class="quest-header">
           <span class="quest-type" :class="getQuestTypeClass(quest.任务类型)">{{ quest.任务类型 }}</span>
@@ -200,6 +201,17 @@
         <p v-if="activeTab === 'active'" class="hint">点击上方"寻找机缘"按钮获取新任务</p>
       </div>
     </div>
+
+    <DetailModal
+      v-if="selectedQuest"
+      :show="!!selectedQuest"
+      :title="selectedQuest.任务名称"
+      @close="closeQuestDetails"
+    >
+      <div v-if="selectedQuest" class="quest-detail-content">
+        <p style="white-space: pre-wrap;">{{ selectedQuest.任务描述 }}</p>
+      </div>
+    </DetailModal>
   </div>
 </template>
 
@@ -208,11 +220,13 @@ import { ref, computed, watch } from 'vue';
 import { useQuestStore } from '@/stores/questStore';
 import type { Quest, QuestType, InnateAttributes } from '@/types/game';
 import { Settings } from 'lucide-vue-next';
+import DetailModal from '@/components/common/DetailModal.vue';
 
 const questStore = useQuestStore();
 const activeTab = ref<'all' | 'active' | 'completed'>('active');
 const selectedType = ref<QuestType | null>(null);
 const showConfigDialog = ref(false);
+const selectedQuest = ref<Quest | null>(null);
 
 // 本地配置状态
 const localConfig = ref({
@@ -343,6 +357,14 @@ async function deleteQuest(questId: string) {
     console.error('删除任务失败:', error);
   }
 }
+
+function openQuestDetails(quest: Quest) {
+  selectedQuest.value = quest;
+}
+
+function closeQuestDetails() {
+  selectedQuest.value = null;
+}
 </script>
 
 <style scoped>
@@ -454,6 +476,7 @@ async function deleteQuest(questId: string) {
   padding: 1rem;
   margin-bottom: 1rem;
   transition: all 0.3s;
+  cursor: pointer;
 }
 
 .quest-item:hover {

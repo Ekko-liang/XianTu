@@ -80,7 +80,6 @@ export async function initializeCharacterOffline(
         默认任务数量: 3
       },
       当前任务列表: [],
-      已完成任务: [],
       任务统计: {
         完成总数: 0,
         各类型完成: {} as Record<QuestType, number>

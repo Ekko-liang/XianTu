@@ -18,6 +18,21 @@ export const useQuestStore = defineStore('quest', () => {
   const gameStateStore = useGameStateStore();
   const isGenerating = ref(false);
 
+  // 一次性数据迁移：将旧的已完成任务合并到主列表
+  if (gameStateStore.questSystem && (gameStateStore.questSystem as any).已完成任务?.length > 0) {
+    console.log('[任务系统] 检测到旧版存档数据，正在迁移已完成任务...');
+    // 使用 Set 来防止重复添加
+    const existingIds = new Set(gameStateStore.questSystem.当前任务列表.map(q => q.任务ID));
+    const questsToMigrate = (gameStateStore.questSystem as any).已完成任务.filter((q: Quest) => !existingIds.has(q.任务ID));
+
+    if (questsToMigrate.length > 0) {
+      gameStateStore.questSystem.当前任务列表.push(...questsToMigrate);
+      delete (gameStateStore.questSystem as any).已完成任务;
+      gameStateStore.saveGame(); // 持久化迁移
+      toast.info('任务数据已更新至新版格式');
+    }
+  }
+
   // 任务配置
   const questConfig = computed<QuestConfig>(() => {
     const config = gameStateStore.questSystem?.配置;
@@ -30,16 +45,18 @@ export const useQuestStore = defineStore('quest', () => {
     };
   });
 
-  // 当前任务列表
-  const currentQuests = computed(() => gameStateStore.questSystem?.当前任务列表 || []);
+  // 所有任务的单一真实来源
+  const currentQuests = computed<Quest[]>(() => gameStateStore.questSystem?.当前任务列表 || []);
 
-  // 已完成的任务列表
-  const completedQuests = computed(() => gameStateStore.questSystem?.已完成任务 || []);
+  // 已完成的任务列表 (动态计算)
+  const completedQuests = computed(() =>
+    currentQuests.value.filter((q: Quest) => q.任务状态 === '已完成')
+  );
 
-  // 进行中的任务
-  const activeQuests = computed(() => {
-    return currentQuests.value.filter((q: Quest) => q.任务状态 === '进行中');
-  });
+  // 进行中的任务 (动态计算)
+  const activeQuests = computed(() =>
+    currentQuests.value.filter((q: Quest) => q.任务状态 === '进行中' || !q.任务状态) // 兼容没有状态的旧任务
+  );
 
   /**
    * 生成新任务
@@ -125,12 +142,18 @@ export const useQuestStore = defineStore('quest', () => {
       return;
     }
 
-    const questIndex = currentQuests.value.findIndex((q: Quest) => q.任务ID === questId);
-    const quest = currentQuests.value[questIndex];
+    const quest = gameStateStore.questSystem.当前任务列表.find((q: Quest) => q.任务ID === questId);
     if (!quest) {
       console.error('[任务系统] 未找到任务:', questId);
       return;
     }
+
+    // 强制更新所有已达到进度的目标状态
+    quest.目标列表.forEach((obj: QuestObjective) => {
+      if (obj.当前进度 >= obj.需求数量) {
+        obj.已完成 = true;
+      }
+    });
 
     const toastId = toast.loading('正在结算任务奖励...');
 
@@ -149,11 +172,9 @@ export const useQuestStore = defineStore('quest', () => {
         }
       }
 
-      // 更新任务状态并移动到已完成列表
+      // 更新任务状态，不再移动任务
       quest.任务状态 = '已完成';
       quest.完成时间 = new Date().toISOString();
-      gameStateStore.questSystem.已完成任务.push(quest);
-      gameStateStore.questSystem.当前任务列表.splice(questIndex, 1);
 
       // 更新统计
       gameStateStore.questSystem.任务统计.完成总数 += 1;
@@ -182,7 +203,6 @@ export const useQuestStore = defineStore('quest', () => {
     if (!gameStateStore.questSystem) {
       gameStateStore.questSystem = {
         当前任务列表: [],
-        已完成任务: [],
         任务统计: {
           完成总数: 0,
           各类型完成: {} as Record<QuestType, number>
@@ -207,15 +227,7 @@ export const useQuestStore = defineStore('quest', () => {
       return;
     }
 
-    // 先在当前任务列表中查找
-    let questIndex = gameStateStore.questSystem.当前任务列表.findIndex((q: Quest) => q.任务ID === questId);
-    let isCompleted = false;
-
-    // 如果当前任务列表中没有，再在已完成任务列表中查找
-    if (questIndex === -1) {
-      questIndex = gameStateStore.questSystem.已完成任务.findIndex((q: Quest) => q.任务ID === questId);
-      isCompleted = true;
-    }
+    const questIndex = gameStateStore.questSystem.当前任务列表.findIndex((q: Quest) => q.任务ID === questId);
 
     if (questIndex === -1) {
       console.error('[任务系统] 未找到任务:', questId);
@@ -223,17 +235,11 @@ export const useQuestStore = defineStore('quest', () => {
       return;
     }
 
-    const quest = isCompleted
-      ? gameStateStore.questSystem.已完成任务[questIndex]
-      : gameStateStore.questSystem.当前任务列表[questIndex];
+    const quest = gameStateStore.questSystem.当前任务列表[questIndex];
 
     try {
-      // 从对应的列表中移除
-      if (isCompleted) {
-        gameStateStore.questSystem.已完成任务.splice(questIndex, 1);
-      } else {
-        gameStateStore.questSystem.当前任务列表.splice(questIndex, 1);
-      }
+      // 从单一列表中移除
+      gameStateStore.questSystem.当前任务列表.splice(questIndex, 1);
 
       // 保存到存档
       await gameStateStore.saveGame();

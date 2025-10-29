@@ -109,6 +109,7 @@ import { Settings, X } from 'lucide-vue-next';
 import { useUIStore } from '@/stores/uiStore';
 import { AUTH_CONFIG } from '@/config/authConfig';
 import { toast } from '@/utils/toast';
+import { generateMachineCode } from '@/utils/machineCode';
 
 const showSettings = ref(false);
 const showAuthModal = ref(false);
@@ -252,37 +253,6 @@ const enterCharacterSelection = async () => {
   }
 
   emit('show-character-list');
-};
-
-// 生成机器码的辅助函数
-const generateMachineCode = async (): Promise<string> => {
-  // 如果已有缓存的机器码，直接使用
-  const cached = localStorage.getItem('auth_machine_code');
-  if (cached) return cached;
-
-  // 否则生成新的机器码
-  try {
-    if (typeof (window as any).generateStableMachineCode === 'function') {
-      return await (window as any).generateStableMachineCode();
-    }
-  } catch (e) {
-    console.warn('生成机器码失败', e);
-  }
-
-  // 降级方案
-  const userAgent = navigator.userAgent;
-  const screen = `${window.screen.width}x${window.screen.height}`;
-  const platform = navigator.platform;
-  const language = navigator.language;
-  const rawString = `${userAgent}-${screen}-${platform}-${language}`;
-
-  const encoder = new TextEncoder();
-  const data = encoder.encode(rawString);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-
-  return `UMC-${hash.substring(0, 8).toUpperCase()}`;
 };
 
 // 授权状态点击处理

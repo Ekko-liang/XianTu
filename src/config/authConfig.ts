@@ -11,7 +11,7 @@ export const AUTH_CONFIG = {
   ENABLE_AUTH: true,
 
   // 授权服务器地址
-  SERVER_URL: 'http://38.55.124.252:12300',
+  SERVER_URL: 'https://auth.ddct.top',
 
   // 应用ID（已写死）
   APP_ID: 'v28_8542ec92',
