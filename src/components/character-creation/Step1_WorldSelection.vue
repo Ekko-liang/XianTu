@@ -67,8 +67,8 @@
 
           <!-- 地图生成选项（移入右侧详情内，避免整体高度溢出） -->
           <div class="map-options" v-show="showMapOptions">
-            <div class="map-options-header">地图生成选项</div>
-            
+            <div class="map-options-header">世界规模配置</div>
+
             <!-- 配置警告提示 -->
             <div class="config-warning" v-if="isConfigRisky">
               <div class="warning-icon">⚠️</div>
@@ -77,7 +77,8 @@
                 <div class="warning-desc">当前配置可能导致生成失败，建议调整至合理范围</div>
               </div>
             </div>
-            
+
+            <!-- 核心游戏配置 -->
             <div class="map-options-grid">
               <label class="option-item">
                 <span class="option-label">主要势力</span>
@@ -127,35 +128,49 @@
                 />
                 <span class="config-hint">范围: 3-7</span>
               </label>
-              <label class="option-item">
-                <span class="option-label">地图宽度</span>
-                <input type="number" min="1000" max="8000" step="100" v-model.number="worldConfig.mapConfig.width" />
-                <span class="config-hint">推荐: 3600</span>
-              </label>
-              <label class="option-item">
-                <span class="option-label">地图高度</span>
-                <input type="number" min="1000" max="8000" step="100" v-model.number="worldConfig.mapConfig.height" />
-                <span class="config-hint">推荐: 2400</span>
-              </label>
             </div>
-            <div class="map-options-grid geo-grid">
-              <label class="option-item">
-                <span class="option-label">经度范围</span>
-                <div class="range-inputs">
-                  <input type="number" step="0.1" v-model.number="worldConfig.mapConfig.minLng" placeholder="最小经度" />
-                  <span>-</span>
-                  <input type="number" step="0.1" v-model.number="worldConfig.mapConfig.maxLng" placeholder="最大经度" />
+
+            <!-- 高级选项折叠区 -->
+            <div class="advanced-section">
+              <button class="advanced-toggle" @click="showAdvancedOptions = !showAdvancedOptions">
+                <span>{{ showAdvancedOptions ? '▼' : '▶' }}</span>
+                <span>高级选项（地图技术参数）</span>
+              </button>
+
+              <div v-show="showAdvancedOptions" class="advanced-content">
+                <div class="map-options-grid">
+                  <label class="option-item">
+                    <span class="option-label">地图宽度</span>
+                    <input type="number" min="1000" max="8000" step="100" v-model.number="worldConfig.mapConfig.width" />
+                    <span class="config-hint">推荐: 3600</span>
+                  </label>
+                  <label class="option-item">
+                    <span class="option-label">地图高度</span>
+                    <input type="number" min="1000" max="8000" step="100" v-model.number="worldConfig.mapConfig.height" />
+                    <span class="config-hint">推荐: 2400</span>
+                  </label>
                 </div>
-              </label>
-              <label class="option-item">
-                <span class="option-label">纬度范围</span>
-                <div class="range-inputs">
-                  <input type="number" step="0.1" v-model.number="worldConfig.mapConfig.minLat" placeholder="最小纬度" />
-                  <span>-</span>
-                  <input type="number" step="0.1" v-model.number="worldConfig.mapConfig.maxLat" placeholder="最大纬度" />
+                <div class="map-options-grid geo-grid">
+                  <label class="option-item">
+                    <span class="option-label">经度范围</span>
+                    <div class="range-inputs">
+                      <input type="number" step="0.1" v-model.number="worldConfig.mapConfig.minLng" placeholder="最小经度" />
+                      <span>-</span>
+                      <input type="number" step="0.1" v-model.number="worldConfig.mapConfig.maxLng" placeholder="最大经度" />
+                    </div>
+                  </label>
+                  <label class="option-item">
+                    <span class="option-label">纬度范围</span>
+                    <div class="range-inputs">
+                      <input type="number" step="0.1" v-model.number="worldConfig.mapConfig.minLat" placeholder="最小纬度" />
+                      <span>-</span>
+                      <input type="number" step="0.1" v-model.number="worldConfig.mapConfig.maxLat" placeholder="最大纬度" />
+                    </div>
+                  </label>
                 </div>
-              </label>
+              </div>
             </div>
+
             <div class="map-options-actions">
               <button class="opt-btn" @click="randomizeConfig">随机</button>
               <button class="opt-btn" @click="resetConfig">重置</button>
@@ -217,6 +232,7 @@ const store = useCharacterCreationStore();
 const activeWorld = ref<World | null>(null); // For hover details view - 仿照天赋选择
 const isCustomModalVisible = ref(false);
 const showMapOptions = ref(false);
+const showAdvancedOptions = ref(false);
 const isEditModalVisible = ref(false);
 const isAIPromptModalVisible = ref(false);
 const editingWorld = ref<World | null>(null);

@@ -1,9 +1,10 @@
 import { diceRollingCotPrompt } from './diceRollingCot';
+import { WRITING_QUALITY } from '../definitions/writingQuality';
 
 export const cotCorePrompt = `
 # 🔴 强制思维链输出要求 (MANDATORY Chain of Thought Output)
 
-## ⚠️ 最高优先级规则 - 你必须严格遵守
+## ⚠️ 最高优先级规则
 
 **你的输出必须按照以下顺序，不得跳过任何步骤：**
 
@@ -13,23 +14,6 @@ export const cotCorePrompt = `
 4. **第四步：输出纯 JSON 响应（不要用 \`\`\`json 包裹）**
 
 **🚨 如果你跳过 <thinking> 标签，输出将被系统拒绝！**
-
-**正确的输出格式示例：**
-\`\`\`
-<thinking>
-1) Current State
-a) Player input: XYZ
-b) Current scene: XYZ
-c) Current NPCs: XYZ
-...
-</thinking>
-
-{
-  "text": "叙事文本...",
-  "mid_term_memory": "中期记忆摘要...",
-  "tavern_commands": [...]
-}
-\`\`\`
 
 ---
 
@@ -70,32 +54,91 @@ d) Word count: 800-1200 chars (MIN 600, or REJECTED): XYZ
 a) Location/Time/Quest updates needed? XYZ
 b) NPC structure correct? (境界 only 名称+阶段, 背包 has 灵石+物品, 实时关注 updates): XYZ
 c) Realm breakthrough? (Major realm MUST have tribulation): XYZ
-d) Item/Status effect format correct? XYZ
+d) Item format correct? (物品ID, 品质 object, 数量, 功法 MUST have 2-5 技能 with first 熟练度要求=0): XYZ
+e) Status effect format correct? (生成时间 object, 持续时间分钟 number, 类型 buff/debuff): XYZ
+f) Dao unlock format correct? (是否解锁 true, 阶段列表 has 2+ stages): XYZ
 
 ## 6) Command Preparation (指令预备 - CRITICAL)
-**列出所有需要生成的 tavern_commands，逐项确认，不得遗漏：**
-a) Items received/given? List all: XYZ
-b) Spirit stones changed? List amounts: XYZ
-c) Attributes changed? List all: XYZ
-d) Location changed? List: XYZ
-e) Time progressed? List: XYZ
-f) Status effects added? List all: XYZ
-g) Quest updates? List all: XYZ
-h) NPC updates? List all (memory, favorability, state): XYZ
-i) Realm/Dao progress? List all: XYZ
-j) Total commands count: X (Must match actual tavern_commands array length)
+**逐句阅读叙事文本，列出所有数据变化，为每个变化生成对应指令：**
 
-**⚠️ 即使没有明显事件，也要检查：**
-- 时间是否推进？（对话、思考都需要时间）
-- NPC 是否在场？（在场就要更新记忆）
-- 实时关注的 NPC 状态是否更新？
+### 6.1) 物品操作 (Items)
+a) Player receives items? List each with format: XYZ
+   → set 储物袋.物品.{ID} = {完整对象}
+b) Player consumes items? List each: XYZ
+   → add 储物袋.物品.{ID}.数量 = -X (部分) OR delete 储物袋.物品.{ID} (全部)
+c) Player gives items to NPC? List each: XYZ
+   → delete 储物袋.物品.{ID} + set 人物关系.{NPC名}.背包.物品.{ID}
+
+### 6.2) 货币操作 (Currency)
+a) Spirit stones changed? List by grade (下品/中品/上品/极品): XYZ
+   → add 储物袋.灵石.{品级} = ±X
+
+### 6.3) 属性操作 (Attributes)
+a) HP/MP/Spirit current changed? List: XYZ
+   → add 气血.当前 = ±X, add 灵气.当前 = ±X, add 神识.当前 = ±X
+b) HP/MP/Spirit max changed (breakthrough only)? List: XYZ
+   → add 气血.上限 = +X, add 灵气.上限 = +X, add 神识.上限 = +X
+c) 后天六司 changed? List: XYZ
+   → add 后天六司.{属性} = ±X
+
+### 6.4) 位置与时间 (Location & Time)
+a) Location changed? XYZ
+   → set 位置.描述 = "大陆·地点" (+ set x, y if major movement)
+   → 注意：x/y 使用经纬度坐标（例如：x: 107.5, y: 30.0），非虚拟坐标
+b) Time progressed? Minutes: XYZ
+   → add 游戏时间.分钟 = X
+
+### 6.5) 状态效果 (Status Effects)
+a) Status effects added? List all: XYZ
+   → push 状态效果 = {状态名称, 类型:"buff"|"debuff", 生成时间:{年月日时分}, 持续时间分钟:number, 状态描述}
+
+### 6.6) 任务操作 (Quests)
+a) Quest progress? List: XYZ
+   → add 任务列表.{ID}.目标列表.{索引}.当前进度 = +X
+b) Quest status changed? List: XYZ
+   → set 任务列表.{ID}.任务状态 = "已完成"|"已失败"
+
+### 6.7) NPC 操作 (NPCs)
+a) NPC memory updates (MUST for all NPCs in scene)? List: XYZ
+   → push 人物关系.{NPC名}.记忆 = "【游戏时间】事件描述"
+b) NPC favorability changed? List: XYZ
+   → add 人物关系.{NPC名}.好感度 = ±X
+c) NPC 实时关注 updates (if 实时关注=true)? List: XYZ
+   → set 人物关系.{NPC名}.当前外貌状态, set 当前内心想法
+
+### 6.8) 境界与大道 (Realm & Dao)
+a) Realm breakthrough? XYZ
+   → set 境界 = {名称, 阶段, 当前进度, 下一级所需, 突破描述}
+   → MUST also: add 气血.上限, add 灵气.上限, add 神识.上限
+b) Dao progress? List: XYZ
+   → add 三千大道.{道名}.当前进度 = +X
+c) Dao unlock? List: XYZ
+   → set 三千大道.{道名} = {是否解锁:true, 当前阶段, 当前进度:0, 阶段列表:[至少2个阶段对象]}
+
+### 6.9) 装备与技能 (Equipment & Skills)
+a) Equipment changed? List: XYZ
+   → set 装备栏.{部位} = {物品ID} OR null
+b) Skill proficiency? List: XYZ
+   → add 掌握技能.{技能名}.熟练度 = +X
+
+### 6.10) 总计确认 (Total Count)
+j) Total commands count: X
+   → Must match actual tavern_commands array length
+
+**⚠️ 强制检查（即使没有明显事件）：**
+- 时间推进？（对话/思考都需要时间，至少1-5分钟）
+- NPC 在场？（在场必须更新记忆）
+- 实时关注的 NPC？（必须更新外貌状态和内心想法）
 
 ## 7) Final Check (最终检查)
-a) Text quality: Avoided 绝望/机械化/八股/神化/夸张? XYZ
+a) Text quality: Check against forbidden words list (绝望化/机械化/八股化/过度修饰/过度身体描写)? XYZ
+   - No 麻木/绝望/无力感/机械/冰冷/石子/惊雷/猛地/瞬间/睫毛/锁骨/脊背/颤抖?
+   - Used natural actions and specific details instead?
 b) Text length: 600+ characters (target 800-1200)? XYZ
 c) JSON format: Pure JSON, double quotes, no trailing commas? XYZ
 d) Commands complete: All events have corresponding commands? XYZ
-e) Total commands match count in step 6j? XYZ
+e) Commands format: All follow correct action/key/value structure? XYZ
+f) Total commands match count in step 6.10j? XYZ
 
 </thinking>
 
@@ -107,25 +150,18 @@ e) Total commands match count in step 6j? XYZ
   "text": "叙事文本内容（必须800-1200字，最少600字，否则输出无效）",
   "mid_term_memory": "中期记忆摘要",
   "tavern_commands": [
-    {"action": "set|add|push|pull|delete", "key": "字段路径", "value": "值"}
+    {"action": "set|add|push|delete", "key": "字段路径", "value": "值"}
   ]
 }
 
 ---
 
-# 🔴 叙事文本长度要求 (CRITICAL - Text Length Requirement)
+# 🔴 核心规则速查 (Quick Reference)
 
-**这是强制要求，违反将导致输出被拒绝：**
-
+## 叙事文本要求
 - **绝对最少**：600 个中文字符
 - **推荐范围**：800-1200 个中文字符
-- **如果少于 600 字，输出将被系统拒绝**
-
-**记住：宁可写多，不可写少。丰富的细节描写是修仙世界沉浸感的关键。**
-
----
-
-# 补充规则参考 (Supplementary Rules Reference)
+- **格式标记**：【环境】"对话" 〖判定〗
 
 ## 玩家意图铁律
 - **用户输入 = 最高指令**：严格按字面意思执行
@@ -136,64 +172,91 @@ e) Total commands match count in step 6j? XYZ
 ## 判定系统（如果有 <行动趋向> 标签）
 ${diceRollingCotPrompt}
 
-## 修仙世界设定
-- **玩家 = 普通修士**：无主角光环，无特殊待遇
-- **NPC 态度**：同辈竞争、前辈傲慢、晚辈尊敬（不是崇拜）
-- **禁止游戏化用语**：不用"背包/物品栏/经验值"，用"储物袋/修为/境界"
+${WRITING_QUALITY}
 
-## 文本格式规范
-- **环境描写**：用 【...】 包裹
-- **角色对话**：用 "..." 包裹
-- **内心思考**：直接描写，不加特殊标记
-- **系统判定**：用 〖判定名称:结果,骰点:X,属性:X,加成:X,最终值:X,难度:X〗
+## 数据结构铁律
 
-## 数据操作规范
-- **只读字段**：装备栏、修炼功法、掌握技能、系统、年龄、角色基础信息（除后天六司）
-- **玩家记忆**：严禁通过 tavern_commands 修改，只能通过 mid_term_memory 字段
-- **NPC 境界**：只有"名称"和"阶段"，严禁添加"当前进度"/"下一级所需"/"突破描述"
-- **NPC 背包**：必须包含"灵石"和"物品"两个子字段（即使为空）
-- **NPC 记忆**：每次交互必须 push 新记忆，格式：【游戏时间】10-30字事件描述
-- **NPC 实时关注**：如果 实时关注=true，必须更新"当前外貌状态"和"当前内心想法"
-- **境界突破**：必须 (1) 用 set 更新整个境界对象（包含突破描述）(2) 用 add 增加气血/灵气/神识上限
-- **🔴 大境界突破**：跨大境界突破（筑基→金丹、金丹→元婴等）必须先渡劫，不能直接突破
-- **状态效果**：push 时必须包含 {状态名称, 类型:"buff"|"debuff", 生成时间:{年月日时分}, 持续时间分钟, 状态描述}
-- **位置更新**：大范围移动必须同时更新 描述 + x + y 三个字段
-- **物品生成**：必须包含 {物品ID:"类型_数字", 名称, 类型, 品质:{quality,grade}, 数量, 描述}
-- **三千大道**：解锁时必须设 是否解锁:true，阶段列表必须有多个阶段（不能只有1个）
+### 玩家专属结构
+- **境界对象**：{名称, 阶段, 当前进度, 下一级所需, 突破描述} - 5个字段
+- **记忆更新**：严禁通过 tavern_commands 修改，只能通过 mid_term_memory 字段
 
-## 🔴 指令完整性铁律（最高优先级）
-**叙事中发生的所有数据变化，都必须有对应的 tavern_commands 指令：**
-- ✅ NPC 给玩家物品 → 必须有 push 物品指令
-- ✅ 玩家给 NPC 物品 → 必须有 delete 玩家物品 + push NPC 物品指令
-- ✅ 灵石交易 → 必须有 add 灵石指令（正数或负数）
-- ✅ 时间流逝 → 必须有 add 游戏时间.分钟 指令
-- ✅ 位置移动 → 必须有 set 位置 指令（描述 + x + y）
-- ✅ 获得状态效果 → 必须有 push 状态效果 指令
-- ✅ NPC 对话/交互 → 必须有 push NPC 记忆指令
-- ✅ 好感度变化 → 必须有 add 好感度 指令
-- ✅ 任务进度 → 必须有 add 任务进度 指令
-- ✅ 境界/大道进度 → 必须有对应的 set/add 指令
+### NPC 专属结构
+- **境界对象**：{名称, 阶段} - 只有2个字段，严禁添加其他
+- **背包对象**：{灵石:{下品,中品,上品,极品}, 物品:{}} - 必须有这两个字段
+- **记忆格式**：【游戏时间】10-30字事件描述
+- **实时关注**：如果 实时关注=true，必须更新"当前外貌状态"和"当前内心想法"
 
-**检查方法：逐句阅读叙事文本，列出所有数据变化，确保每个变化都有对应指令。**
+### 通用数据结构
+- **物品对象**：{物品ID:"类型_数字", 名称, 类型:"装备"|"功法"|"丹药"|"材料"|"其他", 品质:{quality:"凡~神",grade:0-10}, 数量:number, 描述}
+- **功法物品**：必须包含 功法技能:[{技能名称, 技能描述, 消耗, 熟练度要求}]，数组长度 2-5，第一个技能的熟练度要求必须是 0
+- **状态效果**：{状态名称, 类型:"buff"|"debuff", 生成时间:{年月日时分}, 持续时间分钟:number, 状态描述}
+- **三千大道**：{是否解锁:true, 当前阶段:"...", 当前进度:number, 阶段列表:[{名称,描述,所需进度},...]} - 阶段列表至少2个
+- **任务对象**：{任务ID:"quest_类型_时间戳", 任务名称, 任务描述, 任务类型, 任务状态:"进行中"|"已完成"|"已失败", 目标列表:[], 奖励:{}}
+
+## 指令格式速查表
+
+| 操作类型 | action | key 示例 | value 示例 |
+|---------|--------|----------|-----------|
+| **物品获得** | set | 储物袋.物品.item_001 | {完整物品对象} |
+| **物品消耗部分** | add | 储物袋.物品.item_001.数量 | -1 |
+| **物品消耗全部** | delete | 储物袋.物品.item_001 | - |
+| **灵石变化** | add | 储物袋.灵石.下品 | ±100 |
+| **属性当前值** | add | 气血.当前 | ±50 |
+| **属性上限** | add | 气血.上限 | +100 |
+| **后天六司** | add | 后天六司.力量 | ±5 |
+| **位置变化** | set | 位置.描述 | "东玄大陆·青云宗" |
+| **时间推进** | add | 游戏时间.分钟 | 30 |
+| **状态效果** | push | 状态效果 | {完整状态对象} |
+| **任务进度** | add | 任务列表.quest_001.目标列表.0.当前进度 | +1 |
+| **任务状态** | set | 任务列表.quest_001.任务状态 | "已完成" |
+| **NPC记忆** | push | 人物关系.张三.记忆 | "【时间】事件" |
+| **好感度** | add | 人物关系.张三.好感度 | ±10 |
+| **境界突破** | set | 境界 | {完整境界对象} |
+| **大道进度** | add | 三千大道.剑道.当前进度 | +50 |
+| **大道解锁** | set | 三千大道.剑道 | {完整大道对象} |
+| **装备穿戴** | set | 装备栏.武器 | "weapon_001" |
+| **装备卸下** | set | 装备栏.武器 | null |
+| **技能熟练度** | add | 掌握技能.御剑术.熟练度 | +10 |
+
+## 关键约束
+
+### 境界突破
+- **小境界突破**（炼气初期→中期）：直接 set 境界对象 + add 属性上限
+- **大境界突破**（筑基→金丹）：必须先渡劫，不能直接突破
+
+### 三千大道解锁
+- 必须设置 是否解锁:true
+- 阶段列表必须至少2个阶段对象
+- 每个阶段对象必须包含：名称、描述、所需进度
+
+### 功法物品生成
+- 功法技能数组长度：2-5 个
+- 第一个技能的熟练度要求：必须是 0
+- 每个技能必须包含：技能名称、技能描述、消耗、熟练度要求
+
+### 位置更新
+- **坐标系统**：使用经纬度坐标（例如：x: 100-115, y: 25-35），前端会自动转换为显示坐标
+- **小范围移动**：只更新 位置.描述
+- **大范围移动**：同时更新 位置.描述 + 位置.x + 位置.y（经纬度）
+
+### 只读字段（严禁修改）
+- 装备栏（只能通过装备/卸下操作）
+- 修炼功法
+- 掌握技能（只能增加熟练度）
+- 系统
+- 年龄
+- 角色基础信息（除后天六司外）
 
 ## 命名规范
-- **物品ID**：类型_数字（如 item_001, weapon_123）
+- **物品ID**：类型_数字（如 item_001, weapon_123, skill_book_456）
+- **任务ID**：quest_类型_时间戳（如 quest_main_1234567890）
 - **位置格式**：大陆·地点（如 东玄大陆·青云宗）
 - **品质格式**：{"quality":"凡|黄|玄|地|天|仙|神","grade":0-10}
 
-## 境界与属性参考
+## 境界与阶段参考
 - **境界顺序**：凡人 → 炼气 → 筑基 → 金丹 → 元婴 → 化神 → 炼虚 → 合体 → 渡劫
 - **阶段划分**：初期、中期、后期、圆满、极境（罕见）
 - **品质等级**：凡/黄（开局）→ 玄/地（中期）→ 天（高级）→ 仙（传说）→ 神（禁忌）
-- **🔴 大境界突破铁律**：从一个大境界突破到下一个大境界（如筑基→金丹、金丹→元婴）必须经历天劫/渡劫过程，不能直接突破
-
-## 数据结构铁律
-- **玩家境界对象**：{名称, 阶段, 当前进度, 下一级所需, 突破描述} - 5个字段
-- **NPC境界对象**：{名称, 阶段} - 只有2个字段，严禁添加其他
-- **状态效果对象**：{状态名称, 类型:"buff"|"debuff", 生成时间:{年月日时分}, 持续时间分钟:number, 状态描述, 强度?:number, 来源?:string}
-- **物品对象**：{物品ID:"类型_数字", 名称, 类型:"装备"|"功法"|"丹药"|"材料"|"其他", 品质:{quality:"凡~神",grade:0-10}, 数量:number, 描述, ...}
-- **NPC背包对象**：{灵石:{下品,中品,上品,极品}, 物品:{}} - 必须有这两个字段
-- **任务对象**：{任务ID:"quest_类型_时间戳", 任务名称, 任务描述, 任务类型, 任务状态:"进行中"|"已完成"|"已失败", 目标列表:[], 奖励:{}, ...}
 
 **严格遵循这些规则，确保修仙世界的真实性和沉浸感。**
 

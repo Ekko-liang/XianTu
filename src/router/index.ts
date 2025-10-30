@@ -144,6 +144,15 @@ const router = createRouter({
   routes,
 });
 
+// 缓存验证结果，避免频繁请求
+let authCache: {
+  verified: boolean;
+  timestamp: number;
+  expiresAt?: string;
+} | null = null;
+
+const AUTH_CACHE_DURATION = 5 * 60 * 1000; // 5分钟缓存
+
 // 全局路由守卫 - 授权验证
 router.beforeEach(async (to, from, next) => {
   // 动态导入配置以避免循环依赖
@@ -151,7 +160,68 @@ router.beforeEach(async (to, from, next) => {
 
   // 如果启用了授权验证
   if (AUTH_CONFIG.ENABLE_AUTH) {
-    // 始终向服务器验证，不信任本地存储
+    const now = Date.now();
+
+    // 1. 检查内存缓存（优先级最高，最快）
+    if (authCache && authCache.verified) {
+      // 检查缓存是否过期
+      if (now - authCache.timestamp < AUTH_CACHE_DURATION) {
+        // 如果有过期时间，检查是否已过期
+        if (authCache.expiresAt) {
+          const expiresTime = new Date(authCache.expiresAt).getTime();
+          if (now < expiresTime) {
+            console.log('[路由守卫] 使用内存缓存，跳过验证');
+            next();
+            return;
+          }
+        } else {
+          // 没有过期时间，直接使用缓存
+          console.log('[路由守卫] 使用内存缓存，跳过验证');
+          next();
+          return;
+        }
+      }
+    }
+
+    // 2. 检查 localStorage 缓存
+    const authVerified = localStorage.getItem('auth_verified');
+    const authTimestamp = localStorage.getItem('auth_timestamp');
+    const authExpiresAt = localStorage.getItem('auth_expires_at');
+
+    if (authVerified === 'true' && authTimestamp) {
+      const cachedTime = parseInt(authTimestamp, 10);
+
+      // 检查缓存是否在有效期内
+      if (now - cachedTime < AUTH_CACHE_DURATION) {
+        // 如果有过期时间，检查是否已过期
+        if (authExpiresAt) {
+          const expiresTime = new Date(authExpiresAt).getTime();
+          if (now < expiresTime) {
+            console.log('[路由守卫] 使用本地缓存，跳过验证');
+            // 更新内存缓存
+            authCache = {
+              verified: true,
+              timestamp: cachedTime,
+              expiresAt: authExpiresAt
+            };
+            next();
+            return;
+          }
+        } else {
+          // 没有过期时间，直接使用缓存
+          console.log('[路由守卫] 使用本地缓存，跳过验证');
+          authCache = {
+            verified: true,
+            timestamp: cachedTime
+          };
+          next();
+          return;
+        }
+      }
+    }
+
+    // 3. 缓存失效或不存在，向服务器验证
+    console.log('[路由守卫] 缓存失效，向服务器验证');
     try {
       const machineCode = await generateMachineCodeForCheck();
       const response = await fetch(`${AUTH_CONFIG.SERVER_URL}/server.php`, {
@@ -169,18 +239,35 @@ router.beforeEach(async (to, from, next) => {
       // 只有服务器验证通过才允许访问
       if (result.success && result.data?.authorized) {
         console.log('[路由守卫] 服务器验证通过');
+        const currentTime = Date.now();
+
+        // 更新 localStorage
         localStorage.setItem('auth_verified', 'true');
+        localStorage.setItem('auth_timestamp', currentTime.toString());
         localStorage.setItem('auth_app_id', AUTH_CONFIG.APP_ID);
         localStorage.setItem('auth_machine_code', machineCode);
         if (result.data.expires_at) {
           localStorage.setItem('auth_expires_at', result.data.expires_at);
         }
+
+        // 更新内存缓存
+        authCache = {
+          verified: true,
+          timestamp: currentTime,
+          expiresAt: result.data.expires_at
+        };
+
         next();
         return;
       }
     } catch (error) {
       console.warn('[路由守卫] 服务器验证失败', error);
     }
+
+    // 验证失败，清除缓存
+    authCache = null;
+    localStorage.removeItem('auth_verified');
+    localStorage.removeItem('auth_timestamp');
 
     // 验证失败，且不是在首页，重定向到首页
     if (to.path !== '/') {
