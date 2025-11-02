@@ -1,4 +1,4 @@
-import { cotCorePrompt } from './cot/cotCore';
+import { cotCorePrompt, getCotCorePrompt } from './cot/cotCore';
 import * as coreRules from './definitions/coreRules';
 import * as businessRules from './definitions/businessRules';
 import * as textFormats from './definitions/textFormats';

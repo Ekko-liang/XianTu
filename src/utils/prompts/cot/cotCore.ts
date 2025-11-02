@@ -12,10 +12,11 @@ import { WRITING_QUALITY } from '../definitions/writingQuality';
  * - v2.0.0: 添加快速决策分支和 NPC 性格矩阵
  */
 
-export const cotCorePrompt = `
+export function getCotCorePrompt(userInput: string): string {
+  return `
 # 🔴 CoT 思维链 v2.1 - 输出格式强制要求
 
-接下来必须以<thinking>作为开头进行思考，并以</thinking>结尾，然后立即输出‘json代码块’.
+接下来必须以<thinking>作为开头进行思考，并以</thinking>结尾，然后立即输出'json代码块'.
 1. 先输出 <thinking>...</thinking>
 2. 再输出 \`\`\`json...}\`\`\`
 
@@ -32,7 +33,11 @@ export const cotCorePrompt = `
 
 <thinking>
 ## 1. Intent & Context
-[必填 - 🔴 必须先打印用户输入的完整内容]
+🔴 **所有用户输入中被<行动趋向>标签包裹的**：
+print：<行动趋向>【用户真正输入的内容】</行动趋向>
+
+🔴 **输入优先级**：用户自定义文本 > 行动选项 > 继续活动
+- 必须执行用户实际输入的内容，不能自动选择行动选项
 
 ## 2. Dice Rolling (if Dice: YES)
 [战斗场景必填]
@@ -74,18 +79,17 @@ export const cotCorePrompt = `
 
 <thinking>
 ## 1. Intent & Context
-🔴 **必须先打印用户输入的完整内容**：
-print：<行动趋向>【用户的完整输入内容】</行动趋向>
+🔴 **第一步：必须先打印所有用户输入中被<行动趋向>标签包裹的**：
+print：<行动趋向>【用户真正输入的内容】</行动趋向>
+
+⚠️ 注意：
+- 必须从消息历史的最后一条用户消息中提取 <行动趋向> 标签内的内容
+- 不能使用占位符或默认值（如"开始任务"）
 
 🔴 **然后分析用户意图**：
 Action: [类型] | Goal: [目标] | Dice: [YES/NO]
 Time: [对话1-5分/移动5-30分/战斗5-30分/修炼数小时]
 Context: [当前场景/环境/氛围]
-
-⚠️ **严格要求**：
-- 必须先完整打印用户输入，不能跳过或省略
-- 必须基于用户输入来推进剧情，不能自己编造
-- 不能忽视用户的行动意图
 
 ## 2. Dice Rolling (if Dice: YES)
 ⚠️ 对话/交流/已控制对象 → 不判定
@@ -144,7 +148,7 @@ Options: [3-6个本次对话的行动选项，具体根据设置来] (if enabled
 ## 核心规则
 
 ### 🔴 玩家意图（最高优先级）
-- ✅ **必须先在 thinking 中打印用户输入的完整内容**
+- ✅ **用户输入已在 thinking 第一步中显示**
 - ✅ **必须尝试用户想做的事**，不能忽视或改变用户意图
 - ✅ 结果取决于判定+能力+环境
 - ❌ **绝对禁止**：忽视用户输入，自己编造剧情
@@ -178,3 +182,7 @@ ${diceRollingCotPrompt}
 ### 文本质量
 ${WRITING_QUALITY}
 `;
+}
+
+// 保留旧的导出以兼容现有代码
+export const cotCorePrompt = getCotCorePrompt('');

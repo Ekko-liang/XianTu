@@ -15,7 +15,7 @@ import type { GM_Response } from '@/types/AIGameMaster';
 import type { CharacterProfile, StateChangeLog, SaveData, GameTime, StateChange, GameMessage, StatusEffect } from '@/types/game';
 import { updateMasteredSkills } from './masteredSkillsCalculator';
 import {  assembleSystemPrompt } from './prompts/promptAssembler';
-import { cotCorePrompt } from './prompts/cot/cotCore';
+import { getCotCorePrompt } from './prompts/cot/cotCore';
 import { normalizeGameTime } from './time';
 import { updateStatusEffects } from './statusEffectManager';
 import { rollD20 } from './diceRoller';
@@ -148,6 +148,8 @@ ${stateJsonString}
 `.trim();
 
       const userActionForAI = (userMessage && userMessage.toString().trim()) || '继续当前活动';
+      console.log('[AI双向系统] 用户输入 userMessage:', userMessage);
+      console.log('[AI双向系统] 处理后 userActionForAI:', userActionForAI);
 
       // 🎲 投掷骰子 - 程序随机生成
       const diceRoll = rollD20();
@@ -174,8 +176,9 @@ ${stateJsonString}
       }
 
       // 🔥 添加 CoT 提示词（放在最后，确保 AI 在输出前进行思维链分析）
+      // 将用户输入直接传递给 CoT，避免 AI 自己编造或误读
       injects.push({
-        content: cotCorePrompt,
+        content: getCotCorePrompt(userActionForAI),
         role: 'system',
         depth: 0,
         position: 'before',

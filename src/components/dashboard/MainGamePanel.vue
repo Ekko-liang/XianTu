@@ -1052,9 +1052,12 @@ const sendMessage = async () => {
   }
 
   const userMessage = inputText.value.trim();
+  console.log('[前端] 用户输入 inputText.value:', inputText.value);
+  console.log('[前端] 处理后 userMessage:', userMessage);
 
   // 获取动作队列中的文本
   const actionQueueText = actionQueue.getActionPrompt();
+  console.log('[前端] 动作队列 actionQueueText:', actionQueueText);
 
   let finalUserMessage = '';
   if (userMessage) {
@@ -1065,6 +1068,7 @@ const sendMessage = async () => {
     finalUserMessage = actionQueueText ? `<行动趋向>${actionQueueText}</行动趋向>
 ` : '';
   }
+  console.log('[前端] 最终发送 finalUserMessage:', finalUserMessage);
 
   // 清空动作队列（动作已经添加到消息中）
   if (actionQueueText) {
