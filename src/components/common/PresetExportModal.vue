@@ -87,6 +87,8 @@
                     {{ preset.description }}
                   </p>
                   <div v-if="preset.data" class="preset-tags">
+                    <span v-if="preset.data.character_name" class="info-tag name-tag">{{ preset.data.character_name }}</span>
+                    <span v-if="preset.data.current_age" class="info-tag age-tag">{{ preset.data.current_age }}岁</span>
                     <span v-if="preset.data.world" class="info-tag">{{ preset.data.world.name }}</span>
                     <span v-if="preset.data.talentTier" class="info-tag">{{ preset.data.talentTier.name }}</span>
                   </div>
@@ -578,6 +580,19 @@ async function handleExport() {
   border-radius: 10px;
   font-size: 0.7rem;
   color: var(--color-primary);
+}
+
+.info-tag.name-tag {
+  background: linear-gradient(135deg, rgba(var(--color-accent-rgb), 0.15), rgba(var(--color-primary-rgb), 0.15));
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.info-tag.age-tag {
+  background: rgba(var(--color-success-rgb), 0.1);
+  border-color: rgba(var(--color-success-rgb), 0.3);
+  color: var(--color-success);
 }
 
 /* Export Info */

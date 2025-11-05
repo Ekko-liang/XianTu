@@ -252,11 +252,12 @@ ${selectedShapes.map((shape, index) => `- 大洲${index + 1}: ${shape}`).join('\
 - ✗ 缺失必需字段
 - ✗ 势力范围少于4个点
 - ✗ 大洲边界少于4个点或超过8个点
+- ✗ 大洲边界点顺序错误（必须按顺时针或逆时针排列，相邻点连接）
 
 ### 必需字段
-**势力**：位置（对象）、势力范围（≥4点）、leadership（完整）、memberCount（完整）
+**势力**：位置（对象）、势力范围（≥4点，按顺时针或逆时针顺序）、leadership（完整）、memberCount（完整）
 **地点**：coordinates（对象）、name、type、description
-**大洲**：大洲边界（4-8点）、地理特征（≥3个）、天然屏障（≥2个）
+**大洲**：大洲边界（4-8点，**必须按顺时针或逆时针顺序排列形成闭合多边形**）、地理特征（≥3个）、天然屏障（≥2个）
 
 ## JSON输出格式
 \`\`\`json
@@ -275,6 +276,8 @@ ${selectedShapes.map((shape, index) => `- 大洲${index + 1}: ${shape}`).join('\
         {"x": ${minLng + lngStep}, "y": ${minLat + latStep}},
         {"x": ${minLng}, "y": ${minLat + latStep}}
       ],
+      // ⚠️ 大洲边界必须按顺时针或逆时针顺序排列，相邻点连接形成闭合多边形
+      // ⚠️ 不能随机排列坐标，否则边界线会交叉
       "主要势力": ["势力ID列表"]
     }
   ],

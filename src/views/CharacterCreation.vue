@@ -531,6 +531,7 @@ async function onStoreCompleted(result: { success: boolean; message: string; pre
         description: result.presetData.description,
         data: {
           character_name: store.characterPayload.character_name,
+          current_age: store.characterPayload.current_age,
           world: store.selectedWorld,
           talentTier: store.selectedTalentTier,
           origin: store.selectedOrigin,
@@ -600,6 +601,7 @@ async function onLoadCompleted(result: { success: boolean; message: string; pres
     const newPayload = {
       ...store.characterPayload,
       character_name: presetData.character_name || '无名者',
+      current_age: presetData.current_age ?? 16,
       world_id: worldId,
       talent_tier_id: talentTierId,
       origin_id: origin ? origin.id : null,

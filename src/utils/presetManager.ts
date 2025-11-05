@@ -36,6 +36,8 @@ export interface CharacterPreset {
   description: string;
   savedAt: string;
   data: {
+    character_name?: string;
+    current_age?: number;
     world: World | null;
     talentTier: TalentTier | null;
     origin: Origin | null;

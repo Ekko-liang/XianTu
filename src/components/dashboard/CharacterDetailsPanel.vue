@@ -1578,7 +1578,10 @@ const getSpiritRootDisplay = (spiritRoot: SpiritRoot | string | undefined): stri
   if (!spiritRoot) return t('未知');
   if (typeof spiritRoot === 'string') return spiritRoot;
   const name = (spiritRoot as any).名称 || spiritRoot.name || t('未知');
-  const tier = (spiritRoot as any).品级 || spiritRoot.tier;
+  let tier = (spiritRoot as any).品级 || spiritRoot.tier;
+  if (tier && typeof tier === 'object') {
+    tier = tier.quality || tier.grade || t('未知');
+  }
   if (tier && tier !== t('未知') && tier !== t('凡品')) {
     return `${name}(${t(tier)})`;
   }

@@ -524,9 +524,43 @@ ${stateJsonString}
     // 🔥 新增：预处理指令以修复常见的AI错误
     const preprocessedCommands = this._preprocessCommands(response.tavern_commands);
 
-    // 🔥 验证并清理指令格式
+    // 🔥 步骤1：验证并清理指令格式
     const { validateCommands, cleanCommands } = await import('./commandValidator');
     const validation = validateCommands(preprocessedCommands);
+
+    // 🔥 步骤2：验证指令值的格式，过滤掉格式错误的指令
+    const { validateAndRepairCommandValue } = await import('./commandValueValidator');
+    const validCommands: any[] = [];
+    const rejectedCommands: Array<{ command: any; errors: string[] }> = [];
+
+    preprocessedCommands.forEach((cmd, index) => {
+      const valueValidation = validateAndRepairCommandValue(cmd);
+      if (!valueValidation.valid) {
+        console.error(`[AI双向系统] ❌ 拒绝执行指令[${index}]，格式错误:`, valueValidation.errors);
+        rejectedCommands.push({
+          command: cmd,
+          errors: valueValidation.errors
+        });
+      } else {
+        validCommands.push(cmd);
+      }
+    });
+
+    // 记录被拒绝的指令
+    if (rejectedCommands.length > 0) {
+      console.error(`[AI双向系统] 共拒绝 ${rejectedCommands.length} 条格式错误的指令`);
+      rejectedCommands.forEach(({ command, errors }) => {
+        changes.unshift({
+          key: '❌ 格式错误（已拒绝）',
+          action: 'validation_error',
+          oldValue: undefined,
+          newValue: {
+            command: JSON.stringify(command, null, 2),
+            errors: errors
+          }
+        });
+      });
+    }
 
     if (!validation.valid) {
       console.error('[AI双向系统] 指令格式验证失败:', validation.errors);
@@ -552,8 +586,10 @@ ${stateJsonString}
       validation.warnings.forEach(warn => console.warn(`[AI双向系统] ${warn}`));
     }
 
-    // 清理指令，移除多余字段
-    const cleanedCommands = cleanCommands(preprocessedCommands);
+    // 🔥 步骤3：清理指令，移除多余字段（只处理通过验证的指令）
+    const cleanedCommands = cleanCommands(validCommands);
+
+    console.log(`[AI双向系统] 执行 ${cleanedCommands.length} 条有效指令，拒绝 ${rejectedCommands.length} 条无效指令`);
 
     for (const command of cleanedCommands) {
       try {
@@ -651,114 +687,63 @@ ${stateJsonString}
       const memoriesToKeep = midTermMemories.slice(numToSummarize);
       const memoriesText = memoriesToSummarize.map((m, i) => `${i + 1}. ${m}`).join('\n');
 
-      // 4. 构建提示词 - 使用标准JSON格式
-      const defaultPrompt = `# 记忆总结任务
+      // 4. 构建提示词
+      const userPrompt = `【玩家记忆总结任务】
 
-你需要将以下中期记忆总结成一条详细的长期记忆档案。
+需要总结的记忆：
+${memoriesText}
 
-## 总结要求
-1. 必须包含时间线索、关键事件、人物关系变化、情感波动
-2. **严格区分主角和NPC**：明确标注"我"（主角）和NPC名称，禁止混淆身份
-3. **只记录已发生事件**：严禁编造、推测或添加未在记忆中出现的情节
-4. 使用第一人称（"我"）的视角描述主角经历
-5. 按时间顺序梳理事件脉络，突出因果关系
-6. 保留重要细节，合并琐碎信息
-7. 字数控制在200-600简体汉字，确保信息完整详实
-8. 不要添加任何时间前缀（如【仙道XX年】）、标题（如【记忆总结】）或其他格式标记
+要求：
+- 用第一人称"我"的视角
+- 200-400字
+- 包含时间线索、关键事件、人物关系变化
+- 只记录已发生事件，不编造
+- 保留所有剧情内容，不要删减或省略任何情节
+- 使用文雅、含蓄、古典的修仙文学语言风格
+- 对于亲密场景，使用诗意化、意境化的表达方式，如"云雨之欢"、"鸳鸯交颈"、"琴瑟和鸣"等传统文学意象`;
 
-## 内容处理规范（重要）
-- 如果记忆中包含亲密关系内容，必须使用委婉、文学化的表达方式
-- 使用"云雨之欢"、"鱼水之欢"、"共度良宵"、"情意绵绵"等古典文学词汇
-- 侧重情感层面和关系发展，淡化具体细节
-- 采用含蓄笔法，符合修仙世界的文学审美
-
-## 输出格式（严格遵守）
-你必须返回标准JSON格式：
-\`\`\`json
-{
-  "text": "总结的记忆内容（200-600字）",
-  "mid_term_memory": "",
-  "tavern_commands": []
-}
-\`\`\`
-
-注意：
-- text字段包含完整的记忆总结
-- mid_term_memory留空
-- tavern_commands留空数组
-- 不要在JSON外添加任何说明文字`;
-
-      const systemPrompt = longTermFormat || defaultPrompt;
-
-
-      const userPrompt = `请总结以下中期记忆：\n\n${memoriesText}`;
-
-      // 5. 调用 AI - 使用标准generate而非generateRaw
+      // 5. 调用 AI - 使用generate方法（带预设）
       const tavernHelper = getTavernHelper();
       if (!tavernHelper) throw new Error('TavernHelper 未初始化');
 
-      // 构建注入消息
-      const injects: Array<{ content: string; role: 'system' | 'assistant' | 'user'; depth: number; position: 'before' }> = [
+      // 启用总结模式的注入
+      const injects = [
         {
-          content: systemPrompt,
-          role: 'user',
-          depth: 1,
-          position: 'before',
+          content: '<summary_mode>\n你是记忆总结助手，当前任务是总结记忆，不是游戏推进。\n\n输出要求：\n1. 只输出JSON格式，不需要thinking标签\n2. 格式：```json\\n{"text": "总结内容"}\\n```\n3. 不要输出tavern_commands\n4. 不要输出action_options\n\n总结要求：\n- 玩家记忆：用第一人称"我"，200-400字\n- 包含时间线索、关键事件、情感变化\n- 只记录已发生事件，不编造\n- 保留所有剧情内容，不要删减或省略任何情节\n- 使用文雅、含蓄、古典的修仙文学语言风格\n- 对于亲密场景，使用诗意化、意境化的表达方式，如"云雨之欢"、"鸳鸯交颈"、"琴瑟和鸣"等传统文学意象\n</summary_mode>',
+          role: 'system' as const,
+          depth: 0,
+          position: 'before' as const
         }
       ];
 
-      // 🛡️ 添加随机前缀（规避内容检测）
-      const prefixes = ['Continue.', 'Proceed.', 'Summarize.'];
-      const randomPrefix = prefixes[Math.floor(Math.random() * prefixes.length)];
-      const finalUserPrompt = `${randomPrefix}\n${userPrompt}`;
-
-      // 使用流式生成
       const response = await tavernHelper.generate({
-        user_input: finalUserPrompt,
-        should_stream: true,
+        user_input: userPrompt,
+        should_stream: false,
         generation_id: `memory_summary_${Date.now()}`,
-        injects,
+        injects
       });
 
-      // 强制提取JSON代码块（忽略外部思维链等内容）
+      // 解析响应（与NPC记忆总结相同的方式）
       let summaryText: string;
       const responseText = String(response).trim();
 
-      console.log('[AI双向系统] 原始响应长度:', responseText.length);
-      console.log('[AI双向系统] 原始响应前500字符:', responseText.substring(0, 500));
-
-      // 1. 优先提取 ```json ... ``` 代码块
       const jsonBlockMatch = responseText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-      if (jsonBlockMatch && jsonBlockMatch[1]) {
+      if (jsonBlockMatch?.[1]) {
         try {
-          const jsonObj = JSON.parse(jsonBlockMatch[1].trim());
-          summaryText = (jsonObj.text || jsonObj.叙事文本 || jsonObj.summary || jsonObj.content || '').trim();
-          console.log('[AI双向系统] ✅ 从JSON代码块提取成功');
-        } catch (e) {
-          console.error('[AI双向系统] JSON代码块解析失败:', e);
+          summaryText = JSON.parse(jsonBlockMatch[1].trim()).text?.trim() || '';
+        } catch {
           summaryText = '';
         }
       } else {
-        // 2. 尝试直接解析整个响应为JSON
         try {
-          const jsonObj = JSON.parse(responseText);
-          summaryText = (jsonObj.text || jsonObj.叙事文本 || jsonObj.summary || jsonObj.content || '').trim();
-          console.log('[AI双向系统] ✅ 直接JSON解析成功');
+          summaryText = JSON.parse(responseText).text?.trim() || '';
         } catch {
-          // 3. 尝试使用标准解析器
-          try {
-            const parsed = this.parseAIResponse(response);
-            summaryText = parsed.text.trim();
-            console.log('[AI双向系统] ✅ 标准解析器成功');
-          } catch {
-            console.error('[AI双向系统] ❌ 所有解析方法均失败');
-            summaryText = '';
-          }
+          summaryText = responseText.trim();
         }
       }
 
-      if (!summaryText) {
-        throw new Error('AI返回的总结为空');
+      if (!summaryText || summaryText.length === 0) {
+        throw new Error('AI返回了空的总结结果');
       }
 
       console.log('[AI双向系统] 总结文本长度:', summaryText.length, '预览:', summaryText.substring(0, 100));

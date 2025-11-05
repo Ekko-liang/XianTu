@@ -1034,7 +1034,9 @@ const sendMessage = async () => {
       return;
     }
     // 检查寿命
-    if (saveData.玩家角色状态?.寿命?.当前 !== undefined && saveData.玩家角色状态.寿命.当前 <= 0) {
+    if (saveData.玩家角色状态?.寿命?.当前 !== undefined &&
+        saveData.玩家角色状态?.寿命?.上限 !== undefined &&
+        saveData.玩家角色状态.寿命.当前 >= saveData.玩家角色状态.寿命.上限) {
       toast.error('角色已死亡，寿元耗尽。无法继续游戏，请重新开始或复活角色。');
       return;
     }
@@ -1235,7 +1237,9 @@ const sendMessage = async () => {
           toast.error('角色已死亡，气血耗尽');
         }
         // 检查寿命
-        if (currentSaveData.玩家角色状态.寿命?.当前 !== undefined && currentSaveData.玩家角色状态.寿命.当前 <= 0) {
+        if (currentSaveData.玩家角色状态.寿命?.当前 !== undefined &&
+            currentSaveData.玩家角色状态.寿命?.上限 !== undefined &&
+            currentSaveData.玩家角色状态.寿命.当前 >= currentSaveData.玩家角色状态.寿命.上限) {
           toast.error('角色已死亡，寿元耗尽');
         }
       }
@@ -2322,6 +2326,12 @@ const syncGameState = async () => {
   cursor: pointer;
   font-size: 0.9rem;
   transition: all 0.2s;
+  white-space: normal;
+  word-break: break-word;
+  max-width: 100%;
+  text-align: center;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .action-option-btn:hover {

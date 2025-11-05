@@ -35,6 +35,20 @@
           <div class="char-count">{{ presetDescription.length }}/200</div>
         </div>
 
+        <!-- 预设内容预览 -->
+        <div v-if="characterData" class="preset-preview">
+          <div class="preview-header">📋 预设内容预览</div>
+          <div class="preview-tags">
+            <span v-if="characterData.world" class="info-tag">{{ characterData.world.name }}</span>
+            <span v-if="characterData.talentTier" class="info-tag">{{ characterData.talentTier.name }}</span>
+            <span v-if="characterData.origin" class="info-tag">{{ characterData.origin.name }}</span>
+            <span v-if="characterData.spiritRoot" class="info-tag">{{ characterData.spiritRoot.name }}</span>
+            <span v-if="characterData.talents && characterData.talents.length > 0" class="info-tag talent-tag">
+              {{ characterData.talents.length }} 个天赋
+            </span>
+          </div>
+        </div>
+
         <div class="preset-info">
           <div class="info-item">
             <span class="info-label">📅 保存时间：</span>
@@ -301,6 +315,43 @@ function handleSubmit() {
   font-size: 0.75rem;
   color: var(--color-text-secondary);
   text-align: right;
+}
+
+.preset-preview {
+  padding: 1rem;
+  background: rgba(var(--color-accent-rgb), 0.05);
+  border: 1px solid rgba(var(--color-accent-rgb), 0.15);
+  border-radius: 8px;
+  margin-top: 1rem;
+}
+
+.preview-header {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 0.75rem;
+}
+
+.preview-tags {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.info-tag {
+  padding: 0.3rem 0.7rem;
+  background: rgba(var(--color-primary-rgb), 0.1);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.2);
+  border-radius: 12px;
+  font-size: 0.75rem;
+  color: var(--color-primary);
+}
+
+.info-tag.talent-tag {
+  background: rgba(var(--color-accent-rgb), 0.1);
+  border-color: rgba(var(--color-accent-rgb), 0.3);
+  color: var(--color-accent);
+  font-weight: 500;
 }
 
 .preset-info {

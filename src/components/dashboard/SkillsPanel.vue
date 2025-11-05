@@ -260,7 +260,18 @@ const cultivationSkills = computed((): TechniqueItem | null => {
   const cultivatingTechnique = Object.values(inventory).find(
     item => item?.类型 === '功法' && item?.已装备 === true
   );
-  return (cultivatingTechnique as TechniqueItem) || null;
+  const result = (cultivatingTechnique as TechniqueItem) || null;
+
+  // 调试日志：检查功法技能数据
+  if (result && (!result.功法技能 || result.功法技能.length === 0)) {
+    console.warn('[SkillsPanel] 功法技能为空或未定义', {
+      功法名称: result.名称,
+      功法技能: result.功法技能,
+      完整数据: result
+    });
+  }
+
+  return result;
 });
 
 const inventoryTechniques = computed((): TechniqueItem[] => {

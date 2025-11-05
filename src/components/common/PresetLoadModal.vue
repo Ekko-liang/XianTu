@@ -3,7 +3,10 @@
     <div class="modal-container">
       <!-- Header -->
       <div class="modal-header">
-        <h2 class="modal-title">📂 加载预设</h2>
+        <div class="title-section">
+          <h2 class="modal-title">📂 加载预设</h2>
+          <span v-if="!isLoading && presets.length > 0" class="preset-count">{{ presets.length }} 个</span>
+        </div>
         <div class="header-actions">
           <button class="btn-action import" @click="showImportModal = true">
             <span class="btn-icon">📥</span>
@@ -49,8 +52,12 @@
               {{ preset.description }}
             </p>
             <div v-if="preset.data" class="preset-info">
+              <span v-if="preset.data.character_name" class="info-tag name-tag">{{ preset.data.character_name }}</span>
+              <span v-if="preset.data.current_age" class="info-tag age-tag">{{ preset.data.current_age }}岁</span>
               <span v-if="preset.data.world" class="info-tag">{{ preset.data.world.name }}</span>
               <span v-if="preset.data.talentTier" class="info-tag">{{ preset.data.talentTier.name }}</span>
+              <span v-if="preset.data.origin" class="info-tag">{{ preset.data.origin.name }}</span>
+              <span v-if="preset.data.spiritRoot" class="info-tag">{{ preset.data.spiritRoot.name }}</span>
             </div>
           </div>
         </div>
@@ -207,6 +214,22 @@ async function handleImported(result: { success: number; failed: number }) {
 </script>
 
 <style scoped>
+.title-section {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.preset-count {
+  padding: 0.25rem 0.6rem;
+  background: rgba(var(--color-primary-rgb), 0.1);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.2);
+  border-radius: 12px;
+  font-size: 0.75rem;
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
 .header-actions {
   display: flex;
   align-items: center;
@@ -483,6 +506,19 @@ async function handleImported(result: { success: number; failed: number }) {
   border-radius: 12px;
   font-size: 0.75rem;
   color: var(--color-primary);
+}
+
+.info-tag.name-tag {
+  background: linear-gradient(135deg, rgba(var(--color-accent-rgb), 0.15), rgba(var(--color-primary-rgb), 0.15));
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.info-tag.age-tag {
+  background: rgba(var(--color-success-rgb), 0.1);
+  border-color: rgba(var(--color-success-rgb), 0.3);
+  color: var(--color-success);
 }
 
 .modal-footer {

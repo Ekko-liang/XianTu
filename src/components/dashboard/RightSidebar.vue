@@ -332,6 +332,10 @@ const showTalentDetail = (talent: string) => {
 
 // 显示状态效果详情
 const showStatusDetail = (effect: StatusEffect) => {
+  if (!effect || !effect.状态名称) {
+    console.warn('[RightSidebar] 状态效果数据异常，无法显示详情', effect);
+    return;
+  }
   uiStore.showDetailModal({
     title: effect.状态名称,
     component: StatusDetailCard,
