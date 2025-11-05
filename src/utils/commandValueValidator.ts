@@ -158,9 +158,9 @@ function validateStatusEffectObject(value: any): ValidationResult {
 
   if (!value.状态名称) errors.push('状态效果缺少"状态名称"字段');
   if (!value.类型 || !['buff', 'debuff'].includes(value.类型)) errors.push('状态效果缺少"类型"字段或值无效');
-  if (value.描述 === undefined) errors.push('状态效果缺少"描述"字段');
+  if (value.状态描述 === undefined) errors.push('状态效果缺少"状态描述"字段');
   if (typeof value.持续时间分钟 !== 'number') errors.push('状态效果缺少"持续时间分钟"字段或类型错误');
-  if (!value.开始时间) errors.push('状态效果缺少"开始时间"字段');
+  if (!value.生成时间 || typeof value.生成时间 !== 'object') errors.push('状态效果缺少"生成时间"对象字段');
 
   return { valid: errors.length === 0, errors };
 }
@@ -206,19 +206,7 @@ function validateItemObject(value: any): ValidationResult {
           errors.push(`功法技能[${index}]不是对象类型`);
         } else {
           if (!skill.技能名称) errors.push(`功法技能[${index}]缺少"技能名称"字段`);
-          if (!skill.技能类型) errors.push(`功法技能[${index}]缺少"技能类型"字段`);
-          if (!skill.消耗) {
-            errors.push(`功法技能[${index}]缺少"消耗"字段`);
-          } else if (typeof skill.消耗 === 'object') {
-            if (!skill.消耗.类型) errors.push(`功法技能[${index}].消耗缺少"类型"字段`);
-            if (typeof skill.消耗.数值 !== 'number') errors.push(`功法技能[${index}].消耗缺少"数值"字段或类型错误`);
-          } else {
-            errors.push(`功法技能[${index}].消耗必须是对象类型`);
-          }
-          if (skill.描述 === undefined) errors.push(`功法技能[${index}]缺少"描述"字段`);
-          if (typeof skill.熟练度要求 !== 'number' && skill.熟练度要求 !== undefined && typeof skill.解锁需要熟练度 !== 'number') {
-            errors.push(`功法技能[${index}]缺少"熟练度要求"字段或类型错误`);
-          }
+          if (skill.技能描述 === undefined) errors.push(`功法技能[${index}]缺少"技能描述"字段`);
         }
       });
     }
@@ -239,9 +227,9 @@ function validateNPCObject(value: any): ValidationResult {
   }
 
   // 必需字段
-  if (!value.姓名) errors.push('NPC缺少"姓名"字段');
+  if (!value.名字) errors.push('NPC缺少"名字"字段');
   if (!value.性别) errors.push('NPC缺少"性别"字段');
-  if (!value.年龄) errors.push('NPC缺少"年龄"字段');
+  if (!value.出生日期) errors.push('NPC缺少"出生日期"字段');
 
   if (!value.境界) {
     errors.push('NPC缺少"境界"字段');
@@ -250,10 +238,10 @@ function validateNPCObject(value: any): ValidationResult {
     errors.push(...realmResult.errors);
   }
 
-  if (!value.身份) errors.push('NPC缺少"身份"字段');
-  if (!value.性格) errors.push('NPC缺少"性格"字段');
-  if (!value.外貌) errors.push('NPC缺少"外貌"字段');
-  if (!value.关系) errors.push('NPC缺少"关系"字段');
+  if (!value.出生) errors.push('NPC缺少"出生"字段');
+  if (!value.性格特征) errors.push('NPC缺少"性格特征"字段');
+  if (!value.外貌描述) errors.push('NPC缺少"外貌描述"字段');
+  if (!value.与玩家关系) errors.push('NPC缺少"与玩家关系"字段');
   if (typeof value.好感度 !== 'number') errors.push('NPC缺少"好感度"字段或类型错误');
 
   // 可选字段验证
@@ -281,10 +269,12 @@ function validateDaoObject(value: any): ValidationResult {
     return { valid: false, errors };
   }
 
-  if (!value.名称) errors.push('大道对象缺少"名称"字段');
+  if (!value.道名) errors.push('大道对象缺少"道名"字段');
   if (value.描述 === undefined) errors.push('大道对象缺少"描述"字段');
   if (!Array.isArray(value.阶段列表)) errors.push('大道对象缺少"阶段列表"数组');
-  if (typeof value.当前阶段索引 !== 'number') errors.push('大道对象缺少"当前阶段索引"字段或类型错误');
+  if (typeof value.是否解锁 !== 'boolean') errors.push('大道对象缺少"是否解锁"字段或类型错误');
+  if (typeof value.当前阶段 !== 'number') errors.push('大道对象缺少"当前阶段"字段或类型错误');
+  if (typeof value.当前经验 !== 'number') errors.push('大道对象缺少"当前经验"字段或类型错误');
 
   return { valid: errors.length === 0, errors };
 }
