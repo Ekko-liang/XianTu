@@ -82,11 +82,11 @@
                   <div class="save-name">
                     <History v-if="save.存档名 === '上次对话'" :size="14" class="last-save-icon" />
                     <Clock v-else-if="save.存档名 === '时间点存档'" :size="14" class="time-save-icon" />
-                    {{ save.存档名 || `存档${index + 1}` }}
+                    {{ save.存档名 || save.id || `存档${index + 1}` }}
                   </div>
                   <div class="character-name-small">{{ save.角色名字 || '无名道友' }}</div>
                   <!-- 显示最后保存时间 -->
-                  <div class="save-time">{{ formatTime(save.最后保存时间 ?? save.保存时间 ?? '') }}</div>
+                  <div class="save-time">{{ formatTime(save.最后保存时间 ?? save.保存时间 ?? null) }}</div>
                 </div>
               </div>
               <div class="card-actions">
@@ -279,7 +279,11 @@ const timeBasedSaveInterval = computed({
 // 获取存档列表
 const savesList = computed(() => {
   // 仅过滤掉 null 的槽位，保留所有有效存档，包括没有数据的自动存档槽位
-  return characterStore.saveSlots.filter((slot: SaveSlot) => slot !== null);
+  return characterStore.saveSlots.filter((slot: SaveSlot) => {
+    if (!slot) return false;
+    // 🔥 修复：确保存档有有效的标识信息
+    return slot.存档名 || slot.id;
+  });
 });
 
 // 获取当前存档

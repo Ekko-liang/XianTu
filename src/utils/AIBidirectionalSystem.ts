@@ -30,6 +30,43 @@ export interface ProcessOptions {
   useStreaming?: boolean;
 }
 
+/**
+ * 记忆总结选项
+ */
+export interface MemorySummaryOptions {
+  /**
+   * 是否使用Raw模式（默认true）
+   *
+   * **Raw模式 vs 标准模式：**
+   * - ✅ Raw模式（推荐用于总结）：
+   *   - 只发送总结提示词，不包含角色卡、世界观等预设
+   *   - 不受其他提示词干扰，更符合真实内容
+   *   - 适用场景：记忆总结、NPC总结、纯文本提取
+   *
+   * - ⚠️ 标准模式（容易污染）：
+   *   - 包含完整的系统提示词（角色卡、世界观、规则等）
+   *   - 容易受到预设提示词污染，可能偏离原始内容
+   *   - 适用场景：正常游戏对话、需要遵守世界观的生成
+   */
+  useRawMode?: boolean;
+
+  /**
+   * 是否使用流式传输（默认false）
+   *
+   * **流式 vs 非流式：**
+   * - ⚡ 流式传输（更快）：
+   *   - 实时显示生成过程，用户体验更好
+   *   - 响应更快，无需等待完整生成
+   *   - 适用场景：长文本生成、需要实时反馈的场景
+   *
+   * - 🛡️ 非流式传输（更稳定，推荐用于总结）：
+   *   - 一次性返回完整结果，更稳定可靠
+   *   - 避免流式传输可能的中断问题
+   *   - 适用场景：后台任务、自动总结、批量处理
+   */
+  useStreaming?: boolean;
+}
+
 class AIBidirectionalSystemClass {
   private static instance: AIBidirectionalSystemClass | null = null;
   private stateHistory: StateChangeLog[] = [];
@@ -639,8 +676,21 @@ ${stateJsonString}
   /**
    * 触发记忆总结（公开方法，带锁）
    * 无论是自动还是手动，都通过此方法执行，以防止竞态条件。
+   *
+   * @param options - 总结选项，详见 MemorySummaryOptions 接口说明
+   *
+   * @example
+   * // 默认配置（推荐）：Raw模式 + 非流式
+   * await AIBidirectionalSystem.triggerMemorySummary();
+   *
+   * @example
+   * // 标准模式 + 流式传输
+   * await AIBidirectionalSystem.triggerMemorySummary({
+   *   useRawMode: false,
+   *   useStreaming: true
+   * });
    */
-  public async triggerMemorySummary(): Promise<void> {
+  public async triggerMemorySummary(options?: MemorySummaryOptions): Promise<void> {
     if (this.isSummarizing) {
       toast.warning('已有一个总结任务正在进行中，请稍候...');
       console.log('[AI双向系统] 检测到已有总结任务在运行，本次触发被跳过。');
@@ -733,9 +783,13 @@ ${memoriesText}
 
 使用文雅、凝练的修仙文学风格。对于亲密场景，用诗意化表达如"云雨之欢"、"琴瑟和鸣"等传统意象。`;
 
-      // 5. 调用 AI - 使用 generateRaw 方法（Raw模式，非流式）
+      // 5. 调用 AI
       const tavernHelper = getTavernHelper();
       if (!tavernHelper) throw new Error('TavernHelper 未初始化');
+
+      // 默认使用标准模式和非流式传输
+      const useRawMode = options?.useRawMode === true; // 默认false（标准模式）
+      const useStreaming = options?.useStreaming === true; // 默认false
 
       const systemPrompt = `<summary_mode>
 你是记忆总结助手，专门将游戏记忆提炼为简洁的事件概要。
@@ -747,36 +801,80 @@ ${memoriesText}
 
 核心要求：
 1. 只输出JSON，不要thinking标签、tavern_commands、action_options
-2. 用第一人称"我"，200-400字
-3. **聚焦事件和结果，不记录对话过程**
+2. 用第一人称"我"
+3. 字数：250-400字
+4. 风格：凝练的修仙文学风格
+
+必须保留的关键信息（5W1H）：
+- Who（人物）：涉及的重要人物名字（特别是重要NPC、师父、道侣等）
+- What（事件）：发生了什么核心事件
+- When（时间）：关键时间节点（如"闭关七日"、"三月之期"）
+- Where（地点）：重要地点（如"青云峰"、"藏经阁"、"焚炎烬土"）
+- Why（原因）：事件的起因或动机
+- How（结果）：事件的结果和影响（境界突破、获得宝物、关系变化等）
+
+必须保留的重要信息：
+- 境界突破和修为进展
+- 重要人物的初次相遇
+- 师徒关系、道侣关系的建立
+- 重要物品、功法、法宝的获得或失去
+- 恩怨情仇的起因和发展
+- 重要的承诺、约定、誓言
+- 生死关头的经历
+- 宗门、势力的加入或离开
+- 关键的选择和决策
 
 总结原则：
-✅ 记录：行动→结果（"我修炼→突破"）
-✅ 记录：互动→关系（"结识某人→成为道友"）
-✅ 记录：获得→拥有（"得到宝物→实力提升"）
+✅ 记录：行动→结果（"我于青云峰闭关七日，突破至炼气三层"）
+✅ 记录：互动→关系（"结识外门弟子李云，得其赠予聚气丹，我二人结为道友"）
+✅ 记录：获得→拥有（"入藏经阁，习得《基础剑法》与《吐纳术》"）
 
 ❌ 不记录：对话细节（"他说...我说..."）
 ❌ 不记录：过程描述（"我慢慢地...然后..."）
 ❌ 不记录：情绪铺陈（"我感到激动..."）
 
-风格示例：
+示例对比：
 
 【原始记忆】：
-"张长老说：'你天赋不错。'我激动地说：'多谢长老。'他笑道：'好好修炼。'我点头答应。然后我去了藏经阁，守阁弟子让我登记，我写下名字，他递给我令牌..."
+"张长老说：'你天赋不错。'我激动地说：'多谢长老。'他笑道：'好好修炼。'我点头答应。然后我去了藏经阁，守阁弟子让我登记，我写下名字，他递给我令牌。三天后在青云峰修炼，突破到炼气二层。李云师兄送了我一枚聚气丹。"
 
 【正确总结】：
-"获张长老认可，入藏经阁，领取令牌。"
+"获张长老认可，入藏经阁领取令牌。三日后于青云峰修炼，突破至炼气二层。期间结识外门弟子李云，得其赠予聚气丹一枚，我二人结为道友。"
+
+【错误示例】：
+"得到了认可，去了一个地方，修炼突破了，认识了一个人。"（❌ 丢失了人名、地点、具体境界）
 
 使用凝练的修仙文学风格。对亲密场景用传统意象如"云雨之欢"、"琴瑟和鸣"。
 </summary_mode>`;
 
-      const response = await tavernHelper.generateRaw({
-        ordered_prompts: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        should_stream: false
-      });
+      console.log(`[AI双向系统] 记忆总结模式: ${useRawMode ? 'Raw模式（纯净总结）' : '标准模式（带预设）'}, 传输方式: ${useStreaming ? '流式' : '非流式'}`);
+
+      let response: string;
+      if (useRawMode) {
+        // Raw模式：不受其他提示词干扰，更符合真实内容
+        const rawResponse = await tavernHelper.generateRaw({
+          ordered_prompts: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          should_stream: useStreaming
+        });
+        response = String(rawResponse);
+      } else {
+        // 标准模式：使用完整提示词（可能受到预设污染）
+        const standardResponse = await tavernHelper.generate({
+          user_input: userPrompt,
+          should_stream: useStreaming,
+          generation_id: `memory_summary_${Date.now()}`,
+          injects: [{
+            content: systemPrompt,
+            role: 'system',
+            depth: 0,
+            position: 'before'
+          }]
+        });
+        response = String(standardResponse);
+      }
 
       // 解析响应（与NPC记忆总结相同的方式）
       let summaryText: string;

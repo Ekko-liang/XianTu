@@ -111,13 +111,16 @@ export const useCharacterStore = defineStore('characterV3', () => {
     if (profile.模式 === '单机' && profile.存档列表) {
       // 为每个存档添加必要的展示信息
       return Object.entries(profile.存档列表).map(([key, slot]) => {
+        // 🔥 修复：确保所有必要字段都有默认值
         const enhancedSlot = {
           ...slot,
           id: key,
-          角色名字: profile.角色基础信息.名字,
-          境界: slot.存档数据?.玩家角色状态?.境界?.名称 || '凡人',
-          位置: slot.存档数据?.玩家角色状态?.位置?.描述 || '初始地',
-          游戏时长: 0 // TODO: 从存档数据中计算实际游戏时长
+          角色名字: slot.角色名字 || profile.角色基础信息?.名字 || '未知',
+          境界: slot.境界 || slot.存档数据?.玩家角色状态?.境界?.名称 || '凡人',
+          位置: slot.位置 || slot.存档数据?.玩家角色状态?.位置?.描述 || '未知',
+          保存时间: slot.保存时间 || null,
+          最后保存时间: slot.最后保存时间 ?? slot.保存时间 ?? null,
+          游戏时长: slot.游戏时长 || 0
         };
         return enhancedSlot;
       });
@@ -126,10 +129,12 @@ export const useCharacterStore = defineStore('characterV3', () => {
       const enhancedSlot = {
         ...profile.存档,
         id: 'online_save',
-        角色名字: profile.角色基础信息.名字,
-        境界: profile.存档.存档数据?.玩家角色状态?.境界?.名称 || '凡人',
-        位置: profile.存档.存档数据?.玩家角色状态?.位置?.描述 || '初始地',
-        游戏时长: 0 // TODO: 从存档数据中计算实际游戏时长
+        角色名字: profile.存档.角色名字 || profile.角色基础信息?.名字 || '未知',
+        境界: profile.存档.境界 || profile.存档.存档数据?.玩家角色状态?.境界?.名称 || '凡人',
+        位置: profile.存档.位置 || profile.存档.存档数据?.玩家角色状态?.位置?.描述 || '未知',
+        保存时间: profile.存档.保存时间 || null,
+        最后保存时间: profile.存档.最后保存时间 ?? profile.存档.保存时间 ?? null,
+        游戏时长: profile.存档.游戏时长 || 0
       };
       return [enhancedSlot];
     }
@@ -1829,11 +1834,33 @@ const deleteNpc = async (npcName: string) => {
 
   try {
     // 1. 直接修改 gameStateStore.relationships（响应式数据）
+    console.log(`[删除NPC-调试] 删除前 gameStateStore.relationships 的引用:`, gameStateStore.relationships === relationships);
+    console.log(`[删除NPC-调试] 删除前 relationships 中的NPC列表:`, Object.keys(relationships).map(k => relationships[k]?.名字));
+
     delete relationships[npcKey];
+
+    console.log(`[删除NPC-调试] 已从内存中删除NPC: ${npcName}`);
+    console.log(`[删除NPC-调试] 删除后 relationships 中的NPC数量:`, Object.keys(relationships).length);
+    console.log(`[删除NPC-调试] 删除后是否还存在该NPC:`, !!relationships[npcKey]);
+    console.log(`[删除NPC-调试] 删除后 gameStateStore.relationships 中是否还存在:`, !!gameStateStore.relationships?.[npcKey]);
+    console.log(`[删除NPC-调试] 删除后 relationships 中的NPC列表:`, Object.keys(relationships).map(k => relationships[k]?.名字));
     debug.log('角色商店', `已从 gameStateStore 中删除NPC: ${npcName}`);
 
     // 2. 通过 gameStateStore 保存，这将处理所有持久化逻辑
+    // gameStateStore.saveGame() 内部会调用 characterStore.saveCurrentGame()
+    // 所以这一步已经足够保存到所有存储层
+    console.log(`[删除NPC-调试] 开始保存到存储...`);
     await gameStateStore.saveGame();
+    console.log(`[删除NPC-调试] 保存完成`);
+
+    // 🔥 [调试] 验证保存后的数据
+    const savedData = gameStateStore.toSaveData();
+    if (savedData?.人物关系) {
+      const npcStillExists = Object.values(savedData.人物关系).some((npc: any) => npc?.名字 === npcName);
+      console.log(`[删除NPC-调试] toSaveData() 返回的数据中是否还存在该NPC:`, npcStillExists);
+      console.log(`[删除NPC-调试] toSaveData() 返回的人物关系数量:`, Object.keys(savedData.人物关系).length);
+      console.log(`[删除NPC-调试] toSaveData() 返回的NPC列表:`, Object.values(savedData.人物关系).map((npc: any) => npc?.名字));
+    }
 
     debug.log('角色商店', `✅ NPC ${npcName} 已成功删除并保存`);
     toast.success(`NPC【${npcName}】已成功删除。`);

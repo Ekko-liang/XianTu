@@ -88,9 +88,17 @@
               <div class="detail-info">
                 <div class="name-and-actions">
                   <h3 class="detail-name">{{ selectedPerson.名字 }}</h3>
-                  <button v-if="selectedPerson" @click.stop="confirmDeleteNpc(selectedPerson)" class="delete-npc-btn" title="删除此人物">
-                    <Trash2 :size="16" />
-                  </button>
+                  <div class="action-buttons">
+                    <button @click="downloadCharacterData" class="action-btn download-btn" title="下载完整人物数据">
+                      <Download :size="16" />
+                    </button>
+                    <button @click="exportToWorldBook" class="action-btn export-btn" title="导出到世界书（不含记忆）">
+                      <BookOpen :size="16" />
+                    </button>
+                    <button v-if="selectedPerson" @click.stop="confirmDeleteNpc(selectedPerson)" class="delete-npc-btn" title="删除此人物">
+                      <Trash2 :size="16" />
+                    </button>
+                  </div>
                 </div>
                 <div class="detail-badges">
                   <span class="relationship-badge">{{ selectedPerson.与玩家关系 || '相识' }}</span>
@@ -348,34 +356,50 @@
 
                 <!-- Tab 4: 记忆档案 -->
                 <div v-show="activeTab === 'memory'" class="tab-panel">
-                <div class="detail-section" v-if="selectedPerson.记忆?.length || selectedPerson.记忆总结?.length">
-                  <div class="memory-header">
-                    <h5 class="section-title" style="border: none; padding: 0; margin: 0;">记忆</h5>
-                    <div class="memory-actions-header">
-                      <div class="memory-count" v-if="totalMemoryPages > 1">{{ selectedPerson.记忆?.length || 0 }} 条</div>
-                      <div v-if="(selectedPerson.记忆?.length || 0) >= 3" class="summarize-controls">
-                        <input
-                          type="number"
-                          v-model.number="memoriesToSummarize"
-                          :min="3"
-                          :max="selectedPerson.记忆?.length || 3"
-                          class="summarize-input"
-                          placeholder="条数"
-                          title="从最旧开始总结的记忆条数"
-                        />
-                        <button class="summarize-btn" @click="summarizeMemories" :disabled="isSummarizing" title="总结最旧的记忆">
-                          {{ isSummarizing ? '总结中...' : '📝 总结' }}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="memory-summary-list" v-if="selectedPerson.记忆总结?.length">
+
+                <!-- 记忆总结区域（独立显示） -->
+                <div class="detail-section memory-summary-section" v-if="selectedPerson.记忆总结?.length">
+                  <h5 class="section-title">📜 记忆总结</h5>
+                  <div class="memory-summary-list">
                     <div v-for="(summary, index) in selectedPerson.记忆总结" :key="index" class="memory-summary-item">
                       <div class="summary-icon">📜</div>
                       <div class="summary-text">{{ summary }}</div>
                     </div>
                   </div>
-                  <div class="memory-list" v-if="selectedPerson.记忆?.length">
+                </div>
+
+                <!-- 详细记忆区域 -->
+                <div class="detail-section" v-if="selectedPerson.记忆?.length">
+                  <div class="memory-header">
+                    <h5 class="section-title" style="border: none; padding: 0; margin: 0;">📝 详细记忆</h5>
+                    <div class="memory-actions-header">
+                      <div class="memory-count">{{ selectedPerson.记忆?.length || 0 }} 条</div>
+                      <div class="memory-controls-group">
+                        <button class="download-memory-btn" @click="downloadMemories" title="下载所有记忆">
+                          💾 下载记忆
+                        </button>
+                        <div v-if="(selectedPerson.记忆?.length || 0) >= 3" class="summarize-controls">
+                          <input
+                            type="number"
+                            v-model.number="memoriesToSummarize"
+                            :min="3"
+                            :max="selectedPerson.记忆?.length || 3"
+                            class="summarize-input"
+                            placeholder="条数"
+                            title="从最旧开始总结的记忆条数"
+                          />
+                          <button class="summarize-btn" @click="summarizeMemories" :disabled="isSummarizing" title="总结最旧的记忆">
+                            {{ isSummarizing ? '总结中...' : '📝 总结' }}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- 总结模式提示 -->
+                  <div class="summary-mode-hint">
+                    ℹ️ 总结模式配置（Raw/标准、流式/非流式）请前往 <strong>记忆中心面板</strong> → 设置
+                  </div>
+                  <div class="memory-list">
                     <div v-for="(memory, index) in paginatedMemory" :key="index" class="memory-item">
                       <div class="memory-content">
                         <div v-if="getMemoryTime(memory)" class="memory-time">{{ getMemoryTime(memory) }}</div>
@@ -389,7 +413,21 @@
                   </div>
                   <div class="memory-pagination" v-if="totalMemoryPages > 1">
                     <button class="pagination-btn" :disabled="currentMemoryPage <= 1" @click="goToMemoryPage(currentMemoryPage - 1)">上一页</button>
-                    <div class="pagination-info">{{ currentMemoryPage }} / {{ totalMemoryPages }}</div>
+                    <div class="pagination-controls">
+                      <span class="pagination-info">{{ currentMemoryPage }} / {{ totalMemoryPages }}</span>
+                      <div class="jump-to-page">
+                        <input
+                          type="number"
+                          v-model.number="jumpToPageInput"
+                          :min="1"
+                          :max="totalMemoryPages"
+                          class="page-input"
+                          placeholder="页码"
+                          @keyup.enter="jumpToSpecificPage"
+                        />
+                        <button class="jump-btn" @click="jumpToSpecificPage">跳转</button>
+                      </div>
+                    </div>
                     <button class="pagination-btn" :disabled="currentMemoryPage >= totalMemoryPages" @click="goToMemoryPage(currentMemoryPage + 1)">下一页</button>
                   </div>
                   <div v-if="!selectedPerson.记忆?.length && !selectedPerson.记忆总结?.length" class="empty-state-small">此人暂无记忆</div>
@@ -461,7 +499,7 @@ import type { NpcProfile, Item } from '@/types/game';
 import type { SpiritRoot } from '@/types';
 import {
   Users2, Search,
-  Loader2, ChevronRight, Package, ArrowRightLeft, Eye, EyeOff, Trash2, ArrowLeft
+  Loader2, ChevronRight, Package, ArrowRightLeft, Eye, EyeOff, Trash2, ArrowLeft, Download, BookOpen
 } from 'lucide-vue-next';
 import { useUIStore } from '@/stores/uiStore';
 import { useCharacterStore } from '@/stores/characterStore';
@@ -512,6 +550,7 @@ const memoriesToSummarize = ref(10);
 // 记忆分页相关
 const memoryPageSize = ref(5); // 每页显示的记忆数量
 const currentMemoryPage = ref(1); // 当前页码
+const jumpToPageInput = ref<number | null>(null); // 跳转页码输入
 
 // 计算分页后的记忆
 const paginatedMemory = computed(() => {
@@ -532,6 +571,14 @@ const totalMemoryPages = computed(() => {
 const goToMemoryPage = (page: number) => {
   if (page >= 1 && page <= totalMemoryPages.value) {
     currentMemoryPage.value = page;
+  }
+};
+
+// 跳转到指定页
+const jumpToSpecificPage = () => {
+  if (jumpToPageInput.value && jumpToPageInput.value >= 1 && jumpToPageInput.value <= totalMemoryPages.value) {
+    currentMemoryPage.value = jumpToPageInput.value;
+    jumpToPageInput.value = null; // 清空输入
   }
 };
 
@@ -968,15 +1015,46 @@ const summarizeMemories = async () => {
 
     const systemPrompt = `你是${npcName}，用第一人称总结以下记忆。
 
-要求：
-1. 30-50字，只写核心事件
-2. 用"我"，不要修饰词
-3. 亲密内容用"云雨之欢"等委婉词
+核心要求：
+1. 字数：150-250字
+2. 视角：用"我"
+3. 风格：凝练的修仙文学风格
 
-输出JSON：
+必须保留的关键信息（5W1H）：
+- Who（人物）：涉及的重要人物名字（特别是玩家、重要NPC）
+- What（事件）：发生了什么核心事件
+- When（时间）：关键时间节点（如"三日前"、"筑基之时"）
+- Where（地点）：重要地点（如"青云峰"、"藏经阁"）
+- Why（原因）：事件的起因或动机
+- How（结果）：事件的结果和影响
+
+必须保留的情感信息：
+- 对玩家的情感变化（好感、敌意、感激、怨恨等）
+- 重要的情绪转折点
+- 关系的建立或破裂
+
+必须保留的重要事件：
+- 第一次见面
+- 重要的承诺或约定
+- 恩怨情仇的起因
+- 物品交换、传授功法等
+- 生死关头的帮助或背叛
+- 亲密关系的发展
+
+输出格式：
 \`\`\`json
 {"text": "总结内容"}
-\`\`\``;
+\`\`\`
+
+示例：
+【原始记忆】：
+"在青云峰遇到了千夜。他帮我击退了魔修。我很感激。后来他送了我一枚聚气丹。我们成为了朋友。三天后在藏经阁再次相遇。他向我请教剑法。我教了他基础剑诀。"
+
+【正确总结】：
+"三日前于青云峰遇千夜，彼时魔修来袭，千夜出手相助，我得以脱险。感其恩德，我二人结为道友。千夜赠我聚气丹一枚，情谊愈深。后于藏经阁重逢，千夜求教剑法，我便传其基础剑诀。"
+
+【错误示例】：
+"遇到了一个人，发生了一些事，我们成为了朋友。"（❌ 丢失了人名、地点、具体事件）`;
 
     const userPrompt = `记忆：\n${memoriesText}`;
 
@@ -987,14 +1065,49 @@ const summarizeMemories = async () => {
       throw new Error('TavernHelper 未初始化');
     }
 
-    const response = await tavernHelper.generateRaw({
-      ordered_prompts: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-        { role: 'user', content: '开始任务' }
-      ],
-      should_stream: false
-    });
+    // 读取记忆配置（和玩家记忆总结使用相同的配置）
+    let useRawMode = false; // 默认使用标准模式（推荐）
+    let useStreaming = false; // 默认使用非流式传输
+    try {
+      const memorySettings = localStorage.getItem('memory-settings');
+      if (memorySettings) {
+        const settings = JSON.parse(memorySettings);
+        useRawMode = settings.useRawMode === true; // 默认false
+        useStreaming = settings.useStreaming === true; // 默认false
+      }
+    } catch (error) {
+      console.warn('[NPC记忆总结] 读取配置失败，使用默认值:', error);
+    }
+
+    console.log(`[NPC记忆总结] ${npcName} - 模式: ${useRawMode ? 'Raw模式（纯净总结）' : '标准模式（推荐）'}, 传输: ${useStreaming ? '流式' : '非流式'}`);
+
+    let response: string;
+    if (useRawMode) {
+      // Raw模式：不受其他提示词干扰，更符合真实内容
+      const rawResponse = await tavernHelper.generateRaw({
+        ordered_prompts: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+          { role: 'user', content: '开始任务' }
+        ],
+        should_stream: useStreaming
+      });
+      response = String(rawResponse);
+    } else {
+      // 标准模式（推荐）：使用完整提示词
+      const standardResponse = await tavernHelper.generate({
+        user_input: userPrompt,
+        should_stream: useStreaming,
+        generation_id: `npc_memory_summary_${npcName}_${Date.now()}`,
+        injects: [{
+          content: systemPrompt,
+          role: 'system',
+          depth: 0,
+          position: 'before'
+        }]
+      });
+      response = String(standardResponse);
+    }
 
     let summary: string;
     const responseText = String(response).trim();
@@ -1064,6 +1177,290 @@ const summarizeMemories = async () => {
     console.error(`[RelationshipNetworkPanel] 记忆总结失败:`, error);
   } finally {
     isSummarizing.value = false;
+  }
+};
+
+/**
+ * 下载记忆功能
+ * 将当前NPC的所有记忆（包括详细记忆和记忆总结）导出为JSON文件
+ */
+const downloadMemories = () => {
+  if (!selectedPerson.value) {
+    uiStore.showToast('未选择人物', { type: 'warning' });
+    return;
+  }
+
+  try {
+    const npcName = selectedPerson.value.名字;
+    const memories = {
+      人物名称: npcName,
+      导出时间: new Date().toLocaleString('zh-CN'),
+      详细记忆: selectedPerson.value.记忆 || [],
+      记忆总结: selectedPerson.value.记忆总结 || [],
+      记忆总数: (selectedPerson.value.记忆?.length || 0) + (selectedPerson.value.记忆总结?.length || 0)
+    };
+
+    const blob = new Blob([JSON.stringify(memories, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${npcName}_记忆_${Date.now()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    uiStore.showToast(`✅ 已下载 ${npcName} 的记忆`, { type: 'success' });
+  } catch (error) {
+    console.error('[下载记忆] 失败:', error);
+    uiStore.showToast('下载记忆失败', { type: 'error' });
+  }
+};
+
+/**
+ * 下载完整人物数据
+ * 导出当前NPC的所有数据（包括基础信息、记忆、背包等）
+ */
+const downloadCharacterData = () => {
+  if (!selectedPerson.value) {
+    uiStore.showToast('未选择人物', { type: 'warning' });
+    return;
+  }
+
+  try {
+    const npcName = selectedPerson.value.名字;
+    const characterData = {
+      导出信息: {
+        人物名称: npcName,
+        导出时间: new Date().toLocaleString('zh-CN'),
+        数据版本: '1.0'
+      },
+      人物数据: selectedPerson.value
+    };
+
+    const blob = new Blob([JSON.stringify(characterData, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${npcName}_完整数据_${Date.now()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    uiStore.showToast(`✅ 已下载 ${npcName} 的完整数据`, { type: 'success' });
+  } catch (error) {
+    console.error('[下载人物数据] 失败:', error);
+    uiStore.showToast('下载人物数据失败', { type: 'error' });
+  }
+};
+
+/**
+ * 导出到世界书
+ * 将NPC信息添加到游戏内的世界书系统中（不含记忆）
+ */
+const exportToWorldBook = async () => {
+  if (!selectedPerson.value) {
+    uiStore.showToast('未选择人物', { type: 'warning' });
+    return;
+  }
+
+  try {
+    const npc = selectedPerson.value;
+    const npcName = npc.名字;
+
+    // 获取或创建聊天世界书
+    const tavernHelper = (window as any).TavernHelper;
+    if (!tavernHelper) {
+      uiStore.showToast('酒馆助手未初始化', { type: 'error' });
+      return;
+    }
+
+    // 获取或创建当前聊天的世界书
+    const worldbookName = await tavernHelper.getOrCreateChatWorldbook('current', '大道朝天_人物');
+
+    // 构建世界书条目内容（完整版，排除记忆）
+    let entryContent = `# ${npcName}\n\n`;
+
+    // 基础档案
+    entryContent += `**基础档案**\n`;
+    entryContent += `- 性别：${npc.性别 || '未知'}\n`;
+    entryContent += `- 种族：${npc.种族 || '未知'}\n`;
+    if (npc.出生日期) {
+      const birthDate = npc.出生日期;
+      entryContent += `- 出生日期：${birthDate.年}年${birthDate.月}月${birthDate.日}日\n`;
+    }
+    entryContent += `- 境界：${getNpcRealm(npc)}\n`;
+    entryContent += `- 灵根：${getNpcSpiritRoot(npc)}\n`;
+    if (npc.势力归属) entryContent += `- 势力：${npc.势力归属}\n`;
+    if (npc.出生) entryContent += `- 出生地：${getNpcOrigin(npc.出生)}\n`;
+    if (npc.当前位置?.描述) entryContent += `- 当前位置：${npc.当前位置.描述}\n`;
+
+    // 外貌与性格
+    entryContent += `\n**外貌与性格**\n`;
+    entryContent += `${npc.外貌描述 || (npc as any).外貌 || '未描述'}\n`;
+    if (npc.性格特征 && Array.isArray(npc.性格特征) && npc.性格特征.length > 0) {
+      entryContent += `\n**性格特征**\n${npc.性格特征.map(t => `- ${t}`).join('\n')}\n`;
+    } else if ((npc as any).性格) {
+      entryContent += `\n**性格特点**\n${(npc as any).性格}\n`;
+    }
+
+    // 天赋能力
+    if (npc.天赋 && Array.isArray(npc.天赋) && npc.天赋.length > 0) {
+      entryContent += `\n**天赋能力**\n${npc.天赋.map(t => `- ${getTalentName(t)}${getTalentDescription(t) ? ': ' + getTalentDescription(t) : ''}`).join('\n')}\n`;
+    }
+
+    // 先天六司
+    if (npc.先天六司) {
+      entryContent += `\n**先天六司**\n`;
+      entryContent += `- 根骨：${npc.先天六司.根骨 || 0}\n`;
+      entryContent += `- 灵性：${npc.先天六司.灵性 || 0}\n`;
+      entryContent += `- 悟性：${npc.先天六司.悟性 || 0}\n`;
+      entryContent += `- 气运：${npc.先天六司.气运 || 0}\n`;
+      entryContent += `- 魅力：${npc.先天六司.魅力 || 0}\n`;
+      entryContent += `- 心性：${npc.先天六司.心性 || 0}\n`;
+    }
+
+    // 人格底线
+    if (npc.人格底线 && Array.isArray(npc.人格底线) && npc.人格底线.length > 0) {
+      entryContent += `\n**人格底线**\n${npc.人格底线.map(b => `- ${b}`).join('\n')}\n`;
+    } else if ((npc as any).人格底线) {
+      entryContent += `\n**人格底线**\n${(npc as any).人格底线}\n`;
+    }
+
+    // 当前状态（实时）
+    entryContent += `\n**当前状态（实时）**\n`;
+    if (npc.当前外貌状态) entryContent += `- 外貌状态：${npc.当前外貌状态}\n`;
+    if (npc.当前内心想法) entryContent += `- 内心想法：${npc.当前内心想法}\n`;
+
+    // 私密信息（NSFW）
+    if (npc.私密信息) {
+      const privacy = npc.私密信息;
+      entryContent += `\n**私密信息**\n`;
+
+      // 状态与欲望
+      if (privacy.当前性状态) entryContent += `- 性状态：${privacy.当前性状态}\n`;
+      if (privacy.性渴望程度 !== undefined) entryContent += `- 性渴望：${privacy.性渴望程度}/100\n`;
+      if (privacy.是否为处女 !== undefined) {
+        const virginStatus = npc.性别 === '男' ? (privacy.是否为处女 ? '处男' : '非处') : (privacy.是否为处女 ? '处女' : '非处');
+        entryContent += `- 贞洁：${virginStatus}\n`;
+      }
+
+      // 性格倾向
+      if (privacy.性格倾向) entryContent += `- 性格倾向：${privacy.性格倾向}\n`;
+      if (privacy.性取向) entryContent += `- 性取向：${privacy.性取向}\n`;
+
+      // 性伴侣名单
+      if (privacy.性伴侣名单 && Array.isArray(privacy.性伴侣名单) && privacy.性伴侣名单.length > 0) {
+        entryContent += `- 性伴侣名单：${privacy.性伴侣名单.join('、')}\n`;
+      }
+
+      // 性经验统计
+      if (privacy.性交总次数 !== undefined) entryContent += `- 性交总次数：${privacy.性交总次数}次\n`;
+      if (privacy.性伴侣名单) entryContent += `- 性伴侣数量：${privacy.性伴侣名单.length}人\n`;
+      if (privacy.最近一次性行为时间) entryContent += `- 最近一次：${privacy.最近一次性行为时间}\n`;
+
+      // 身体部位开发
+      if (privacy.身体部位 && Array.isArray(privacy.身体部位) && privacy.身体部位.length > 0) {
+        entryContent += `\n**身体部位开发**\n`;
+        privacy.身体部位.forEach(part => {
+          entryContent += `- ${part.部位名称}：\n`;
+          if (part.特殊印记) entryContent += `  - 特殊标记：${part.特殊印记}\n`;
+          if (part.特征描述) entryContent += `  - 特征描述：${part.特征描述}\n`;
+          if (part.敏感度 !== undefined) entryContent += `  - 敏感度：${part.敏感度}/100\n`;
+          if (part.开发度 !== undefined) entryContent += `  - 开发度：${part.开发度}/100\n`;
+        });
+      }
+
+      // 体液状态
+      if (privacy.体液分泌状态) entryContent += `\n**体液状态**\n${privacy.体液分泌状态}\n`;
+
+      // 癖好与体质
+      if (privacy.性癖好 && Array.isArray(privacy.性癖好) && privacy.性癖好.length > 0) {
+        entryContent += `\n**性癖好**\n${privacy.性癖好.map(p => `- ${p}`).join('\n')}\n`;
+      }
+      if (privacy.特殊体质 && Array.isArray(privacy.特殊体质) && privacy.特殊体质.length > 0) {
+        entryContent += `\n**特殊体质**\n${privacy.特殊体质.map(c => `- ${c}`).join('\n')}\n`;
+      }
+    }
+
+    // 背包物品
+    if (npc.背包?.物品 && Object.keys(npc.背包.物品).length > 0) {
+      entryContent += `\n**背包物品**\n`;
+      Object.values(npc.背包.物品).forEach((item: any) => {
+        entryContent += `- ${item.名称}`;
+        if (item.数量 > 1) entryContent += ` x${item.数量}`;
+        if (item.描述) entryContent += `：${item.描述}`;
+        entryContent += `\n`;
+      });
+    }
+
+    // 灵石
+    if (npc.背包?.灵石) {
+      const stones = npc.背包.灵石;
+      const total = (stones.下品 || 0) + (stones.中品 || 0) + (stones.上品 || 0) + (stones.极品 || 0);
+      if (total > 0) {
+        entryContent += `\n**灵石**\n`;
+        if (stones.下品) entryContent += `- 下品：${stones.下品}\n`;
+        if (stones.中品) entryContent += `- 中品：${stones.中品}\n`;
+        if (stones.上品) entryContent += `- 上品：${stones.上品}\n`;
+        if (stones.极品) entryContent += `- 极品：${stones.极品}\n`;
+      }
+    }
+
+    // 与玩家关系
+    entryContent += `\n**与玩家关系**\n`;
+    entryContent += `- 关系：${npc.与玩家关系 || '相识'}\n`;
+    entryContent += `- 好感度：${npc.好感度 || 0}\n`;
+
+    // 实时关注标记
+    if (npc.实时关注) {
+      entryContent += `- 实时关注：已启用（AI会主动更新此人物状态）\n`;
+    }
+
+    // 构建世界书条目（使用酒馆的WorldbookEntry格式）
+    const newEntry = {
+      name: npcName,
+      enabled: true,
+      strategy: {
+        type: 'selective' as const,
+        keys: [npcName, npc.种族 || '', npc.势力归属 || ''].filter(Boolean),
+        keys_secondary: { logic: 'and_any' as const, keys: [] },
+        scan_depth: 'same_as_global' as const
+      },
+      position: {
+        type: 'after_character_definition' as const,
+        role: 'system' as const,
+        depth: 4,
+        order: 100
+      },
+      content: entryContent,
+      probability: 100,
+      recursion: {
+        prevent_incoming: false,
+        prevent_outgoing: false,
+        delay_until: null
+      },
+      effect: {
+        sticky: null,
+        cooldown: null,
+        delay: null
+      },
+      extra: {
+        来源: '大道朝天',
+        导出时间: new Date().toLocaleString('zh-CN'),
+        人物ID: npcName
+      }
+    };
+
+    // 创建世界书条目
+    await tavernHelper.createWorldbookEntries(worldbookName, [newEntry]);
+
+    uiStore.showToast(`✅ 已将 ${npcName} 添加到世界书「${worldbookName}」`, { type: 'success' });
+  } catch (error) {
+    console.error('[导出世界书] 失败:', error);
+    const errorMsg = error instanceof Error ? error.message : '未知错误';
+    uiStore.showToast(`导出世界书失败: ${errorMsg}`, { type: 'error' });
   }
 };
 
@@ -1618,6 +2015,22 @@ const confirmDeleteNpc = (person: NpcProfile) => {
   gap: 1rem;
 }
 
+.summary-mode-hint {
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(59, 130, 246, 0.08);
+  border-left: 3px solid #3b82f6;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.summary-mode-hint strong {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
 .memory-actions-header {
   display: flex;
   align-items: center;
@@ -1631,6 +2044,34 @@ const confirmDeleteNpc = (person: NpcProfile) => {
   padding: 0.25rem 0.5rem;
   border-radius: 12px;
   font-weight: 500;
+}
+
+.memory-controls-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.download-memory-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  border: none;
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.download-memory-btn:hover {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
 }
 
 .summarize-controls {
@@ -1746,12 +2187,66 @@ const confirmDeleteNpc = (person: NpcProfile) => {
   cursor: not-allowed;
 }
 
+.pagination-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .pagination-info {
   font-size: 0.8rem;
   color: var(--color-text-secondary);
   font-weight: 500;
-  min-width: 60px;
   text-align: center;
+}
+
+.jump-to-page {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.page-input {
+  width: 60px;
+  padding: 0.375rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-background);
+  color: var(--color-text);
+  font-size: 0.75rem;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.page-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.jump-btn {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  border: none;
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.jump-btn:hover {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.memory-summary-section {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(124, 58, 237, 0.08));
+  border-left: 4px solid #8b5cf6;
 }
 
 .memory-item {
@@ -2799,6 +3294,41 @@ const confirmDeleteNpc = (person: NpcProfile) => {
   background: rgba(239, 68, 68, 0.1);
   border-color: #ef4444;
   color: #ef4444;
+  transform: scale(1.1);
+}
+
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.action-btn {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.action-btn.download-btn:hover {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: #3b82f6;
+  color: #3b82f6;
+  transform: scale(1.1);
+}
+
+.action-btn.export-btn:hover {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: #10b981;
+  color: #10b981;
   transform: scale(1.1);
 }
 

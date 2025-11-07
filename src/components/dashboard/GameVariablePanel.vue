@@ -73,6 +73,8 @@ import GameVariableEditModal from './components/GameVariableEditModal.vue'
 import GameVariableStatsModal from './components/GameVariableStatsModal.vue'
 import GameVariableFormatGuideModal from './components/GameVariableFormatGuideModal.vue'
 import { useI18n } from '@/i18n'
+import { calculateFinalAttributes } from '@/utils/attributeCalculation'
+import type { InnateAttributes } from '@/types/game.d'
 
 const { t } = useI18n()
 
@@ -99,16 +101,48 @@ const showFormatGuideModal = ref(false)
 const editingItem = ref<EditingItem | null>(null)
 const showEditModal = ref(false)
 
+// 🔥 计算最终六司（与人物详情面板保持一致）
+const calculatedAttributes = computed(() => {
+  if (!gameStateStore.isGameLoaded || !gameStateStore.character?.先天六司) {
+    return null
+  }
+
+  try {
+    const saveData = gameStateStore.toSaveData()
+    if (!saveData) {
+      return null
+    }
+    const innateAttributes = gameStateStore.character.先天六司 as InnateAttributes
+    return calculateFinalAttributes(innateAttributes, saveData)
+  } catch (error) {
+    console.error('[游戏变量] 计算六司失败:', error)
+    return null
+  }
+})
+
 // 🔥 [新架构] 数据从 Pinia Store 获取 - 使用 toRaw 强制重新计算
 const coreDataViews = computed(() => {
   if (!gameStateStore.isGameLoaded) return {}
 
   // 通过访问 $state 强制依赖追踪
-  const _ = gameStateStore.$state
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _state = gameStateStore.$state
+
+  // 构建角色基础信息，添加计算后的六司数据
+  const characterWithCalculatedAttrs = {
+    ...gameStateStore.character,
+    ...(calculatedAttributes.value ? {
+      '🔢 计算后的六司': {
+        '先天六司': calculatedAttributes.value.先天六司,
+        '后天六司': calculatedAttributes.value.后天六司,
+        '最终六司': calculatedAttributes.value.最终六司
+      }
+    } : {})
+  }
 
   return {
     [t('存档数据 (SaveData)')]: {
-      [t('角色基础信息')]: gameStateStore.character,
+      [t('角色基础信息')]: characterWithCalculatedAttrs,
       [t('玩家角色状态')]: gameStateStore.playerStatus,
       [t('背包')]: gameStateStore.inventory,
       [t('装备栏')]: gameStateStore.equipment,
@@ -124,7 +158,7 @@ const coreDataViews = computed(() => {
       [t('叙事历史')]: gameStateStore.narrativeHistory,
       [t('身体部位开发')]: gameStateStore.bodyPartDevelopment
     },
-    [t('角色数据')]: gameStateStore.character,
+    [t('角色数据')]: characterWithCalculatedAttrs,
     [t('记忆数据')]: gameStateStore.memory,
     [t('世界信息')]: gameStateStore.worldInfo
   }
@@ -138,12 +172,38 @@ const customOptions = computed(() => {
   }
 })
 
-const characterData = computed(() => gameStateStore.character || {})
+const characterData = computed(() => {
+  const baseCharacter = gameStateStore.character || {}
+  // 添加计算后的六司数据
+  return {
+    ...baseCharacter,
+    ...(calculatedAttributes.value ? {
+      '🔢 计算后的六司': {
+        '先天六司': calculatedAttributes.value.先天六司,
+        '后天六司': calculatedAttributes.value.后天六司,
+        '最终六司': calculatedAttributes.value.最终六司
+      }
+    } : {})
+  }
+})
+
 const saveData = computed(() => {
   if (!gameStateStore.isGameLoaded) return {}
 
+  // 构建角色基础信息，添加计算后的六司数据
+  const characterWithCalculatedAttrs = {
+    ...gameStateStore.character,
+    ...(calculatedAttributes.value ? {
+      '🔢 计算后的六司': {
+        '先天六司': calculatedAttributes.value.先天六司,
+        '后天六司': calculatedAttributes.value.后天六司,
+        '最终六司': calculatedAttributes.value.最终六司
+      }
+    } : {})
+  }
+
   return {
-    [t('角色基础信息')]: gameStateStore.character,
+    [t('角色基础信息')]: characterWithCalculatedAttrs,
     [t('玩家角色状态')]: gameStateStore.playerStatus,
     [t('背包')]: gameStateStore.inventory,
     [t('装备栏')]: gameStateStore.equipment,
@@ -355,7 +415,8 @@ const saveVariable = async (item: EditingItem) => {
 
     // 🔥 检查 updateState 前的值
     const pathParts = path.split('.')
-    let beforeValue = gameStateStore as any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let beforeValue: any = gameStateStore
     for (const part of pathParts) {
       beforeValue = beforeValue?.[part]
     }
@@ -368,7 +429,8 @@ const saveVariable = async (item: EditingItem) => {
     gameStateStore.updateState(path, parsedValue);
 
     // 🔥 检查 updateState 后的值
-    let afterValue = gameStateStore as any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let afterValue: any = gameStateStore
     for (const part of pathParts) {
       afterValue = afterValue?.[part]
     }
@@ -380,7 +442,8 @@ const saveVariable = async (item: EditingItem) => {
 
     // 检查具体路径在 SaveData 中的值
     const chinesePathParts = key.split('.')
-    let saveDataValue = saveDataBefore as any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let saveDataValue: any = saveDataBefore
     for (const part of chinesePathParts) {
       saveDataValue = saveDataValue?.[part]
     }

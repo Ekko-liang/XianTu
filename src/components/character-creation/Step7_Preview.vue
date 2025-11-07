@@ -77,8 +77,15 @@
         <h3>{{ $t('初始年龄') }}</h3>
         <div class="age-control">
           <button type="button" @click="decrementAge" :disabled="store.characterPayload.current_age <= 0" class="age-btn">-</button>
-          <span class="age-display">{{ store.characterPayload.current_age }} {{ $t('岁') }}</span>
-          <button type="button" @click="incrementAge" :disabled="store.characterPayload.current_age >= 18" class="age-btn">+</button>
+          <input
+            type="number"
+            v-model.number="store.characterPayload.current_age"
+            class="age-input"
+            min="0"
+            @input="validateAge"
+          />
+          <span class="age-unit">{{ $t('岁') }}</span>
+          <button type="button" @click="incrementAge" class="age-btn">+</button>
         </div>
       </div>
 
@@ -202,15 +209,22 @@ onMounted(async () => {
 })
 
 const incrementAge = () => {
-  if (store.characterPayload.current_age < 18) {
-    store.characterPayload.current_age++
-  }
+  store.characterPayload.current_age++
 }
 
 const decrementAge = () => {
   if (store.characterPayload.current_age > 0) {
     store.characterPayload.current_age--
   }
+}
+
+const validateAge = () => {
+  // 确保年龄不为负数
+  if (store.characterPayload.current_age < 0) {
+    store.characterPayload.current_age = 0
+  }
+  // 确保年龄是整数
+  store.characterPayload.current_age = Math.floor(store.characterPayload.current_age)
 }
 </script>
 
@@ -455,6 +469,41 @@ const decrementAge = () => {
   color: var(--color-text);
   min-width: 60px;
   text-align: center;
+}
+
+.age-input {
+  width: 80px;
+  padding: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-background);
+  color: var(--color-text);
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.age-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.age-input::-webkit-inner-spin-button,
+.age-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.age-input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.age-unit {
+  font-size: 1rem;
+  color: var(--color-text-secondary);
+  font-weight: 500;
 }
 
 /* 列表样式 */
