@@ -18,6 +18,7 @@
               size="small"
               :current-step="store.currentStep"
               :total-steps="store.totalSteps"
+              :character-data="characterDataForPreset"
               @store-completed="onStoreCompleted"
             />
             <LoadingPreSeting variant="compact" size="small" @load-completed="onLoadCompleted" />
@@ -298,6 +299,23 @@ const stepLabels = computed(() => [
   t('窥天算命'),
 ])
 
+const characterDataForPreset = computed(() => ({
+  character_name: store.characterPayload.character_name,
+  current_age: store.characterPayload.current_age,
+  world: store.selectedWorld,
+  talentTier: store.selectedTalentTier,
+  origin: store.selectedOrigin,
+  spiritRoot: store.selectedSpiritRoot,
+  talents: store.selectedTalents,
+  baseAttributes: {
+    root_bone: store.attributes.root_bone,
+    spirituality: store.attributes.spirituality,
+    comprehension: store.attributes.comprehension,
+    fortune: store.attributes.fortune,
+    charm: store.attributes.charm,
+    temperament: store.attributes.temperament,
+  }
+}))
 
 const handleBack = () => {
   if (store.currentStep > 1) {

@@ -16,6 +16,7 @@
     <!-- 预设保存对话框 -->
     <PresetSaveModal
       :visible="showSaveModal"
+      :character-data="props.characterData"
       @close="showSaveModal = false"
       @submit="handleSavePreset"
     />
@@ -34,6 +35,7 @@ const props = defineProps<{
   variant?: 'default' | 'compact';
   currentStep?: number; // 当前步骤
   totalSteps?: number; // 总步骤数
+  characterData?: any; // 角色创建数据
 }>();
 
 // Emits
@@ -90,44 +92,25 @@ function handleStorePreset() {
 }
 
 // 处理保存预设
-async function handleSavePreset(data: { presetName: string; presetDescription: string }) {
+async function handleSavePreset(data: { presetName: string; presetDescription: string; characterData?: any }) {
   isStoring.value = true;
-  const toastId = 'store-preset-toast';
-  toast.loading(t('正在保存预设...'), { id: toastId });
+  showSaveModal.value = false;
 
-  try {
-    // TODO: 实现预设存储逻辑
-    // 这里应该获取当前的角色创建数据并保存
-    await new Promise(resolve => setTimeout(resolve, 800));
+  const presetData = {
+    name: data.presetName,
+    description: data.presetDescription,
+    savedAt: new Date().toISOString()
+  };
 
-    const presetData = {
-      name: data.presetName,
-      description: data.presetDescription,
-      savedAt: new Date().toISOString()
-      // TODO: 添加实际的角色数据
-    };
+  hasStored.value = true;
 
-    toast.success(t('预设「{0}」保存成功！').replace('{0}', data.presetName), { id: toastId });
-    hasStored.value = true;
-    showSaveModal.value = false;
+  emit('storeCompleted', {
+    success: true,
+    message: t('预设保存成功'),
+    presetData
+  });
 
-    emit('storeCompleted', {
-      success: true,
-      message: t('预设保存成功'),
-      presetData
-    });
-
-  } catch (error) {
-    console.error('[存储预设组件] 存储失败:', error);
-    const message = error instanceof Error ? error.message : t('存储失败');
-    toast.error(t('存储失败: {0}').replace('{0}', message), { id: toastId });
-    emit('storeCompleted', {
-      success: false,
-      message: message
-    });
-  } finally {
-    isStoring.value = false;
-  }
+  isStoring.value = false;
 }
 </script>
 

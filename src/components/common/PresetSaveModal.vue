@@ -81,6 +81,8 @@ import type { World, TalentTier, Origin, SpiritRoot, Talent } from '@/types';
 const props = defineProps<{
   visible: boolean;
   characterData?: {
+    character_name?: string;
+    current_age?: number;
     world: World | null;
     talentTier: TalentTier | null;
     origin: Origin | null;

@@ -545,7 +545,7 @@ ${stateJsonString}
     if (saveData.记忆?.短期记忆 && saveData.记忆.短期记忆.length > SHORT_TERM_LIMIT) {
       // 删除最旧的短期记忆（第一个）
       saveData.记忆.短期记忆.shift();
-      console.log(`[AI双向系统] 短期记忆超限（上限: ${SHORT_TERM_LIMIT}），已删除最旧的短期记忆。当前短期记忆数量: ${saveData.记忆.短期记忆.length}`);
+      console.log(`[AI双向系统] 短期记忆超过上限（${SHORT_TERM_LIMIT}条），已删除最旧的短期记忆。当前短期记忆数量: ${saveData.记忆.短期记忆.length}`);
 
       // 将对应的隐式中期记忆转化为正式中期记忆
       if (saveData.记忆.隐式中期记忆 && saveData.记忆.隐式中期记忆.length > 0) {

@@ -156,11 +156,12 @@ export function repairSaveData(saveData: SaveData | null | undefined): SaveData 
 
   // 6. 修复记忆
   if (!repaired.记忆 || typeof repaired.记忆 !== 'object') {
-    repaired.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [] };
+    repaired.记忆 = { 短期记忆: [], 中期记忆: [], 长期记忆: [], 隐式中期记忆: [] };
   } else {
     repaired.记忆.短期记忆 = Array.isArray(repaired.记忆.短期记忆) ? repaired.记忆.短期记忆 : [];
     repaired.记忆.中期记忆 = Array.isArray(repaired.记忆.中期记忆) ? repaired.记忆.中期记忆 : [];
     repaired.记忆.长期记忆 = Array.isArray(repaired.记忆.长期记忆) ? repaired.记忆.长期记忆 : [];
+    repaired.记忆.隐式中期记忆 = Array.isArray(repaired.记忆.隐式中期记忆) ? repaired.记忆.隐式中期记忆 : [];
   }
 
   // 7. 修复游戏时间
@@ -522,7 +523,8 @@ function createMinimalSaveData(): SaveData {
     记忆: {
       短期记忆: [],
       中期记忆: [],
-      长期记忆: []
+      长期记忆: [],
+      隐式中期记忆: []
     },
     游戏时间: { 年: 1000, 月: 1, 日: 1, 小时: 8, 分钟: 0 },
     修炼功法: null,
