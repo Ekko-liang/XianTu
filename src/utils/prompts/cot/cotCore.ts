@@ -1,5 +1,4 @@
 import { DICE_ROLLING_RULES } from '../definitions/textFormats';
-import { WRITING_QUALITY } from '../definitions/writingQuality';
 
 /**
  * @fileoverview CoT 核心提示词 v2.0.0
@@ -159,9 +158,6 @@ DiceCard: 〖类型:结果,判定值:F,难度:Z(等级),骰点:E,先天:A,后天
 
 **原则：对话永不判定，95%场景直接叙述**
 ${DICE_ROLLING_RULES}
-
-### 文本质量
-${WRITING_QUALITY}
 `;
 }
 
