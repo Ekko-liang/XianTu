@@ -126,7 +126,7 @@
             <div class="result-list">
               <div class="result-item perfect">
                 <span class="result-label">{{ $t('完美') }}</span>
-                <span class="result-desc">{{ $t('骰点19-20，必定成功且额外奖励') }}</span>
+                <span class="result-desc">{{ $t('骰点20，必定成功且额外奖励') }}</span>
               </div>
               <div class="result-item great-success">
                 <span class="result-label">{{ $t('大成功') }}</span>
@@ -142,7 +142,7 @@
               </div>
               <div class="result-item critical-failure">
                 <span class="result-label">{{ $t('大失败') }}</span>
-                <span class="result-desc">{{ $t('骰点1-2，必定失败且负面后果') }}</span>
+                <span class="result-desc">{{ $t('骰点1，必定失败且负面后果') }}</span>
               </div>
             </div>
           </div>
