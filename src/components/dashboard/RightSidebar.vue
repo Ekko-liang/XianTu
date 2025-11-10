@@ -168,7 +168,7 @@
               class="status-tag clickable"
               :class="[(String(effect.类型 || '').toLowerCase() === 'buff') ? 'buff' : 'debuff']"
               @click="showStatusDetail(effect)"
-              :title="`${effect.状态名称 || '未知状态'}${effect.强度 ? ` - 强度${effect.强度}` : ''}${formatTimeDisplay(effect.时间) ? ` - ${formatTimeDisplay(effect.时间)}` : ''}`"
+              :title="`${effect.状态名称 || '未知状态'}${effect.状态描述 ? `\n${effect.状态描述}` : ''}${effect.强度 ? `\n强度: ${effect.强度}` : ''}${formatTimeDisplay(effect.时间) ? `\n${formatTimeDisplay(effect.时间)}` : ''}`"
             >
               <span class="tag-icon">{{ String(effect.类型 || '').toLowerCase() === 'buff' ? t('增') : t('减') }}</span>
               <span class="tag-name">{{ effect.状态名称 || '未知状态' }}</span>

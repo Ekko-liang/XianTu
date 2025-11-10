@@ -9,6 +9,10 @@
 export const ACTION_OPTIONS_RULES = `
 # 行动选项规范
 
+## 核心原则 (🔴 最高优先级)
+**此模块激活时，代表用户已开启“提供行动选项”功能。**
+**因此，你的每一次响应都【必须】提供 `action_options` 字段，无一例外。**
+
 ## ⚠️ 重要：自定义要求（必须严格遵守）
 {{CUSTOM_ACTION_PROMPT}}
 
