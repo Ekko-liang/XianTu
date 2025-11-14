@@ -217,14 +217,15 @@ ${stateJsonString}
         });
       }
 
-      // 🔥 添加 CoT 提示词（放在最后，确保 AI 在输出前进行思维链分析）
-      // 将用户输入直接传递给 CoT，避免 AI 自己编造或误读
-      injects.push({
-        content: getCotCorePrompt(userActionForAI, uiStore.enableActionOptions),
-        role: 'system',
-        depth: 1,
-        position: 'in_chat',
-      });
+      // 🔥 添加 CoT 提示词（仅在启用系统CoT时注入）
+      if (uiStore.useSystemCot) {
+        injects.push({
+          content: getCotCorePrompt(userActionForAI, uiStore.enableActionOptions),
+          role: 'system',
+          depth: 1,
+          position: 'in_chat',
+        });
+      }
 
       // 🎲 添加骰点信息到用户输入
       const userInputWithDice = `${userActionForAI}\n\n【系统骰点】本回合骰点: ${diceRoll} (1d20)`;

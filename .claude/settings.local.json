@@ -7,7 +7,8 @@
       "Bash(npm uninstall ol leaflet.markercluster)",
       "Bash(npm install pixi.js@^7.4.2)",
       "Bash(npm install pixi-viewport@^5.0.2)",
-      "Bash(npm uninstall pixi-viewport)"
+      "Bash(npm uninstall pixi-viewport)",
+      "Bash(uniq -w32 -D)"
     ],
     "deny": [],
     "ask": [],

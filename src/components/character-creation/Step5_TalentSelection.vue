@@ -324,11 +324,24 @@ async function handleDeleteTalent(id: number) {
 async function handleEditSubmit(data: CustomTalentData) {
   if (!editingTalent.value) return;
 
+  // 处理天赋效果数组
+  const effects = Array.isArray(data.effects)
+    ? data.effects
+        .filter(effect => effect.类型 && effect.数值)
+        .map(effect => ({
+          类型: effect.类型,
+          目标: effect.目标 || undefined,
+          数值: Number(effect.数值) || 0
+        }))
+    : [];
+
   // 创建更新数据对象
   const updateData: Partial<Talent> = {
     name: data.name,
     description: data.description,
     talent_cost: Number(data.talent_cost) || 0,
+    rarity: Number(data.rarity) || 1,
+    effects: effects.length > 0 ? effects : undefined
   };
 
   try {
@@ -353,6 +366,8 @@ const editInitialData = computed(() => {
     name: editingTalent.value.name,
     description: editingTalent.value.description,
     talent_cost: editingTalent.value.talent_cost || 0,
+    rarity: editingTalent.value.rarity || 1,
+    effects: editingTalent.value.effects || []
   };
 });
 

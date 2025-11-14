@@ -80,6 +80,9 @@ export const useUIStore = defineStore('ui', () => {
   // 🔥 [流式传输设置] 控制是否启用流式传输（全局持久化）
   const useStreaming = ref(localStorage.getItem('useStreaming') !== 'false'); // 默认开启
 
+  // 🔥 [CoT设置] 控制是否使用系统CoT（默认开启，关闭后使用预设中的CoT）
+  const useSystemCot = ref(localStorage.getItem('useSystemCot') !== 'false'); // 默认开启
+
   function openCharacterManagement() {
     showCharacterManagement.value = true;
   }
@@ -356,6 +359,15 @@ export const useUIStore = defineStore('ui', () => {
       set: (val) => {
         useStreaming.value = val;
         localStorage.setItem('useStreaming', String(val));
+      }
+    }),
+
+    // 🔥 [CoT设置] 暴露系统CoT开关（全局持久化）
+    useSystemCot: computed({
+      get: () => useSystemCot.value,
+      set: (val) => {
+        useSystemCot.value = val;
+        localStorage.setItem('useSystemCot', String(val));
       }
     }),
 

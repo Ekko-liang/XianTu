@@ -3799,4 +3799,33 @@ const syncGameState = async () => {
 [data-theme="dark"] .cultivation-card .time-display {
   color: #f3f4f6;
 }
+
+/* 手机端响应式修复 */
+@media (max-width: 768px) {
+  .content-area {
+    padding: 12px;
+    overflow-x: hidden;
+  }
+
+  .current-narrative {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .streaming-narrative-content,
+  .narrative-content {
+    overflow-x: hidden;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+
+  .streaming-text,
+  .narrative-text {
+    max-width: 100%;
+    overflow-x: hidden;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+}
 </style>

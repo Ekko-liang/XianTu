@@ -3,377 +3,653 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>【大道朝天 V3.2 正式版】</title>
+    <meta name="description" content="大道朝天 - AI驱动的修仙世界，真正活着的修仙游戏。体验思维链AI、动态地图、开放预设系统，踏上九死一生的长生之路。">
+    <meta name="keywords" content="大道朝天,修仙游戏,AI游戏,文字游戏,修仙世界,思维链AI">
+    <meta name="author" content="大道朝天开发团队">
+    <title>大道朝天 - AI驱动的修仙世界 | 官方网站</title>
+    <!-- 引入Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入Inter字体 (一个优雅的无衬线字体) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        /* 自定义样式 - 定义仙气背景、粒子、玻璃拟态和字体 */
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 2rem 0;
+            /* 核心的"仙气"渐变：从底部的凡间到顶部的天界 */
+            background: linear-gradient(to top, #0a0e23 0%, #0f1a4a 30%, #5e79c2 70%, #f0f4ff 100%);
+            background-attachment: fixed; /* 固定背景，营造深邃感 */
+            font-family: 'Inter', 'Microsoft YaHei', 'SimSun', sans-serif;
+            overflow-x: hidden; /* 防止水平滚动 */
+            color: #E0E7FF; /* 基础文字颜色改为淡蓝色，更柔和 */
+            scroll-behavior: smooth; /* 页面内锚点平滑滚动 */
         }
 
-        .container {
-            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-            border-radius: 16px;
-            max-width: 1000px;
-            width: 90%;
-            margin: 0 auto;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-            animation: slideIn 0.3s ease-out;
+        /* 粒子画布，固定在背景中 */
+        #particle-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none; /* 允许点击穿透 */
         }
 
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-20px) scale(0.95);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
+        /* 自定义玻璃拟态效果 (毛玻璃) */
+        .glass-card {
+            background: rgba(10, 14, 35, 0.45); /* 增加一点不透明度 */
+            backdrop-filter: blur(12px); /* 模糊背景 */
+            border: 1px solid rgba(255, 255, 255, 0.1); /* 模拟高光边缘 */
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); /* 增加深度 */
+            transition: all 0.3s ease;
+        }
+        .glass-card:hover {
+            border-color: rgba(255, 255, 255, 0.3); /* 悬浮时边框更亮 */
         }
 
-        .header {
-            padding: 1.5rem 2rem;
-            border-bottom: 2px solid #e2e8f0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-radius: 16px 16px 0 0;
+        /* 标题的渐变文字 */
+        .text-gradient {
+            background: linear-gradient(to right, #ffffff, #d4e0ff, #fde68a); /* 白 -> 淡蓝 -> 淡金 */
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-fill-color: transparent;
         }
 
-        .header h1 {
-            margin: 0;
-            font-size: 1.5rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
+        /* 内容容器，确保在粒子之上 */
+        .content-wrapper {
+            position: relative;
+            z-index: 1;
         }
 
-        .content {
+        /* 导航栏毛玻璃效果 */
+        nav.sticky-nav {
+            background: rgba(10, 14, 35, 0.3);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            transition: background 0.3s ease;
+        }
+        nav.sticky-nav:hover {
+            background: rgba(10, 14, 35, 0.5);
+        }
+
+        /* 移动端菜单 */
+        .mobile-menu {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            background: rgba(10, 14, 35, 0.98);
+            backdrop-filter: blur(20px);
+            z-index: 100;
             padding: 2rem;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 2rem;
         }
-
-        .version-badge {
-            display: inline-block;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        .mobile-menu.active {
+            display: flex;
+        }
+        .mobile-menu a {
+            font-size: 1.5rem;
             color: white;
-            padding: 0.5rem 1.25rem;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            font-weight: 700;
-            margin-bottom: 1.5rem;
-            box-shadow: 0 4px 6px -1px rgba(102, 126, 234, 0.3);
-        }
-
-        .section {
-            margin-bottom: 2rem;
-        }
-
-        .section:last-child {
-            margin-bottom: 0;
-        }
-
-        .section h2 {
-            color: #1e293b;
-            font-size: 1.1rem;
-            font-weight: 700;
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .section p {
-            color: #475569;
-            line-height: 1.7;
-            margin: 0.5rem 0;
-        }
-
-        .section a {
-            color: #667eea;
             text-decoration: none;
-            font-weight: 600;
-            transition: color 0.2s;
+            transition: color 0.3s ease;
+        }
+        .mobile-menu a:hover {
+            color: #fbbf24;
         }
 
-        .section a:hover {
-            color: #764ba2;
-            text-decoration: underline;
+        /* 汉堡菜单按钮 */
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            gap: 4px;
+            cursor: pointer;
+            z-index: 101;
+        }
+        .hamburger span {
+            width: 25px;
+            height: 3px;
+            background: white;
+            transition: all 0.3s ease;
+            border-radius: 2px;
+        }
+        .hamburger.active span:nth-child(1) {
+            transform: rotate(45deg) translate(5px, 5px);
+        }
+        .hamburger.active span:nth-child(2) {
+            opacity: 0;
+        }
+        .hamburger.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(7px, -6px);
+        }
+        @media (max-width: 768px) {
+            .hamburger {
+                display: flex;
+            }
         }
 
-        .feature-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        .feature-list li {
-            padding: 0.75rem 0;
-            color: #475569;
-            line-height: 1.6;
-            display: flex;
-            align-items: flex-start;
-            gap: 0.75rem;
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        .feature-list li:last-child {
-            border-bottom: none;
-        }
-
-        .feature-list strong {
-            color: #1e293b;
-            font-weight: 600;
-        }
-
-        .tech-stack {
-            color: #64748b;
-            font-size: 0.95rem;
-            padding: 1rem;
-            background: #f1f5f9;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
-        }
-
-        .version-note {
-            color: #475569;
-            font-size: 0.95rem;
-            line-height: 1.6;
-            padding: 1rem;
-            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-            border-radius: 8px;
-            border-left: 4px solid #f59e0b;
-        }
-
-        .version-note strong {
-            color: #92400e;
-        }
-
-        .copyright-notice {
-            padding: 1.25rem;
-            background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-            border-radius: 8px;
-            border: 2px solid #dc2626;
-        }
-
-        .copyright-notice p {
-            margin: 0.5rem 0;
-            color: #1e293b;
-        }
-
-        .copyright-notice p:first-child {
-            font-weight: 700;
-            font-size: 1.05rem;
-            color: #dc2626;
-            margin-bottom: 0.75rem;
-        }
-
-        .copyright-notice strong {
-            color: #dc2626;
-            font-weight: 700;
-        }
-
-        .copyright-list {
-            list-style: none;
-            padding: 0;
-            margin: 1rem 0;
-        }
-
-        .copyright-list li {
-            padding: 0.5rem 0;
-            color: #475569;
-            line-height: 1.5;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            border-bottom: 1px solid #fee2e2;
-        }
-
-        .copyright-list li:last-child {
-            border-bottom: none;
-        }
-
-        .copyright-list strong {
-            color: #1e293b;
-            font-weight: 600;
+        /* 更新日志的代码样式 */
+        .changelog-code {
+            background-color: rgba(0, 0, 0, 0.25);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.9em;
+            color: #fde68a; /* 淡金色代码 */
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         /* 滚动条美化 */
-        .container::-webkit-scrollbar {
-            width: 8px;
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(10, 14, 35, 0.5);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
         }
 
-        .container::-webkit-scrollbar-track {
-            background: #f1f5f9;
-            border-radius: 4px;
+        /* 返回顶部按钮 */
+        .back-to-top {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 50;
+            color: white;
+            font-size: 24px;
+        }
+        .back-to-top.show {
+            display: flex;
+        }
+        .back-to-top:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-5px);
         }
 
-        .container::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 4px;
+        /* 加载动画 */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .fade-in {
+            animation: fadeIn 0.6s ease-out;
         }
 
-        .container::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
-        }
-
-        /* 响应式设计 */
-        @media (max-width: 640px) {
-            body {
-                padding: 0.5rem;
-            }
-
-            .header {
-                padding: 1rem 1.5rem;
-            }
-
-            .header h1 {
-                font-size: 1.25rem;
-            }
-
-            .content {
-                padding: 1.5rem;
-            }
-
-            .section h2 {
-                font-size: 1rem;
-            }
+        /* 卡片悬浮增强 */
+        .glass-card {
+            will-change: transform;
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>🎮 【大道朝天 V2.9.5 正式版】游戏介绍</h1>
+<body class="min-h-screen">
+    <!-- 粒子画布 -->
+    <canvas id="particle-canvas"></canvas>
+
+    <!-- 页面内容容器 -->
+    <div class="content-wrapper">
+
+        <!-- 导航栏 -->
+        <nav class="sticky-nav sticky top-0 z-50 w-full" role="navigation" aria-label="主导航">
+            <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+                <div class="text-3xl font-black text-gradient">
+                    大道朝天
+                </div>
+                <div class="hidden md:flex space-x-8 text-lg text-white/90">
+                    <a href="#home" class="hover:text-amber-300 transition-colors">首页</a>
+                    <a href="#about" class="hover:text-amber-300 transition-colors">世界观</a>
+                    <a href="#features" class="hover:text-amber-300 transition-colors">核心特色</a>
+                    <a href="#gallery" class="hover:text-amber-300 transition-colors">道途一瞥</a>
+                    <a href="#news" class="hover:text-amber-300 transition-colors">更新日志</a>
+                </div>
+                <div class="flex items-center gap-4">
+                    <a href="index.html" class="hidden sm:block px-6 py-2 bg-white/10 text-white border-2 border-white/50 rounded-full text-lg font-semibold backdrop-blur-sm hover:bg-white/20 hover:border-white/80 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-cyan-300/20">
+                        开始修行
+                    </a>
+                    <button class="hamburger" aria-label="菜单" onclick="toggleMobileMenu()">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 移动端菜单 -->
+        <div class="mobile-menu" id="mobileMenu">
+            <a href="#home" onclick="toggleMobileMenu()">首页</a>
+            <a href="#about" onclick="toggleMobileMenu()">世界观</a>
+            <a href="#features" onclick="toggleMobileMenu()">核心特色</a>
+            <a href="#gallery" onclick="toggleMobileMenu()">道途一瞥</a>
+            <a href="#news" onclick="toggleMobileMenu()">更新日志</a>
+            <a href="index.html" class="px-8 py-3 bg-white/10 text-white border-2 border-white/50 rounded-full text-lg font-semibold backdrop-blur-sm">
+                开始修行
+            </a>
         </div>
 
-        <div class="content">
-            <div class="version-badge">V2.9.5 正式版</div>
-
-            <div class="section">
-                <h2>📝 游戏介绍</h2>
-                <p>《大道朝天》是一款革命性的AI驱动修仙文字冒险游戏，将传统修仙小说的精髓与前沿AI技术完美融合。游戏基于SillyTavern平台，整合Gemini AI的强大生成能力，为每位玩家打造独一无二的修仙之路。</p>
-                <p>V2.9.5版本在V2.9.5的基础上进行了大量优化与修复，包括更稳定的流式输出、优化的判定系统、增强的COT思维链、以及更完善的NSFW系统等，旨在提供更流畅、更真实的修仙体验。这不仅仅是一款游戏——它是一个活生生的修仙世界。</p>
-                <p><strong style="color: #667eea;">核心特色：</strong>玩法丰富、多角色多存档、动态剧情生成、智能NPC互动、完全自由的成长路径。</p>
-                <p style="background: #fef3c7; padding: 0.75rem; border-radius: 8px; border-left: 4px solid #f59e0b;"><span style="color: #92400e;">⚠️ 重要提示：</span>游玩时请使用推荐预设以获得最佳体验。在了解游戏机制后可自行调整，但<span style="color: #dc2626; font-weight: 600;">强烈建议关闭COT（思维链）功能</span>，以避免影响AI叙事质量。</p>
+        <!-- 英雄区域 -->
+        <header id="home" class="min-h-screen flex flex-col items-center justify-center text-center p-4 sm:p-8 pt-24 sm:pt-16 md:pt-8">
+            <h1 class="text-4xl sm:text-6xl md:text-8xl font-black text-gradient drop-shadow-2xl px-4">
+                仙路尽头谁为峰
+            </h1>
+            <p class="text-base sm:text-xl md:text-3xl mt-6 sm:mt-8 text-blue-100 opacity-80 max-w-4xl leading-relaxed px-4">
+                这是一个由AI驱动，真正<span class="text-white font-semibold">"活"</span>着的修仙世界。
+                <br>
+                <span class="text-sm sm:text-lg md:text-2xl">在这里，长生并非天赐恩泽，而是踏着累累白骨、以血与火铸就的无上道果。</span>
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4 sm:gap-6 mt-8 sm:mt-12 px-4 w-full sm:w-auto">
+                <a href="#features" class="px-8 sm:px-10 py-3 sm:py-4 bg-amber-500/10 text-amber-300 border-2 border-amber-500/50 rounded-full text-base sm:text-lg font-semibold backdrop-blur-sm hover:bg-amber-500/20 hover:border-amber-500/80 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-amber-300/20">
+                    了解核心特色
+                </a>
+                <a href="#news" class="px-8 sm:px-10 py-3 sm:py-4 bg-white/10 text-white border-2 border-white/50 rounded-full text-base sm:text-lg font-semibold backdrop-blur-sm hover:bg-white/20 hover:border-white/80 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-cyan-300/20">
+                    查看V3.2更新
+                </a>
             </div>
+        </header>
 
-            <div class="section">
-                <h2>🌟 V2.9.5 版本核心功能</h2>
-                <ul class="feature-list">
-                    <li>✨ <strong>自定义开局 & 属性重Roll</strong> - 厌倦了随机分配？现在你可以完全自定义角色的初始属性、背景和天赋，还可以无限重Roll，直到满意为止！</li>
-                    <li>📱 <strong>移动端适配</strong> - 随时随地开启修仙之旅！游戏界面已全面优化，完美适配手机和平板设备，操作更流畅。</li>
-                    <li>📜 <strong>AI剧情自动总结</strong> - 担心忘记之前的剧情？AI会自动为你总结关键事件，让你轻松回顾冒险历程。</li>
-                    <li> STREAM <strong>真·流式响应</strong> - 体验如丝般顺滑的AI叙事，剧情生成更快、更自然，告别长时间等待。</li>
-                    <li>🔞 <strong>18+成人内容模块 (可选)</strong> - 为寻求更深度、更成熟体验的玩家提供可选的成人内容模块，探索修仙世界不为人知的一面。</li>
-                    <li>💾 <strong>多角色 & 多存档管理</strong> - 支持创建多个角色，体验不同的人生。每个角色拥有独立的存档槽位，多周目游玩更轻松。</li>
-                    <li>🎲 <strong>智能判定系统</strong> - 根据境界、属性、装备、大道等全方位计算判定，你的每一个选择都有据可依。</li>
-                    <li>📖 <strong>动态剧情生成</strong> - AI实时生成个性化的修仙故事，每一次游玩都是独一无二的体验。</li>
-                    <li>🏛️ <strong>宗门与任务系统优化</strong> - 加入宗门，参与宗门任务，现已支持任务删除，管理更便捷。</li>
-                </ul>
+        <!-- 诗词过场 -->
+        <div class="text-center py-12 sm:py-24 text-xl sm:text-3xl text-white/70 italic leading-relaxed px-4">
+            "道可道，非常道。<br>名可名，非常名。"
+        </div>
+
+        <!-- 游戏介绍 -->
+        <section id="about" class="container mx-auto px-4 sm:px-6 py-12 sm:py-20">
+            <h2 class="text-3xl sm:text-5xl font-bold text-center mb-8 sm:mb-16 text-gradient px-4">
+                关于 朝天大陆
+            </h2>
+            <div class="glass-card rounded-2xl p-6 sm:p-8 md:p-12 text-base sm:text-lg text-blue-100/90 leading-relaxed space-y-4 sm:space-y-6 max-w-5xl mx-auto">
+                <p>
+                    欢迎来到<span class="text-white font-semibold">《大道朝天》</span>。在这里，凡尘王朝的兴衰更迭不过是过眼云烟，帝国兴衰亦只是修士俯瞰人间时的一缕霞光。你将扮演一名挣脱百年寿元枷锁的求索者，踏上一条九死一生的长生之路。
+                </p>
+                <p>
+                    天地不仁，以万物为刍狗。你可以成为一名孤高的剑修，一剑开天门，剑气纵横三千里；也可以成为霸道的体修，一拳震山河，崩裂万里山川；亦可以丹道通神，执掌生死轮回；更可精研阵法，将乾坤玩弄于股掌。
+                </p>
+                <p>
+                    然而，<span class="text-amber-300 font-semibold">大道争锋，仙路无情</span>。此界奉行大道争锋的铁则，灵脉宝地、神功秘法，皆是有缘者居之，而缘字背后，往往是血与火的洗礼。你必须在无尽的杀伐夺宝、因果纠缠中沉浮，在师门背叛、道友相残的血雨腥风里求存，最终证得你的不朽仙境。
+                </p>
             </div>
+        </section>
 
-            <div class="section">
-                <h2>🎓 新手教程</h2>
+        <!-- 核心特色 -->
+        <section id="features" class="container mx-auto px-4 sm:px-6 py-12 sm:py-20">
+            <h2 class="text-3xl sm:text-5xl font-bold text-center mb-8 sm:mb-16 text-gradient px-4">
+                核心特色
+            </h2>
+            <div class="grid sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8">
+                
+                <!-- 特色 1: CoT AI -->
+                <div class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2">
+                    <h3 class="text-xl sm:text-2xl font-bold text-center mb-4 sm:mb-5 text-white">有思想的灵魂</h3>
+                    <p class="text-center text-sm sm:text-base text-blue-100 opacity-80">
+                        我们重构了AI内核。NPC不再是冰冷的数据，他们拥有<span class="text-white">思维链</span>，会根据自己的记忆、性格、人格底线和核心利益作出合理行动，构建一个真实、动态、充满因果的修仙社会。
+                    </p>
+                </div>
 
-                <h3 style="color: #667eea; font-size: 1rem; margin: 1.5rem 0 1rem 0;">第一步：环境准备</h3>
-                <ol style="padding-left: 1.5rem; color: #475569; line-height: 1.8;">
-                    <li><strong>安装SillyTavern</strong> - 从官方GitHub下载最新版本（推荐1.12.0及以上）</li>
-                    <li><strong>配置AI后端</strong> - 推荐使用Google Gemini API（支持免费额度），也可使用OpenAI或本地模型</li>
-                    <li><strong>导入游戏文件</strong> - 将游戏包解压到SillyTavern的public目录下</li>
-                </ol>
+                <!-- 特色 2: 地图系统 -->
+                <div class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2">
+                    <h3 class="text-xl sm:text-2xl font-bold text-center mb-4 sm:mb-5 text-white">会呼吸的地图</h3>
+                    <p class="text-center text-sm sm:text-base text-blue-100 opacity-80">
+                        告别纯文字。V3.2版本带来了全新的<span class="text-white">动态游戏地图</span>系统。你可以在广袤的朝天大陆上自由探索、缩放、拖拽。洞府、宗门、城镇与秘境的位置都将直观展现。
+                    </p>
+                </div>
 
-                <h3 style="color: #667eea; font-size: 1rem; margin: 1.5rem 0 1rem 0;">第二步：角色创建</h3>
-                <ol style="padding-left: 1.5rem; color: #475569; line-height: 1.8;">
-                    <li><strong>选择游戏模式</strong> - 当前版本仅支持"单机闭关"模式，所有数据本地存储</li>
-                    <li><strong>自定义你的角色</strong> - 支持自定义开局，自由设定性别、出身、灵根、天赋和初始属性！</li>
-                    <li><strong>无限重Roll</strong> - 不满意？无限次重Roll，直到获得你心目中的完美开局！</li>
-                </ol>
+                <!-- 特色 3: 开放预设 -->
+                <div class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2">
+                    <h3 class="text-xl sm:text-2xl font-bold text-center mb-4 sm:mb-5 text-white">万千世界 由你创造</h3>
+                    <p class="text-center text-sm sm:text-base text-blue-100 opacity-80">
+                        游戏已升级为<span class="text-white">开放式社区创作平台</span>。你可以自由分享、导入和导出包含世界观、文风、规则的完整游戏预设。在这里，你可以创造属于你自己的修仙宇宙。
+                    </p>
+                </div>
 
-                <h3 style="color: #667eea; font-size: 1rem; margin: 1.5rem 0 1rem 0;">第三步：开始修仙之旅</h3>
-                <ul style="padding-left: 1.5rem; color: #475569; line-height: 1.8;">
-                    <li><strong>主界面操作</strong>
-                        <ul style="margin-top: 0.5rem; list-style-type: circle;">
-                            <li>左侧边栏：角色属性、境界进度、装备背包</li>
-                            <li>中央区域：剧情文本、AI叙事、判定结果</li>
-                            <li>右侧面板：任务列表、人物关系、大道进度</li>
+                <!-- 特色 4: 境界体系 -->
+                <div class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2">
+                    <h3 class="text-xl sm:text-2xl font-bold text-center mb-4 sm:mb-5 text-white">森严的境界壁垒</h3>
+                    <p class="text-center text-sm sm:text-base text-blue-100 opacity-80">
+                        从炼气、筑基、金丹、元婴... 直至渡劫飞升。我们拥有最严谨的<span class="text-white">境界压制</span>法则。高阶修士一言可定一国兴衰，低阶修士在凡人眼中已是九天仙神。
+                    </p>
+                </div>
+
+                <!-- 特色 5: 三千大道 -->
+                <div class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2">
+                    <h3 class="text-xl sm:text-2xl font-bold text-center mb-4 sm:mb-5 text-white">三千大道 万法归宗</h3>
+                    <p class="text-center text-sm sm:text-base text-blue-100 opacity-80">
+                        大道三千，皆可证道。除了主修境界，你还可以精研<span class="text-white">炼丹、炼器、符箓、阵法</span>等修仙百艺，甚至以琴棋书画入道。每一种技艺皆可通神，成为一方宗师。
+                    </p>
+                </div>
+
+                <!-- 特色 6: 真实随机 -->
+                <div class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2">
+                    <h3 class="text-xl sm:text-2xl font-bold text-center mb-4 sm:mb-5 text-white">真随机与骰子系统</h3>
+                    <p class="text-center text-sm sm:text-base text-blue-100 opacity-80">
+                        道途非坦途，气运亦是实力。游戏内置<span class="text-white">程序端真随机骰子系统</span>，你的每一次行动、每一次突破、每一次奇遇，都可能需要"天道"的垂青。
+                    </p>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- 游戏一瞥 -->
+        <section id="gallery" class="container mx-auto px-4 sm:px-6 py-12 sm:py-20">
+            <h2 class="text-3xl sm:text-5xl font-bold text-center mb-8 sm:mb-16 text-gradient px-4">
+                道途一瞥
+            </h2>
+            <div class="grid sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8">
+                <!-- 截图 1: 地图 -->
+                <div class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2">
+                    <div class="aspect-video bg-gradient-to-br from-indigo-900/50 to-purple-900/50 rounded-lg mb-4 flex items-center justify-center border border-white/10">
+                        <svg class="w-16 h-16 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
+                        </svg>
+                    </div>
+                    <h4 class="text-center text-lg sm:text-xl font-bold text-white mb-2">广袤的游戏地图</h4>
+                    <p class="text-center text-xs sm:text-sm text-blue-100 opacity-80">探索宗门、城镇与未知秘境</p>
+                </div>
+                <!-- 截图 2: 角色 -->
+                <div class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2">
+                    <div class="aspect-video bg-gradient-to-br from-blue-900/50 to-cyan-900/50 rounded-lg mb-4 flex items-center justify-center border border-white/10">
+                        <svg class="w-16 h-16 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                    </div>
+                    <h4 class="text-center text-lg sm:text-xl font-bold text-white mb-2">深度角色养成</h4>
+                    <p class="text-center text-xs sm:text-sm text-blue-100 opacity-80">六司、灵根、功法、三千大道</p>
+                </div>
+                <!-- 截图 3: 对话 -->
+                <div class="glass-card rounded-2xl p-6 sm:p-8 transition-all duration-300 hover:-translate-y-2">
+                    <div class="aspect-video bg-gradient-to-br from-violet-900/50 to-pink-900/50 rounded-lg mb-4 flex items-center justify-center border border-white/10">
+                        <svg class="w-16 h-16 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                        </svg>
+                    </div>
+                    <h4 class="text-center text-lg sm:text-xl font-bold text-white mb-2">思维链AI互动</h4>
+                    <p class="text-center text-xs sm:text-sm text-blue-100 opacity-80">NPC会记住你的所作所为</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 诗词过场 -->
+        <div class="text-center py-12 sm:py-24 text-xl sm:text-3xl text-white/70 italic leading-relaxed px-4">
+            "九天之上，仙路漫漫。<br>一念成仙，一念成魔。"
+        </div>
+
+        <!-- 最新更新 -->
+        <section id="news" class="container mx-auto px-4 sm:px-6 py-12 sm:py-20">
+            <h2 class="text-3xl sm:text-5xl font-bold text-center mb-8 sm:mb-16 text-gradient px-4">
+                最新更新日志
+            </h2>
+            <div class="glass-card rounded-2xl p-6 sm:p-8 md:p-12 max-w-5xl mx-auto text-blue-100/90 leading-relaxed">
+                <h3 class="text-2xl sm:text-3xl font-bold text-white mb-2">V3.2 正式版</h3>
+                <p class="text-base sm:text-lg text-amber-300 mb-6 sm:mb-8 font-mono">(2025-01-14)</p>
+                
+                <div class="space-y-6 sm:space-y-8">
+                    <div>
+                        <h4 class="text-xl sm:text-2xl font-semibold text-white mb-3 sm:mb-4 border-b border-white/20 pb-2">🚀 重大更新</h4>
+                        <ul class="list-disc list-inside space-y-2 sm:space-y-3 pl-2 sm:pl-4 text-sm sm:text-base">
+                            <li><span class="font-semibold text-white">重构全新地图系统</span>：朝天大陆游戏地图正式上线！</li>
+                            <li>新增 <span class="changelog-code">GameMapPanel.vue</span> 游戏地图面板组件（914行新代码）</li>
+                            <li>新增 <span class="changelog-code">gameMapManager.ts</span> 地图管理器（1057行）</li>
+                            <li>支持地图缩放、拖拽、地点交互等功能</li>
+                            <li>精美的SVG图标（洞府/宗门/城镇/秘境）</li>
+                            <li>完整的地点信息展示和交互系统</li>
                         </ul>
-                    </li>
-                    <li><strong>行动输入</strong> - 在底部输入框描述你的行动，AI会根据当前情境生成剧情</li>
-                    <li><strong>智能判定</strong> - 系统会自动根据你的境界、属性、技能进行成功率判定</li>
-                    <li><strong>存档管理</strong> - 支持多存档，随时保存/读取进度</li>
-                </ul>
-            </div>
+                    </div>
 
-            <div class="section">
-                <h2>❓ 常见问题</h2>
+                    <div>
+                        <h4 class="text-xl sm:text-2xl font-semibold text-white mb-3 sm:mb-4 border-b border-white/20 pb-2">🎯 系统优化</h4>
+                        <ul class="list-disc list-inside space-y-2 sm:space-y-3 pl-2 sm:pl-4 text-sm sm:text-base">
+                            <li><span class="font-semibold text-white">角色创建流程优化</span>：重构出生地选择界面、优化灵根选择流程</li>
+                            <li><span class="font-semibold text-white">提示词系统强化</span>：新增任务系统开关控制、改进CoT思维链、重构世界生成提示词</li>
+                            <li><span class="font-semibold text-white">灵石系统修复</span>：新增执行保护，防止灵石变成负数</li>
+                            <li>数据验证增强：改进指令验证器逻辑</li>
+                        </ul>
+                    </div>
 
-                <div style="margin-bottom: 1.5rem;">
-                    <p style="font-weight: 600; color: #1e293b; margin-bottom: 0.5rem;">Q: 游戏卡顿或AI响应缓慢怎么办？</p>
-                    <p style="color: #64748b; padding-left: 1rem;">A: 检查SillyTavern的API配置，确保网络连接稳定。流式响应已优化，如仍缓慢请检查API速率限制。</p>
+                    <div>
+                        <h4 class="text-xl sm:text-2xl font-semibold text-white mb-3 sm:mb-4 border-b border-white/20 pb-2">✨ 功能增强</h4>
+                        <ul class="list-disc list-inside space-y-2 sm:space-y-3 pl-2 sm:pl-4 text-sm sm:text-base">
+                            <li><span class="font-semibold text-white">预设系统</span>：新增"【大道朝天】专用预设.json"（1072行）</li>
+                            <li>路由优化：改进路由配置</li>
+                            <li>地点类型扩展：完善地点类型定义</li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h4 class="text-xl sm:text-2xl font-semibold text-white mb-3 sm:mb-4 border-b border-white/20 pb-2">🐛 Bug修复</h4>
+                        <ul class="list-disc list-inside space-y-2 sm:space-y-3 pl-2 sm:pl-4 text-sm sm:text-base">
+                            <li>修复灵石可能变成负数的问题</li>
+                            <li>修复AI可能忽略行动选项数量要求的问题</li>
+                            <li>修复任务系统关闭时仍可能生成任务的问题</li>
+                            <li>修复装备加成计算错误</li>
+                        </ul>
+                    </div>
                 </div>
 
-                <div style="margin-bottom: 1.5rem;">
-                    <p style="font-weight: 600; color: #1e293b; margin-bottom: 0.5rem;">Q: 为什么不能打开COT？</p>
-                    <p style="color: #64748b; padding-left: 1rem;">A: COT（Chain of Thought）会让AI在生成内容前输出思考过程，这会破坏沉浸式叙事体验，且可能干扰游戏的判定系统。</p>
-                </div>
-
-                <div style="margin-bottom: 1.5rem;">
-                    <p style="font-weight: 600; color: #1e293b; margin-bottom: 0.5rem;">Q: 存档数据保存在哪里？</p>
-                    <p style="color: #64748b; padding-left: 1rem;">A: 单机模式下，所有数据保存在浏览器的IndexedDB中，完全本地化，不上传任何数据。</p>
-                </div>
-
-                <div>
-                    <p style="font-weight: 600; color: #1e293b; margin-bottom: 0.5rem;">Q: 遇到Bug或有建议怎么反馈？</p>
-                    <p style="color: #64748b; padding-left: 1rem;">A: 欢迎在GitHub Issues提交问题，或在Discord社区交流（链接见下方）。</p>
-                </div>
-            </div>
-
-            <div class="section">
-                <h2>👨‍💻 作者信息</h2>
-                <p><strong>作者:</strong> 千夜</p>
-                <p>
-                    <strong>GitHub:</strong>
-                    <a href="https://github.com/qianye60" target="_blank" rel="noopener noreferrer">
-                        https://github.com/qianye60
+                <div class="text-center mt-12">
+                    <a href="#" class="text-amber-300 text-lg hover:text-amber-200 transition-colors">
+                        查看所有历史更新日志
                     </a>
-                </p>
-                <p>
-                    <strong>Discord社区:</strong>
-                    <a href="https://discord.com/channels/1134557553011998840/1423983318109523998" target="_blank" rel="noopener noreferrer">
-                        加入讨论
-                    </a>
-                </p>
-                <p class="tech-stack"><strong>技术栈:</strong> Vue 3 + TypeScript + SillyTavern + Gemini AI</p>
-            </div>
-
-            <div class="section">
-                <h2>📢 版本说明</h2>
-                <p class="version-note">当前为<strong>V2.9.5 正式版</strong>，优化了判定系统、COT思维链、流式输出稳定性等核心功能。欢迎在GitHub或Discord反馈建议！</p>
-            </div>
-
-            <div class="section">
-                <h2>⚖️ 版权声明</h2>
-                <div class="copyright-notice">
-                    <p>© 2025 千夜 版权所有</p>
-                    <p>本作品采用 <strong>CC BY-NC-ND 4.0</strong> 协议授权</p>
-                    <ul class="copyright-list">
-                        <li>✅ <strong>允许</strong> - 个人免费使用、学习交流</li>
-                        <li>✅ <strong>允许</strong> - 分享转发时须注明原作者</li>
-                        <li>❌ <strong>禁止</strong> - 商业用途（包括但不限于售卖、收费推广等）</li>
-                        <li>❌ <strong>禁止</strong> - 修改后重新发布</li>
-                        <li>❌ <strong>禁止</strong> - 移除或修改版权信息</li>
-                    </ul>
                 </div>
             </div>
-        </div>
+        </section>
+
+
+        <!-- 页脚 -->
+        <footer class="text-center p-8 sm:p-20 text-blue-200 opacity-60 mt-12 sm:mt-20 space-y-3 sm:space-y-4 border-t border-white/10">
+            <p class="text-sm sm:text-base">凡是过往，皆为序章。 | 道阻且长，行则将至。</p>
+            <p class="text-sm sm:text-base">星光不问赶路人，岁月不负有心人。</p>
+            <p class="text-xs sm:text-sm mt-4">© 2025 大道朝天. 版权所有.</p>
+        </footer>
+
     </div>
+
+    <!-- 返回顶部按钮 -->
+    <button class="back-to-top" id="backToTop" aria-label="返回顶部">
+        ↑
+    </button>
+
+    <script>
+        // 移动端菜单切换
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobileMenu');
+            const hamburger = document.querySelector('.hamburger');
+            menu.classList.toggle('active');
+            hamburger.classList.toggle('active');
+        }
+
+        // 简单的"仙气"粒子效果
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let canvasWidth = window.innerWidth;
+        let canvasHeight = window.innerHeight;
+        let animationId;
+
+        function resizeCanvas() {
+            canvasWidth = window.innerWidth;
+            canvasHeight = window.innerHeight;
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+        }
+
+        // 粒子类
+        class Particle {
+            constructor() {
+                this.x = Math.random() * canvasWidth;
+                this.y = Math.random() * canvasHeight + canvasHeight; // 从底部开始
+                this.speed = Math.random() * 1.5 + 0.5; // 缓慢上升
+                this.radius = Math.random() * 1.5 + 1; // 粒子大小
+                // 粒子颜色：白色、淡金色、淡蓝色
+                const colors = ['#FFFFFF', '#F0E68C', '#ADD8E6'];
+                this.color = colors[Math.floor(Math.random() * colors.length)];
+                this.opacity = Math.random() * 0.5 + 0.2; // 粒子透明度
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(${this.hexToRgb(this.color)}, ${this.opacity})`;
+                ctx.fill();
+            }
+
+            update() {
+                this.y -= this.speed;
+                // 如果粒子飘出顶部，重置到底部
+                if (this.y < -10) {
+                    this.y = canvasHeight + 10;
+                    this.x = Math.random() * canvasWidth;
+                    this.speed = Math.random() * 1.5 + 0.5;
+                    this.radius = Math.random() * 1.5 + 1;
+                }
+            }
+
+            hexToRgb(hex) {
+                let r = 0, g = 0, b = 0;
+                if (hex.length == 4) {
+                    r = parseInt(hex[1] + hex[1], 16);
+                    g = parseInt(hex[2] + hex[2], 16);
+                    b = parseInt(hex[3] + hex[3], 16);
+                } else if (hex.length == 7) {
+                    r = parseInt(hex.substring(1, 3), 16);
+                    g = parseInt(hex.substring(3, 5), 16);
+                    b = parseInt(hex.substring(5, 7), 16);
+                }
+                return `${r}, ${g}, ${b}`;
+            }
+        }
+
+        function initParticles() {
+            particles = [];
+            // 根据屏幕大小调整粒子数量，移动端减少粒子
+            const isMobile = window.innerWidth < 768;
+            const particleCount = Math.floor((canvasWidth * canvasHeight) / (isMobile ? 20000 : 10000));
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+            for (let particle of particles) {
+                particle.update();
+                particle.draw();
+            }
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // 防抖函数
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // 初始化并监听窗口大小变化（使用防抖）
+        window.addEventListener('resize', debounce(() => {
+            resizeCanvas();
+            initParticles();
+        }, 250));
+
+        // 页面可见性API - 页面不可见时暂停动画
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                cancelAnimationFrame(animationId);
+            } else {
+                animate();
+            }
+        });
+
+        // 首次加载
+        resizeCanvas();
+        initParticles();
+        animate();
+
+        // 平滑滚动增强
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // 返回顶部按钮
+        const backToTopBtn = document.getElementById('backToTop');
+        window.addEventListener('scroll', () => {
+            if (window.pageYOffset > 300) {
+                backToTopBtn.classList.add('show');
+            } else {
+                backToTopBtn.classList.remove('show');
+            }
+        });
+
+        backToTopBtn.addEventListener('click', () => {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        });
+
+        // 滚动动画 - Intersection Observer
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('fade-in');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, observerOptions);
+
+        // 观察所有section和卡片
+        document.querySelectorAll('section, .glass-card').forEach(el => {
+            observer.observe(el);
+        });
+    </script>
 </body>
 </html>
+
+

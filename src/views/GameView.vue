@@ -801,17 +801,26 @@ watch(isPanelOpen, (isOpen) => {
   /* 主内容区域占满屏幕 */
   .main-content {
     width: 100%;
+    max-width: 100vw;
     margin: 0;
     padding: 0;
     overflow-x: hidden;
     word-wrap: break-word;
     overflow-wrap: break-word;
+    box-sizing: border-box;
   }
 
   .game-content {
     gap: 0;
-    /* 确保内容区域留出TopBar空间 */
     margin-top: 0;
+    max-width: 100vw;
+    overflow-x: hidden;
+    box-sizing: border-box;
+  }
+
+  .game-view {
+    max-width: 100vw;
+    overflow-x: hidden;
   }
 
   /* 移动端面板全屏优化 */

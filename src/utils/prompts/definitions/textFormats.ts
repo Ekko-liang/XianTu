@@ -68,20 +68,8 @@ Result: [F] vs [Z] → 基础[失败/成功/大成功/完美] → 修正[1降/20
 境界系数：炼气1/筑基2/金丹4/元婴8/化神15/炼虚25/合体40/渡劫60
 `.trim()
 
-export const JUDGMENT_RULES = DICE_ROLLING_RULES; // 保留旧的导出名以兼容
-
 export const NAMING_CONVENTIONS = `
 # 命名约定
 
 物品ID:\`类型_数字\` | 位置:\`大陆·地点\` | 品质:\`{"quality":"凡~神","grade":0-10}\`
-`.trim()
-
-export const TEXT_FORMATS = `
-# 【文本格式与命名】
-
-${TEXT_FORMAT_MARKERS}
-
-${JUDGMENT_RULES}
-
-${NAMING_CONVENTIONS}
 `.trim()

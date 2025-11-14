@@ -272,6 +272,19 @@
 
           <div class="setting-item">
             <div class="setting-info">
+              <label class="setting-name">{{ t('使用系统CoT') }}</label>
+              <span class="setting-desc">{{ t('启用内置思维链提示词（关闭后使用预设中的CoT）') }}</span>
+            </div>
+            <div class="setting-control">
+              <label class="setting-switch">
+                <input type="checkbox" v-model="uiStore.useSystemCot">
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
               <label class="setting-name">{{ t('导入设置') }}</label>
               <span class="setting-desc">{{ t('从文件恢复设置配置') }}</span>
             </div>

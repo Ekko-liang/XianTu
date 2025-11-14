@@ -400,10 +400,29 @@ async function handleDeleteOrigin(id: number) {
 async function handleEditSubmit(data: CustomOriginData) {
   if (!editingOrigin.value) return;
 
+  // 处理属性修正
+  const attributeModifiers: Record<string, number> = {};
+  if (Array.isArray(data.attribute_modifiers)) {
+    data.attribute_modifiers.forEach(mod => {
+      if (mod.attribute && mod.value) {
+        attributeModifiers[mod.attribute] = Number(mod.value) || 0;
+      }
+    });
+  }
+
+  // 处理背景效果
+  const backgroundEffects = Array.isArray(data.background_effects)
+    ? data.background_effects.filter(effect => effect.type && effect.description)
+    : [];
+
   // 创建更新数据对象
   const updateData: Partial<Origin> = {
     name: data.name,
-    description: data.description
+    description: data.description,
+    talent_cost: Number(data.talent_cost) || 0,
+    rarity: Number(data.rarity) || 1,
+    attribute_modifiers: attributeModifiers,
+    background_effects: backgroundEffects
   };
 
   try {
@@ -425,11 +444,20 @@ async function handleEditSubmit(data: CustomOriginData) {
 const editInitialData = computed(() => {
   if (!editingOrigin.value) return {};
 
+  // 转换属性修正对象为数组格式
+  const attributeModifiers = editingOrigin.value.attribute_modifiers
+    ? Object.entries(editingOrigin.value.attribute_modifiers).map(([attribute, value]) => ({
+        attribute,
+        value: String(value)
+      }))
+    : [];
+
   return {
     name: editingOrigin.value.name,
     description: editingOrigin.value.description,
     talent_cost: editingOrigin.value.talent_cost.toString(),
     rarity: editingOrigin.value.rarity.toString(),
+    attribute_modifiers: attributeModifiers,
     background_effects: editingOrigin.value.background_effects || []
   };
 });

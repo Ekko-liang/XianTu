@@ -44,9 +44,10 @@ export function assembleSystemPrompt(activePrompts: string[], customActionPrompt
     promptSections.push(QUEST_SYSTEM_RULES);
   }
 
-  if (activePrompts.includes('cot')) {
-    promptSections.push(cotCorePrompt); // 将COT放在最后面
-  }
+  // 注意：不再在这里添加CoT，CoT现在通过inject方式动态注入
+  // if (activePrompts.includes('cot')) {
+  //   promptSections.push(cotCorePrompt);
+  // }
 
   return promptSections.join('\n\n---\n\n');
 }
