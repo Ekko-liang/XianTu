@@ -48,8 +48,10 @@ Items (1-6): item_001=XYZ, item_002=XYZ, ...
 Techniques (0-3): 功法1=XYZ (技能2-5个，首个熟练度要求=0), ...
 
 ### 4) NPCs (0-3个，只创建文本中明确提到的)
+🚨 CRITICAL: NPCs must be created as COMPLETE objects in ONE command!
 NPC list: 名字1(性别,境界,关系), 名字2(...), ... or "None"
 NSFW check: nsfwMode=XYZ, filter=XYZ → 私密信息 YES/NO
+Creation method: Use "set" with FULL object (all required fields)
 
 ### 5) Commands Count
 Time(2) + Location(1) + Reputation(1) + Random(X) + Resources(X) + NPCs(X) + Daos(X) = Total: X
@@ -73,10 +75,12 @@ Time(2) + Location(1) + Reputation(1) + Random(X) + Resources(X) + NPCs(X) + Dao
 - **功法**：0-3 部（基于出身和故事）
 
 ### NPC 创建原则
+- **🚨 最高优先级：NPC 必须一次性创建完整对象，包含所有必需字段！**
 - **只创建文本中明确提到的 NPC**（有名字、对话、互动）
 - **NPC 境界对象**：{名称, 阶段, 当前进度?, 下一级所需?, 突破描述?}
 - **实时关注**：初始化时全部设为 false
 - **NSFW**：检查 nsfwMode 和 nsfwGenderFilter，符合条件才生成私密信息
+- **严禁分步创建**：不能先创建空对象再添加字段
 
 ### 随机项替换
 - **随机灵根**：根据天资等级确定品质，根据世界观确定主题（五行/特殊）

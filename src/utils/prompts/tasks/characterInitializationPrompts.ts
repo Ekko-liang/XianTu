@@ -113,8 +113,11 @@ ${characterInitializationCotPrompt}
 - 添加1-6件初始物品和0-3部功法。
 
 ### 第6步：NPC创建 (可选, 0-3个)
+- **🚨 最高优先级：NPC 必须一次性创建完整对象！**
 - **核心原则**: 只生成开局文本中明确提到的、有互动的重要人物。严禁凭空编造。
 - 如果文本只是泛泛提到"路人"或无人提及，则不创建NPC。
+- **创建方式**: 使用 \`set\` 操作创建包含所有必需字段的完整 NPC 对象。
+- **严禁**: 先创建空对象再逐个添加字段，或只添加部分字段。
 
 ### 第7步：大道解锁 (如果天赋对应)
 - 如果天赋与某个大道相关，使用 \`set\` 命令解锁该大道。
@@ -340,9 +343,9 @@ ${nsfwRuleText}
 /**
  * 构建角色初始化的系统提示词
  */
-export function buildCharacterInitializationPrompt(): string {
+export async function buildCharacterInitializationPrompt(): Promise<string> {
   // 使用 assembleSystemPrompt 获取完整的通用规则（不包含COT，因为初始化有专用COT）
-  const basePrompt = assembleSystemPrompt([]);
+  const basePrompt = await assembleSystemPrompt([]);
 
   // 添加角色初始化专用的COT和规则
   return `${basePrompt}
@@ -400,8 +403,11 @@ ${characterInitializationCotPrompt}
 - 添加1-6件初始物品和0-3部功法。
 
 ### 第6步：NPC创建 (可选, 0-3个)
+- **🚨 最高优先级：NPC 必须一次性创建完整对象！**
 - **核心原则**: 只生成开局文本中明确提到的、有互动的重要人物。严禁凭空编造。
 - 如果文本只是泛泛提到"路人"或无人提及，则不创建NPC。
+- **创建方式**: 使用 \`set\` 操作创建包含所有必需字段的完整 NPC 对象。
+- **严禁**: 先创建空对象再逐个添加字段，或只添加部分字段。
 
 ### 第7步：大道解锁 (如果天赋对应)
 - 如果天赋与某个大道相关，使用 \`set\` 命令解锁该大道。

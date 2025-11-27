@@ -1567,7 +1567,7 @@ const refreshFromTavern = async () => {
 .search-box {
   position: relative;
   flex: 1;
-  min-width: 200px;
+  min-width: 150px;
 }
 
 .search-icon {
@@ -1605,8 +1605,14 @@ const refreshFromTavern = async () => {
   border: 1px solid var(--color-border);
   border-radius: 6px;
   background: var(--color-background);
+  color: var(--color-text);
   font-size: 13px;
   min-width: 80px;
+}
+
+.filter-select option {
+  background: var(--color-surface);
+  color: var(--color-text);
 }
 
 .refresh-btn {

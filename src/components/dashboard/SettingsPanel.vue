@@ -80,14 +80,21 @@
           <div class="setting-item">
             <div class="setting-info">
               <label class="setting-name">{{ t('文字大小') }}</label>
-              <span class="setting-desc">{{ t('调整游戏文字显示大小') }}</span>
+              <span class="setting-desc">{{ t('调整游戏文字显示大小（像素）') }}</span>
             </div>
             <div class="setting-control">
-              <select v-model="settings.fontSize" class="setting-select" @change="applyFontSize">
-                <option value="small">{{ t('小') }}</option>
-                <option value="medium">{{ t('中') }}</option>
-                <option value="large">{{ t('大') }}</option>
-              </select>
+              <div class="range-container">
+                <input
+                  type="range"
+                  v-model.number="settings.fontSize"
+                  min="12"
+                  max="24"
+                  step="1"
+                  class="setting-range"
+                  @input="applyFontSize"
+                >
+                <span class="range-value">{{ settings.fontSize }}px</span>
+              </div>
             </div>
           </div>
         </div>
@@ -225,6 +232,164 @@
         </div>
       </div>
 
+      <!-- AI服务配置 -->
+      <div class="settings-section">
+        <div class="section-header">
+          <h4 class="section-title">🤖 {{ t('AI服务配置') }}</h4>
+        </div>
+        <div class="settings-list">
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-name">{{ t('AI服务模式') }}</label>
+              <span class="setting-desc">{{ t('选择使用酒馆或自定义API') }}</span>
+            </div>
+            <div class="setting-control">
+              <select v-model="aiConfig.mode" class="setting-select" @change="onAIModeChange">
+                <option value="tavern">{{ t('酒馆模式（SillyTavern）') }}</option>
+                <option value="custom">{{ t('自定义API（OpenAI兼容）') }}</option>
+              </select>
+            </div>
+          </div>
+
+          <template v-if="aiConfig.mode === 'custom'">
+            <div class="setting-item setting-item-full">
+              <div class="setting-info">
+                <label class="setting-name">{{ t('API地址') }}</label>
+                <span class="setting-desc">{{ t('OpenAI兼容的API端点（如：https://api.openai.com）') }}</span>
+              </div>
+              <div class="setting-control-full">
+                <input
+                  v-model="aiConfig.customAPI.url"
+                  class="form-input-inline"
+                  placeholder="https://api.openai.com"
+                >
+              </div>
+            </div>
+
+            <div class="setting-item setting-item-full">
+              <div class="setting-info">
+                <label class="setting-name">{{ t('API密钥') }}</label>
+                <span class="setting-desc">{{ t('您的API Key') }}</span>
+              </div>
+              <div class="setting-control-full">
+                <input
+                  v-model="aiConfig.customAPI.apiKey"
+                  type="password"
+                  class="form-input-inline"
+                  placeholder="sk-..."
+                >
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <label class="setting-name">{{ t('模型名称') }}</label>
+                <span class="setting-desc">{{ t('使用的AI模型') }}</span>
+              </div>
+              <div class="setting-control">
+                <select v-model="aiConfig.customAPI.model" class="setting-select">
+                  <option v-for="model in availableModels" :key="model" :value="model">{{ model }}</option>
+                </select>
+                <button class="utility-btn" @click="fetchModels" :disabled="isFetchingModels" style="margin-left: 0.5rem;">
+                  <Download :size="16" :class="{ spinning: isFetchingModels }" />
+                  {{ isFetchingModels ? t('获取中...') : t('获取') }}
+                </button>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <label class="setting-name">{{ t('温度参数') }}</label>
+                <span class="setting-desc">{{ t('控制输出随机性（0-2）') }}</span>
+              </div>
+              <div class="setting-control">
+                <div class="range-container">
+                  <input
+                    type="range"
+                    v-model.number="aiConfig.customAPI.temperature"
+                    min="0"
+                    max="2"
+                    step="0.1"
+                    class="setting-range"
+                  >
+                  <span class="range-value">{{ aiConfig.customAPI.temperature }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <label class="setting-name">{{ t('最大Token数') }}</label>
+                <span class="setting-desc">{{ t('单次生成的最大长度') }}</span>
+              </div>
+              <div class="setting-control">
+                <input
+                  v-model.number="aiConfig.customAPI.maxTokens"
+                  type="number"
+                  class="setting-select"
+                  placeholder="2000"
+                  min="100"
+                  max="8000"
+                >
+              </div>
+            </div>
+
+          </template>
+
+          <!-- 通用AI设置 -->
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-name">{{ t('流式传输') }}</label>
+              <span class="setting-desc">{{ t('实时显示AI生成内容') }}</span>
+            </div>
+            <div class="setting-control">
+              <label class="setting-switch">
+                <input type="checkbox" v-model="aiConfig.streaming">
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-name">{{ t('记忆总结模式') }}</label>
+              <span class="setting-desc">{{ t('Raw模式更准确，标准模式包含预设') }}</span>
+            </div>
+            <div class="setting-control">
+              <select v-model="aiConfig.memorySummaryMode" class="setting-select">
+                <option value="raw">{{ t('Raw模式（推荐）') }}</option>
+                <option value="standard">{{ t('标准模式') }}</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-name">{{ t('开局生成模式') }}</label>
+              <span class="setting-desc">{{ t('角色初始化使用的生成模式') }}</span>
+            </div>
+            <div class="setting-control">
+              <select v-model="aiConfig.initMode" class="setting-select">
+                <option value="generate">{{ t('标准模式') }}</option>
+                <option value="generateRaw">{{ t('Raw模式') }}</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="setting-item" v-if="aiConfig.mode === 'tavern'">
+            <div class="setting-info">
+              <label class="setting-name">{{ t('酒馆状态') }}</label>
+              <span class="setting-desc">{{ t('检测SillyTavern连接状态') }}</span>
+            </div>
+            <div class="setting-control">
+              <span :class="['auth-status', tavernAvailable ? 'verified' : 'unverified']">
+                {{ tavernAvailable ? '✓ 已连接' : '✗ 未连接' }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- 高级设置 -->
       <div class="settings-section">
         <div class="section-header">
@@ -285,6 +450,19 @@
 
           <div class="setting-item">
             <div class="setting-info">
+              <label class="setting-name">{{ t('提示词管理') }}</label>
+              <span class="setting-desc">{{ t('自定义AI提示词和规则') }}</span>
+            </div>
+            <div class="setting-control">
+              <button class="utility-btn" @click="openPromptManagement">
+                <FileText :size="16" />
+                {{ t('管理') }}
+              </button>
+            </div>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
               <label class="setting-name">{{ t('导入设置') }}</label>
               <span class="setting-desc">{{ t('从文件恢复设置配置') }}</span>
             </div>
@@ -337,12 +515,13 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, watch, computed } from 'vue';
-import { Save, RotateCcw, Trash2, Download, Upload } from 'lucide-vue-next';
+import { Save, RotateCcw, Trash2, Download, Upload, FileText } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
 import AuthVerificationModal from '@/components/common/AuthVerificationModal.vue';
 import { useI18n } from '@/i18n';
 import { AUTH_CONFIG } from '@/config/authConfig';
+import { aiService } from '@/services/aiService';
 
 const { t, setLanguage, currentLanguage } = useI18n();
 
@@ -351,12 +530,75 @@ const onLanguageChange = () => {
   toast.success('语言设置已更新');
 };
 
+// AI服务配置
+const aiConfig = reactive({
+  mode: 'tavern' as 'tavern' | 'custom',
+  streaming: true,
+  memorySummaryMode: 'raw' as 'raw' | 'standard',
+  initMode: 'generate' as 'generate' | 'generateRaw',
+  customAPI: {
+    url: '',
+    apiKey: '',
+    model: 'gpt-3.5-turbo',
+    temperature: 0.7,
+    maxTokens: 20000
+  }
+});
+
+// 酒馆可用性检测
+const tavernAvailable = ref(false);
+const availableModels = ref<string[]>(['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo']);
+const isFetchingModels = ref(false);
+
+// 检测酒馆是否可用
+const checkTavernAvailability = () => {
+  tavernAvailable.value = typeof window !== 'undefined' && !!(window as any).TavernHelper;
+};
+
+// 获取模型列表
+const fetchModels = async () => {
+  if (isFetchingModels.value) return;
+
+  isFetchingModels.value = true;
+  try {
+    aiService.saveConfig(aiConfig);
+    const models = await aiService.fetchModels();
+    if (models.length > 0) {
+      availableModels.value = models;
+      toast.success(`成功获取 ${models.length} 个模型`);
+    } else {
+      toast.warning('未获取到模型列表');
+    }
+  } catch (error) {
+    toast.error(error instanceof Error ? error.message : '获取模型失败');
+  } finally {
+    isFetchingModels.value = false;
+  }
+};
+
+// AI模式切换处理
+const onAIModeChange = () => {
+  aiService.saveConfig(aiConfig);
+  toast.success(`已切换到${aiConfig.mode === 'tavern' ? '酒馆' : '自定义API'}模式`);
+
+  // 检查可用性
+  const availability = aiService.checkAvailability();
+  if (!availability.available) {
+    toast.warning(availability.message);
+  }
+};
+
+// 监听AI配置变化
+watch(aiConfig, () => {
+  hasUnsavedChanges.value = true;
+}, { deep: true });
+
 // 设置数据结构
 const settings = reactive({
   // 显示设置
   theme: 'auto',
   uiScale: 100,
-  fontSize: 'medium',
+  fontSize: 16,
 
   // 游戏设置
   fastAnimations: false,
@@ -436,6 +678,14 @@ const loadSettings = async () => {
       debug.log('设置面板', '使用默认设置');
     }
 
+    // 🔥 加载AI服务配置
+    const savedAIConfig = aiService.getConfig();
+    Object.assign(aiConfig, savedAIConfig);
+    debug.log('设置面板', 'AI配置加载成功', savedAIConfig);
+
+    // 检测酒馆可用性
+    checkTavernAvailability();
+
     // 🔥 从gameStateStore加载存档配置
     try {
       const { useGameStateStore } = await import('@/stores/gameStateStore');
@@ -493,6 +743,10 @@ const saveSettings = async () => {
     // 保存到localStorage
     localStorage.setItem('dad_game_settings', JSON.stringify(settings));
     debug.log('设置面板', '设置已保存到localStorage', settings);
+
+    // 🔥 保存AI服务配置
+    aiService.saveConfig(aiConfig);
+    debug.log('设置面板', 'AI配置已保存', aiConfig);
 
     // 🔥 同步设置到存档
     try {
@@ -613,15 +867,9 @@ const applyUIScale = () => {
 
 // 应用字体大小
 const applyFontSize = () => {
-  const fontSizeMap: Record<string, string> = {
-    small: '0.875rem',
-    medium: '1rem',
-    large: '1.125rem'
-  };
-  
-  const fontSize = fontSizeMap[settings.fontSize] || '1rem';
+  const fontSize = `${settings.fontSize}px`;
   document.documentElement.style.setProperty('--base-font-size', fontSize);
-  debug.log('设置面板', `字体大小已应用: ${settings.fontSize} (${fontSize})`);
+  debug.log('设置面板', `字体大小已应用: ${fontSize}`);
 };
 
 // 应用动画设置
@@ -645,7 +893,7 @@ const resetSettings = () => {
       Object.assign(settings, {
         theme: 'auto',
         uiScale: 100,
-        fontSize: 'medium',
+        fontSize: 16,
         fastAnimations: false,
         showHints: true,
         debugMode: false,
@@ -653,8 +901,8 @@ const resetSettings = () => {
         performanceMonitor: false,
         questSystemType: '修仙辅助系统',
         questSystemPrompt: '',
-        enableNsfwMode: true, // 默认开启
-        nsfwGenderFilter: 'all', // 默认所有NPC
+        enableNsfwMode: true,
+        nsfwGenderFilter: 'all',
         enableSoundEffects: true,
         backgroundMusic: true,
         notificationSounds: true,
@@ -789,6 +1037,21 @@ const handleAuthCancel = () => {
   debug.log('设置面板', '用户取消授权验证');
   showAuthModal.value = false;
 };
+
+const openPromptManagement = () => {
+  // 检查当前是否在游戏中（/game路由下）
+  const currentPath = router.currentRoute.value.path;
+  if (currentPath.startsWith('/game')) {
+    // 在游戏中，跳转到游戏内的提示词管理
+    router.push('/game/prompts');
+  } else {
+    // 不在游戏中（如首页），跳转到独立的提示词管理页面
+    router.push('/prompts');
+  }
+};
+
+import { useRouter } from 'vue-router';
+const router = useRouter();
 
 const clearAuthVerification = () => {
   uiStore.showRetryDialog({

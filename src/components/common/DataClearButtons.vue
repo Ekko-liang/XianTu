@@ -13,8 +13,10 @@
       </button>
 
       <!-- 清除云端数据，保留本地基础+自定义数据 -->
-      <button 
-        @click="clearCloudData" 
+      <!-- 🔥 暂时隐藏：后端未上线 -->
+      <button
+        v-if="false"
+        @click="clearCloudData"
         class="clear-button cloud"
         :disabled="!hasCloudData"
         title="清除从云端获取的数据"

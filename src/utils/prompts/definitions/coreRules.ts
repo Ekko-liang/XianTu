@@ -15,30 +15,45 @@
 export const JSON_OUTPUT_RULES = `
 # JSON 输出规范 (最高优先级)
 
-## 1. 格式要求
-- **Markdown包裹**: 必须使用 \`\`\`json ... \`\`\` 包裹 JSON 内容。
-- **纯净 JSON**: 确保语法正确，无尾随逗号，所有键值对使用双引号。
-- **结构定义**:
+## 1. 输出顺序（必须遵守）
+1. **先输出思维链**: \`<thinking>CoT分析内容</thinking>\`
+2. **再输出JSON**: \`\`\`json { ... } \`\`\`
+
+## 2. 格式要求
+- **思维链必填**: 输出JSON前**必须**先输出\`<thinking>...</thinking>\`思维链标签
+- **Markdown包裹**: JSON必须使用 \`\`\`json ... \`\`\` 包裹
+- **纯净JSON**: 确保语法正确，无尾随逗号，所有键值对使用双引号
+
+## 3. 完整输出结构
+\`\`\`
+<thinking>
+分析用户意图、规划剧情发展、确定数据更新...
+</thinking>
 \`\`\`json
 {
-  "text": "叙事文本 (必填，禁含游戏数据)",
-  "mid_term_memory": "记忆摘要 (必填，客观第三人称)",
+  "text": "叙事文本(1500-2500字，纯小说叙事)",
+  "mid_term_memory": "50-100字事件摘要",
   "tavern_commands": [
     {"action": "set|add|push|delete", "key": "路径", "value": "值"}
   ],
-  "action_options": ["选项1", "选项2"] // 仅在启用时返回
+  "action_options": ["选项1", "选项2", "选项3"] // 仅在行动选项开启时返回
 }
 \`\`\`
 
-## 2. 字段约束
-- **text**: 纯小说叙事，严禁包含数值/属性/进度等游戏数据。
+## 4. 字段约束
+- **text**: 纯小说叙事，1500-2500字，严禁包含数值/属性/进度等游戏数据
 - **mid_term_memory**:
-  - 区分主角({{user}})与NPC。
-  - 仅记录已发生事实，不编造，不推测。
+  - 50-100字客观第三人称摘要
+  - 区分主角({{user}})与NPC
+  - 仅记录已发生事实，不编造，不推测
 - **tavern_commands**:
-  - 必须是数组。
-  - 仅包含 action, key, value 字段。
-  - action 仅限: set, add, push, pull, delete。
+  - 必须是数组
+  - 仅包含 action, key, value 字段
+  - action 仅限: set, add, push, pull, delete
+- **action_options** (可选):
+  - 仅在行动选项设置开启时输出
+  - 如果开启了行动选项，**必须**生成此字段
+  - 提供3-5个合理的后续行动选项
 `.trim()
 
 export const RESPONSE_FORMAT_RULES = `

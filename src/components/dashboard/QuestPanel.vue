@@ -140,41 +140,41 @@
 
         <div class="quest-rewards">
           <span class="reward-label">奖励：</span>
-          <span v-if="quest.奖励.修为" class="reward cultivation">修为 +{{ quest.奖励.修为 }}</span>
+          <span v-if="quest.奖励?.修为" class="reward cultivation">修为 +{{ quest.奖励?.修为 }}</span>
 
           <!-- 灵石奖励 -->
-          <span v-if="quest.奖励.灵石?.下品" class="reward spirit-stone">下品灵石 ×{{ quest.奖励.灵石.下品 }}</span>
-          <span v-if="quest.奖励.灵石?.中品" class="reward spirit-stone">中品灵石 ×{{ quest.奖励.灵石.中品 }}</span>
-          <span v-if="quest.奖励.灵石?.上品" class="reward spirit-stone">上品灵石 ×{{ quest.奖励.灵石.上品 }}</span>
-          <span v-if="quest.奖励.灵石?.极品" class="reward spirit-stone">极品灵石 ×{{ quest.奖励.灵石.极品 }}</span>
+          <span v-if="quest.奖励?.灵石?.下品" class="reward spirit-stone">下品灵石 ×{{ quest.奖励?.灵石?.下品 }}</span>
+          <span v-if="quest.奖励?.灵石?.中品" class="reward spirit-stone">中品灵石 ×{{ quest.奖励?.灵石?.中品 }}</span>
+          <span v-if="quest.奖励?.灵石?.上品" class="reward spirit-stone">上品灵石 ×{{ quest.奖励?.灵石?.上品 }}</span>
+          <span v-if="quest.奖励?.灵石?.极品" class="reward spirit-stone">极品灵石 ×{{ quest.奖励?.灵石?.极品 }}</span>
 
           <!-- 物品奖励 -->
-          <span v-if="quest.奖励.物品 && quest.奖励.物品.length > 0" class="reward item">
-            {{ quest.奖励.物品.map((i: any) => `${i.名称}×${i.数量}`).join('、') }}
+          <span v-if="quest.奖励?.物品 && quest.奖励.物品.length > 0" class="reward item">
+            {{ quest.奖励?.物品?.map((i: any) => `${i.名称}×${i.数量}`).join('、') }}
           </span>
 
           <!-- 声望奖励 -->
-          <span v-if="quest.奖励.声望" class="reward reputation">
-            {{ quest.奖励.声望.势力名称 }} 声望 {{ quest.奖励.声望.变化值 > 0 ? '+' : '' }}{{ quest.奖励.声望.变化值 }}
+          <span v-if="quest.奖励?.声望" class="reward reputation">
+            {{ quest.奖励?.声望?.势力名称 }} 声望 {{ quest.奖励?.声望?.变化值 > 0 ? '+' : '' }}{{ quest.奖励?.声望?.变化值 }}
           </span>
 
           <!-- 属性加成 -->
-          <span v-if="quest.奖励.属性加成" class="reward attribute">
-            {{ formatAttributeBonus(quest.奖励.属性加成) }}
+          <span v-if="quest.奖励?.属性加成" class="reward attribute">
+            {{ formatAttributeBonus(quest.奖励?.属性加成) }}
           </span>
 
           <!-- 技能奖励 -->
-          <span v-if="quest.奖励.技能 && quest.奖励.技能.length > 0" class="reward skill">
-            技能：{{ quest.奖励.技能.join('、') }}
+          <span v-if="quest.奖励?.技能 && quest.奖励.技能.length > 0" class="reward skill">
+            技能：{{ quest.奖励?.技能?.join('、') }}
           </span>
 
           <!-- 好感度奖励 -->
-          <span v-if="quest.奖励.好感度" class="reward favor">
-            {{ quest.奖励.好感度.NPC名称 }} 好感度 {{ quest.奖励.好感度.变化值 > 0 ? '+' : '' }}{{ quest.奖励.好感度.变化值 }}
+          <span v-if="quest.奖励?.好感度" class="reward favor">
+            {{ quest.奖励?.好感度?.NPC名称 }} 好感度 {{ quest.奖励?.好感度?.变化值 > 0 ? '+' : '' }}{{ quest.奖励?.好感度?.变化值 }}
           </span>
 
           <!-- 自定义描述 -->
-          <span v-if="quest.奖励.自定义描述" class="reward custom">{{ quest.奖励.自定义描述 }}</span>
+          <span v-if="quest.奖励?.自定义描述" class="reward custom">{{ quest.奖励?.自定义描述 }}</span>
         </div>
 
         <div class="quest-footer">

@@ -130,47 +130,6 @@
           <span class="setting-hint">{{ t('自定义长期记忆的AI提示词格式。留空使用系统默认。') }}</span>
         </div>
 
-        <!-- 总结模式配置 -->
-        <div class="setting-section-title">{{ t('总结模式配置') }}</div>
-        <div class="setting-hint" style="margin-bottom: 1rem; padding: 0.75rem; background: rgba(59, 130, 246, 0.1); border-radius: 6px; border-left: 3px solid #3b82f6;">
-          ℹ️ 此配置同时影响<strong>玩家记忆总结</strong>和<strong>NPC记忆总结</strong>
-        </div>
-
-        <div class="setting-item">
-          <label class="setting-label">
-            <input
-              type="checkbox"
-              v-model="memoryConfig.useRawMode"
-              class="setting-checkbox"
-            />
-            {{ t('使用Raw模式') }}
-          </label>
-          <span class="setting-hint">
-            ✅ <strong>勾选（Raw模式，推荐）</strong>：只总结，不受角色卡、世界观等预设干扰<br>
-            • 避免提示词污染，更符合真实内容<br>
-            • 适用场景：玩家记忆总结、NPC记忆总结（推荐）<br>
-            <br>
-            ⚠️ <strong>不勾选（标准模式）</strong>：包含完整提示词，结合角色设定和世界观<br>
-            • 容易受预设提示词污染，可能偏离原始内容<br>
-            • 适用场景：需要遵守世界观的特殊生成
-          </span>
-        </div>
-
-        <div class="setting-item">
-          <label class="setting-label">
-            <input
-              type="checkbox"
-              v-model="memoryConfig.useStreaming"
-              class="setting-checkbox"
-            />
-            {{ t('使用流式传输') }}
-          </label>
-          <span class="setting-hint">
-            ⚡ <strong>勾选（流式传输，推荐）</strong>：更快，实时显示生成过程<br>
-            🛡️ <strong>不勾选（非流式传输）</strong>：更稳定，一次性返回完整结果
-          </span>
-        </div>
-
         <div class="settings-actions">
           <button
             class="action-btn success"

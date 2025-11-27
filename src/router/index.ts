@@ -43,6 +43,7 @@ import GameMapPanel from '../components/dashboard/GameMapPanel.vue'; // 新的�
 import QuestPanel from '../components/dashboard/QuestPanel.vue';
 import SectPanel from '../components/dashboard/SectPanel.vue';
 import GameVariablePanel from '../components/dashboard/GameVariablePanel.vue';
+import PromptManagementPanel from '../components/dashboard/PromptManagementPanel.vue';
 
 const routes = [
   {
@@ -59,6 +60,12 @@ const routes = [
     path: '/login',
     name: 'Login',
     component: LoginView,
+  },
+  {
+    // 提示词管理 - 独立顶级路由，不需要加载游戏数据
+    path: '/prompts',
+    name: 'PromptsStandalone',
+    component: PromptManagementPanel,
   },
   {
     path: '/game',
@@ -129,6 +136,11 @@ const routes = [
         path: 'game-variables',
         name: 'GameVariables',
         component: GameVariablePanel,
+      },
+      {
+        path: 'prompts',
+        name: 'Prompts',
+        component: PromptManagementPanel,
       },
     ],
   },

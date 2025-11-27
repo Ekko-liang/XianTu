@@ -588,12 +588,13 @@ const exportSingleSave = async (save: SaveSlot) => {
       return;
     }
 
+    // 🔥 修复：使用与 CharacterManagement.vue 一致的格式，支持互相导入
     const exportData = {
-      type: 'single_save',
-      save: {
+      type: 'saves',  // 使用 saves 类型，与批量导出一致
+      saves: [{
         ...save,
-        完整数据: fullSaveData
-      },
+        存档数据: fullSaveData  // 使用统一的字段名
+      }],
       exportTime: new Date().toISOString(),
       version: '1.0.0',
       characterId,
@@ -692,7 +693,7 @@ const exportCharacter = async () => {
 };
 
 // 导出所有存档
-const exportSaves = () => {
+const exportSaves = async () => {
   try {
     console.log('[存档导出] 开始导出存档...');
     console.log('[存档导出] savesList.value:', savesList.value);
@@ -704,12 +705,30 @@ const exportSaves = () => {
       return;
     }
 
+    const characterId = characterStore.rootState.当前激活存档?.角色ID;
+    if (!characterId) {
+      toast.error('无法获取角色ID');
+      return;
+    }
+
+    // 🔥 修复：从 IndexedDB 加载每个存档的完整数据
+    const { loadSaveData } = await import('@/utils/indexedDBManager');
+    const savesWithFullData = await Promise.all(
+      savesList.value.map(async (save) => {
+        const fullData = await loadSaveData(characterId, save.存档名);
+        return {
+          ...save,
+          存档数据: fullData  // 使用与 CharacterManagement.vue 一致的字段名
+        };
+      })
+    );
+
     const exportData = {
       type: 'saves',
-      saves: savesList.value,
+      saves: savesWithFullData,
       exportTime: new Date().toISOString(),
       version: '1.0.0',
-      characterId: characterStore.rootState.当前激活存档?.角色ID,
+      characterId,
       characterName: characterStore.activeCharacterProfile?.角色基础信息?.名字
     };
 

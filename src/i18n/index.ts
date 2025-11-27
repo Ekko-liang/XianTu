@@ -488,6 +488,8 @@ const autoTranslateMap: Record<string, string> = {
   // CloudDataSync
   '同步中': 'Syncing',
   '已获取': 'Synced',
+  '暂不可用': 'Unavailable',
+  '云端功能暂未开放': 'Cloud feature not available yet',
   '获取云端': 'Fetch Cloud',
   '正在同步云端数据...': 'Syncing cloud data...',
   '云端数据已获取': 'Cloud data synced',

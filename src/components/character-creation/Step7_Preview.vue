@@ -54,42 +54,6 @@
         </div>
       </div>
 
-      <!-- Streaming Mode Selection -->
-      <div class="preview-item streaming-item">
-        <h3>{{ $t('开局模式') }}</h3>
-        <div class="streaming-control">
-          <label class="streaming-label">
-            <input type="radio" name="streaming" :value="true" v-model="store.useStreamingStart">
-            <span>{{ $t('流式开局') }}</span>
-          </label>
-          <label class="streaming-label">
-            <input type="radio" name="streaming" :value="false" v-model="store.useStreamingStart">
-            <span>{{ $t('非流式开局') }}</span>
-          </label>
-        </div>
-        <p class="streaming-hint">
-          {{ store.useStreamingStart ? $t('流式开局：更快，可能被中断') : $t('非流式开局：一次性生成完整内容，更稳定可靠') }}
-        </p>
-      </div>
-
-      <!-- Generate Mode Selection -->
-      <div class="preview-item generate-mode-item">
-        <h3>{{ $t('生成方式') }}</h3>
-        <div class="generate-mode-control">
-          <label class="generate-mode-label">
-            <input type="radio" name="generateMode" value="generate" v-model="store.generateMode">
-            <span>{{ $t('标准模式') }}</span>
-          </label>
-          <label class="generate-mode-label">
-            <input type="radio" name="generateMode" value="generateRaw" v-model="store.generateMode">
-            <span>{{ $t('纯净模式') }}</span>
-          </label>
-        </div>
-        <p class="generate-mode-hint">
-          {{ store.generateMode === 'generate' ? $t('标准模式：使用角色卡预设和聊天历史，更符合角色设定') : $t('纯净模式：仅使用系统提示词，生成更纯粹的开局内容') }}
-        </p>
-      </div>
-
       <!-- Birth Age -->
       <div class="preview-item age-item">
         <h3>{{ $t('初始年龄') }}</h3>

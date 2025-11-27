@@ -203,12 +203,6 @@
             wrap="soft"
             :disabled="!hasActiveCharacter || isAIProcessing"
           ></textarea>
-
-          <!-- 流式传输选项在输入框内部右侧 -->
-          <label class="stream-toggle-inside">
-            <input type="checkbox" v-model="useStreaming" />
-            <span class="label-text">{{ t('流式') }}</span>
-          </label>
         </div>
 
         <button

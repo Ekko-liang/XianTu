@@ -58,7 +58,8 @@ defineProps<Props>()
 .code-pre {
   margin: 0;
   padding: 0.75rem;
-  background: var(--color-code-bg);
+  background: var(--color-surface);
+  color: var(--color-text);
   border: 1px solid var(--color-border);
   border-radius: 6px;
   height: 100%;

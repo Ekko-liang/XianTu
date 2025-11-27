@@ -1,17 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm install pixi.js pixi-viewport)",
-      "Bash(npm run type-check)",
-      "Bash(npm run build)",
-      "Bash(npm uninstall ol leaflet.markercluster)",
-      "Bash(npm install pixi.js@^7.4.2)",
-      "Bash(npm install pixi-viewport@^5.0.2)",
-      "Bash(npm uninstall pixi-viewport)",
-      "Bash(uniq -w32 -D)",
-      "Bash(node test-prompt-length.cjs)",
-      "Bash(for f in *.ts)",
-      "Bash(done)"
+      "Bash(npm run build)"
     ],
     "deny": [],
     "ask": [],

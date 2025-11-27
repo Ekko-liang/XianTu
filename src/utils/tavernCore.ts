@@ -1,10 +1,10 @@
 /**
  * Tavern Core Utilities
  * 提供与 TavernAI 环境交互的核心功能
+ * 现已支持酒馆和自定义API两种模式
  */
 
-import { getTavernHelper } from './tavern';
-import type { TavernHelper } from '@/types';
+import { aiService } from '@/services/aiService';
 
 /**
  * 使用原始提示词生成AI响应
@@ -18,15 +18,9 @@ export async function generateWithRawPrompt(
   systemPrompt: string,
   streaming: boolean = false
 ): Promise<string> {
-  const tavernHelper: TavernHelper | null = getTavernHelper();
-
-  if (!tavernHelper) {
-    throw new Error('TavernAI环境未连接，无法生成响应');
-  }
-
   try {
     // 注意：使用 user 角色而不是 system，避免中转API忽略
-    const response = await tavernHelper.generateRaw({
+    const response = await aiService.generateRaw({
       ordered_prompts: [
         { role: 'user', content: systemPrompt },
         { role: 'user', content: userPrompt },

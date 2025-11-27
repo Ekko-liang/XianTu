@@ -7,47 +7,40 @@
       <div class="header-container">
         <div class="title-version-row">
           <h1 class="main-title">大 道 朝 天</h1>
-          <span class="version-tag">V3.2.5 {{ $t('正式版') }}</span><!--{{ appVersion }}-->
+          <span class="version-tag">V3.5 {{ $t('正式版') }}</span>
         </div>
-        <p class="sub-title">{{ $t('仙路漫漫 · 逆行九天') }}</p>
+        <p class="sub-title">朝游北海暮苍梧，醉卧云霞食朝露</p>
       </div>
 
       <div class="gate-container">
         <!-- Left Gate: Single Player -->
         <div
-          class="gate-card left-gate"
+          class="gate-card"
           :class="{ selected: selectedMode === 'single' }"
           @click="selectPath('single')"
         >
           <div class="gate-icon">
-            <!-- Icon: 独修闭关 -->
-            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/>
-              <path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/>
-              <path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/>
-            </svg>
+            <User :size="44" :stroke-width="1.5" />
           </div>
-          <div class="gate-text">
-            <h2 class="gate-title">{{ $t('单机闭关') }}</h2>
-            <p class="gate-description">{{ $t('避世清修·心无旁骛') }}</p>
-            <p class="gate-detail">{{ $t('独居洞府，专心致志炼就大道根基') }}<br/>{{ $t('所有进度本地存储，断网亦可修行') }}</p>
-          </div>
+          <h2 class="gate-title">{{ $t('单机闭关') }}</h2>
+          <p class="gate-description">{{ $t('避世清修·心无旁骛') }}</p>
+          <p class="gate-detail">{{ $t('独居洞府，专心致志炼就大道根基') }}<br/>{{ $t('所有进度本地存储，断网亦可修行') }}</p>
         </div>
 
         <!-- Right Gate: Multiplayer (temporarily disabled) -->
-        <div class="gate-card right-gate disabled" @click="selectPath('cloud')">
+        <div class="gate-card disabled" @click="selectPath('cloud')">
           <div class="gate-icon">
-            <!-- Icon: 联机共修 -->
-            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
-              <path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
             </svg>
           </div>
-          <div class="gate-text">
-            <h2 class="gate-title">{{ $t('联机共修') }}（{{ $t('未开放') }}）</h2>
-            <p class="gate-description">{{ $t('功能研发中，敬请期待') }}</p>
-            <p class="gate-detail">{{ $t('当前版本已封锁联机入口，不影响单机闭关体验') }}</p>
-          </div>
+          <h2 class="gate-title">{{ $t('联机共修') }}</h2>
+          <p class="gate-description">{{ $t('功能研发中，敬请期待') }}</p>
+          <p class="gate-detail">{{ $t('当前版本已封锁联机入口，不影响单机闭关体验') }}</p>
+          <span class="coming-soon-badge">{{ $t('未开放') }}</span>
         </div>
       </div>
 
@@ -58,18 +51,16 @@
       </div>
 
       <div class="footer-actions">
-        <!-- 新的开始游戏按钮容器 -->
         <div v-if="selectedMode" class="start-actions-container">
           <button class="action-btn primary" @click="startNewGame">
-            <Sparkles :size="20" />
+            <Sparkles :size="18" />
             <span>{{ $t('初入仙途') }}</span>
           </button>
           <button class="action-btn" @click="enterCharacterSelection">
-            <History :size="20" />
+            <History :size="18" />
             <span>{{ $t('续前世因缘') }}</span>
           </button>
         </div>
-        <!-- 之前的按钮，现在只在未选择模式时显示 -->
         <button v-else class="scroll-btn" @click="enterCharacterSelection">
           <span>{{ $t('续前世因缘') }}</span>
         </button>
@@ -87,7 +78,7 @@
 
     <!-- 右下角设置按钮 -->
     <button class="floating-settings-btn" @click="showSettings = true" :title="$t('设置')">
-      <Settings :size="24" />
+      <Settings :size="22" />
     </button>
 
     <!-- 授权验证弹窗 -->
@@ -105,7 +96,7 @@
         <div class="modal-header">
           <h3>游戏设置</h3>
           <button class="close-btn" @click="showSettings = false">
-            <X :size="20" />
+            <X :size="18" />
           </button>
         </div>
         <div class="modal-body">
@@ -117,11 +108,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted } from 'vue';
 import VideoBackground from '@/components/common/VideoBackground.vue';
 import SettingsPanel from '@/components/dashboard/SettingsPanel.vue';
 import AuthVerificationModal from '@/components/common/AuthVerificationModal.vue';
-import { Settings, X, Sparkles, History } from 'lucide-vue-next';
+import { Settings, X, Sparkles, History, User, Users } from 'lucide-vue-next';
 import { useUIStore } from '@/stores/uiStore';
 import { AUTH_CONFIG } from '@/config/authConfig';
 import { toast } from '@/utils/toast';
@@ -131,44 +122,20 @@ const showSettings = ref(false);
 const showAuthModal = ref(false);
 const selectedMode = ref<'single' | 'cloud' | null>(null);
 
-// 使用 ref 而不是 computed，以便手动更新
 const isAuthorized = ref(localStorage.getItem('auth_verified') === 'true');
 
-// 检查授权状态的函数
 const checkAuthStatus = () => {
   isAuthorized.value = localStorage.getItem('auth_verified') === 'true';
 };
 
-// 后端API服务器地址
-const API_BASE_URL = 'http://127.0.0.1:12345';
-
-const appVersion = ref('...');
-
 onMounted(async () => {
-  // try {
-  //   const response = await fetch(`${API_BASE_URL}/api/v1/version`);
-  //   if (response.ok) {
-  //     const data = await response.json();
-  //     appVersion.value = `V${data.version}`;
-  //   } else {
-  //     appVersion.value = 'V_.__._';
-  //   }
-  // } catch (error) {
-  //   console.error('Failed to fetch app version:', error);
-  //   appVersion.value = 'N/A';
-  // }
-
-  // 检查授权状态
   checkAuthStatus();
 
-  // 🔴 每次刷新页面都验证一次（无论本地是否已授权）
   if (AUTH_CONFIG.ENABLE_AUTH) {
     console.log('[ModeSelection] 页面刷新，开始自动验证');
 
-    // 先尝试自动验证（使用机器码）
     (async () => {
       try {
-        // 生成或获取机器码
         let machineCode = localStorage.getItem('auth_machine_code');
         if (!machineCode) {
           machineCode = await generateMachineCode();
@@ -177,7 +144,6 @@ onMounted(async () => {
 
         console.log('[ModeSelection] 使用机器码自动验证:', machineCode);
 
-        // 尝试自动验证
         const response = await fetch(`${AUTH_CONFIG.SERVER_URL}/server.php`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -190,14 +156,12 @@ onMounted(async () => {
 
         if (!response.ok) {
           console.warn('[ModeSelection] 服务器错误，清除本地授权');
-          // 服务器错误，清除本地授权
           localStorage.removeItem('auth_verified');
           localStorage.removeItem('auth_app_id');
           localStorage.removeItem('auth_machine_code');
           localStorage.removeItem('auth_expires_at');
           checkAuthStatus();
 
-          // 弹出手动验证窗口
           setTimeout(() => {
             showAuthModal.value = true;
             toast.warning('授权验证失败，请重新验证');
@@ -208,16 +172,13 @@ onMounted(async () => {
         const result = await response.json();
 
         if (result.success && result.data?.authorized) {
-          // ✅ 自动验证成功，静默通过
           console.log('[ModeSelection] 自动验证成功');
           localStorage.setItem('auth_verified', 'true');
           localStorage.setItem('auth_app_id', AUTH_CONFIG.APP_ID);
           localStorage.setItem('auth_machine_code', machineCode);
           localStorage.setItem('auth_expires_at', result.data.expires_at || '');
           checkAuthStatus();
-          // 不显示成功提示，静默通过
         } else {
-          // ❌ 自动验证失败，清除本地授权，弹窗
           console.warn('[ModeSelection] 自动验证失败，授权无效');
           localStorage.removeItem('auth_verified');
           localStorage.removeItem('auth_app_id');
@@ -232,7 +193,6 @@ onMounted(async () => {
         }
       } catch (error) {
         console.warn('[ModeSelection] 网络错误，清除本地授权:', error);
-        // 网络错误，清除本地授权
         localStorage.removeItem('auth_verified');
         localStorage.removeItem('auth_app_id');
         localStorage.removeItem('auth_machine_code');
@@ -254,12 +214,12 @@ const emit = defineEmits<{
 }>();
 
 const uiStore = useUIStore();
+
 const selectPath = (mode: 'single' | 'cloud') => {
-  // 全局封锁联机模式
   if (mode === 'cloud') {
     uiStore.showRetryDialog({
       title: '功能未开放',
-      message: '联机共修开发中，当前版本已封锁入口。请先选择“单机闭关”。',
+      message: '联机共修开发中，当前版本已封锁入口。请先选择"单机闭关"。',
       confirmText: '知道了',
       cancelText: '取消',
       onConfirm: () => {},
@@ -268,7 +228,6 @@ const selectPath = (mode: 'single' | 'cloud') => {
     return;
   }
 
-  // 如果重复点击，则取消选择
   if (selectedMode.value === mode) {
     selectedMode.value = null;
   } else {
@@ -277,7 +236,6 @@ const selectPath = (mode: 'single' | 'cloud') => {
 };
 
 const startNewGame = () => {
-  // 如果启用授权验证且本地未授权，提示用户验证
   if (AUTH_CONFIG.ENABLE_AUTH && !isAuthorized.value) {
     showAuthModal.value = true;
     toast.warning('请先完成授权验证');
@@ -290,7 +248,6 @@ const startNewGame = () => {
 };
 
 const enterCharacterSelection = async () => {
-  // 如果启用授权验证且本地未授权，提示用户验证
   if (AUTH_CONFIG.ENABLE_AUTH && !isAuthorized.value) {
     showAuthModal.value = true;
     toast.warning('请先完成授权验证');
@@ -300,10 +257,8 @@ const enterCharacterSelection = async () => {
   emit('show-character-list');
 };
 
-// 授权状态点击处理
 const handleAuthClick = () => {
   if (isAuthorized.value) {
-    // 已授权，显示授权信息
     const appId = localStorage.getItem('auth_app_id') || '未知';
     const expiresAt = localStorage.getItem('auth_expires_at') || '未知';
     uiStore.showRetryDialog({
@@ -313,7 +268,6 @@ const handleAuthClick = () => {
       cancelText: '关闭',
       onConfirm: async () => {
         try {
-          // 调用服务器解绑接口
           const machineCode = localStorage.getItem('auth_machine_code');
           if (!machineCode) {
             toast.error('未找到机器码');
@@ -332,7 +286,6 @@ const handleAuthClick = () => {
           const result = await response.json();
 
           if (result.success) {
-            // 服务器解绑成功，清除本地状态
             localStorage.removeItem('auth_verified');
             localStorage.removeItem('auth_app_id');
             localStorage.removeItem('auth_machine_code');
@@ -340,7 +293,6 @@ const handleAuthClick = () => {
             toast.success('授权已解绑');
             checkAuthStatus();
           } else {
-            // 如果服务器找不到授权记录，也清除本地缓存
             if (result.message && result.message.includes('No matching authorization')) {
               localStorage.removeItem('auth_verified');
               localStorage.removeItem('auth_app_id');
@@ -360,12 +312,10 @@ const handleAuthClick = () => {
       onCancel: () => {}
     });
   } else {
-    // 未授权，打开验证窗口
     showAuthModal.value = true;
   }
 };
 
-// 授权验证成功
 const handleAuthVerified = async (data: any) => {
   console.log('[授权验证] 兑换成功', data);
   checkAuthStatus();
@@ -373,7 +323,6 @@ const handleAuthVerified = async (data: any) => {
   showAuthModal.value = false;
 };
 
-// 授权验证取消
 const handleAuthCancel = () => {
   console.log('[授权验证] 用户取消验证');
   showAuthModal.value = false;
@@ -387,379 +336,248 @@ const handleAuthCancel = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
+  padding: 1.5rem;
   box-sizing: border-box;
   background: transparent;
   overflow: hidden;
 }
 
 .selection-content {
-  background: var(--color-surface-transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-radius: 20px;
-  padding: 1.5rem;
-  border: 1px solid var(--color-border);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  max-height: 95vh;
-  max-width: 1000px;
-  width: 90%;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-
-.header-container {
+  background: var(--mode-selection-bg, rgba(15, 23, 42, 0.75));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 16px;
+  padding: 3rem;
+  border: 1px solid var(--mode-selection-border, rgba(255, 255, 255, 0.08));
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  max-height: 90vh;
+  max-width: 920px;
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 100%;
-  flex-shrink: 0;
+  gap: 2.5rem;
+}
+
+.header-container {
+  text-align: center;
 }
 
 .title-version-row {
-  position: relative;
   display: flex;
-  justify-content: center; /* Center the title */
   align-items: center;
-  width: 100%;
-  margin-bottom: 0.5rem; /* Space between title row and subtitle */
-}
-
-.version-tag {
-  position: absolute;
-  right: 0;
-  top: 0; /* Align to the top of the container */
-  font-size: 0.8rem; /* Adjusted size */
-  font-family: 'Consolas', 'monospace';
-  color: var(--color-warning);
-  padding: 0.2rem 0.6rem;
-  background: rgba(var(--color-warning-rgb, 255, 193, 7), 0.1);
-  border: 1px solid rgba(var(--color-warning-rgb, 255, 193, 7), 0.4);
-  border-radius: 4px;
-  opacity: 0.85;
-  font-weight: bold;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .main-title {
   font-family: var(--font-family-serif);
-  font-size: 3.5rem;
-  font-weight: 500;
+  font-size: 3rem;
+  font-weight: 400;
   letter-spacing: 0.5em;
-  color: var(--color-text);
-  text-shadow: 0 0 25px rgba(var(--color-primary-rgb), 0.5);
+  color: var(--mode-selection-title, #f8fafc);
   margin: 0;
-  text-align: center;
-  /* Add padding to compensate for letter-spacing and ensure true centering */
   padding-left: 0.5em;
+  text-shadow: 0 0 40px var(--mode-selection-glow, rgba(147, 197, 253, 0.3));
+}
+
+.version-tag {
+  font-size: 0.7rem;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  color: #fbbf24;
+  padding: 0.25rem 0.6rem;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  border-radius: 4px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
 }
 
 .sub-title {
-  font-size: 1.2rem;
-  color: var(--color-text-secondary);
-  letter-spacing: 0.1em;
-  opacity: 0.9;
+  font-size: 1.1rem;
+  color: var(--mode-selection-subtitle, #94a3b8);
+  letter-spacing: 0.2em;
   margin: 0;
+  font-weight: 300;
 }
 
 .gate-container {
   display: flex;
-  gap: 2rem;
+  gap: 1.5rem;
   width: 100%;
-  max-width: 900px;
   justify-content: center;
 }
 
 .gate-card {
   flex: 1;
-  max-width: 300px;
-  padding: 1.5rem 1.5rem;
-  background: var(--color-surface-transparent);
-  border: 1px solid var(--color-border);
+  max-width: 340px;
+  padding: 2.5rem 2rem;
+  background: var(--mode-selection-card-bg, rgba(30, 41, 59, 0.5));
+  border: 1px solid var(--mode-selection-card-border, rgba(255, 255, 255, 0.06));
   border-radius: 12px;
   cursor: pointer;
   text-align: center;
-  transition: all 0.4s ease;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+  position: relative;
 }
 
 .gate-card:hover {
-  transform: translateY(-10px);
-  border-color: var(--color-primary);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2), 0 0 20px rgba(var(--color-primary-rgb), 0.3);
-  background: var(--color-surface);
+  background: var(--mode-selection-card-hover, rgba(30, 41, 59, 0.8));
+  border-color: var(--mode-selection-accent, rgba(147, 197, 253, 0.2));
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.4);
 }
 
 .gate-card.selected {
-  transform: translateY(-10px) scale(1.03);
-  border-color: var(--color-accent);
-  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.25), 0 0 25px rgba(var(--color-accent-rgb), 0.4);
-  background: var(--color-surface);
+  background: var(--mode-selection-card-selected, rgba(30, 58, 138, 0.4));
+  border-color: var(--mode-selection-accent-strong, rgba(147, 197, 253, 0.4));
+  box-shadow:
+    0 20px 40px -15px rgba(0, 0, 0, 0.4),
+    0 0 0 1px var(--mode-selection-accent, rgba(147, 197, 253, 0.1)),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .gate-card.disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
   pointer-events: none;
 }
 
 .gate-icon {
-  display: flex;
-  justify-content: center;
-  color: var(--color-primary);
+  color: var(--mode-selection-icon, #93c5fd);
   margin-bottom: 1.5rem;
-  transition: all 0.4s ease;
+  opacity: 0.9;
 }
+
 .gate-card:hover .gate-icon {
-  transform: scale(1.1);
-  color: var(--color-accent);
-  filter: drop-shadow(0 0 10px rgba(var(--color-accent-rgb), 0.7));
+  opacity: 1;
+}
+
+.gate-card.selected .gate-icon {
+  color: var(--mode-selection-icon-selected, #bfdbfe);
 }
 
 .gate-title {
   font-family: var(--font-family-serif);
-  font-size: 1.6rem;
+  font-size: 1.4rem;
+  font-weight: 400;
   margin: 0 0 0.5rem 0;
-  color: var(--color-text);
+  color: var(--mode-selection-text, #f1f5f9);
+  letter-spacing: 0.1em;
 }
 
 .gate-description {
-  font-size: 1rem;
-  color: var(--color-text-secondary);
-  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
+  color: var(--mode-selection-subtitle, #94a3b8);
+  margin: 0 0 0.75rem 0;
+  font-weight: 400;
 }
 
 .gate-detail {
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
-  line-height: 1.4;
-  opacity: 0.8;
+  font-size: 0.8rem;
+  color: var(--mode-selection-muted, #64748b);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.coming-soon-badge {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  font-size: 0.65rem;
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+  padding: 0.2rem 0.5rem;
+  border-radius: 3px;
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  font-weight: 500;
+  letter-spacing: 0.05em;
 }
 
 .privacy-notice {
-  margin-top: 1rem; /* 减少顶部间距 */
-  padding: 0.8rem; /* 减少内边距 */
-  background: rgba(var(--color-warning-rgb), 0.1);
-  border: 1px solid rgba(var(--color-warning-rgb), 0.3);
+  padding: 1rem 1.5rem;
+  background: rgba(251, 191, 36, 0.05);
+  border: 1px solid rgba(251, 191, 36, 0.1);
   border-radius: 8px;
-  max-width: 600px;
+  max-width: 560px;
   text-align: center;
 }
 
 .privacy-notice p {
-  font-size: 0.9rem;
-  color: var(--color-text-secondary);
-  margin: 0.5rem 0;
+  font-size: 0.8rem;
+  color: var(--mode-selection-subtitle, #94a3b8);
+  margin: 0.3rem 0;
   line-height: 1.5;
-}
-
-.privacy-notice strong {
-  color: var(--color-warning);
-}
-
-.scroll-btn {
-  margin-top: 1rem; /* 减少顶部间距 */
-  background: transparent;
-  border: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
-  font-family: var(--font-family-serif);
-  font-size: 1rem;
-  letter-spacing: 0.3em;
-  padding: 0.6rem 2rem;
-  border-radius: 50px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  /* Prevent squishing and keep text on one line */
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  align-self: center;
-  white-space: nowrap;
-  flex: 0 0 auto;
-  max-width: 100%;
-}
-
-.scroll-btn:hover {
-  background: var(--color-surface);
-  color: var(--color-text);
-  border-color: var(--color-primary);
-  box-shadow: 0 0 15px rgba(var(--color-primary-rgb), 0.3);
 }
 
 .footer-actions {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-  margin-top: 1rem; /* 减少顶部间距 */
-  width: 100%;
+  justify-content: center;
 }
 
 .start-actions-container {
   display: flex;
   gap: 1rem;
-  justify-content: center;
-  animation: fadeIn 0.5s ease-out;
-  width: 100%;
-  max-width: 500px; /* 限制最大宽度 */
+  animation: fadeIn 0.4s ease;
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .action-btn {
-  flex: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  background: var(--color-surface-transparent);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
+  background: var(--mode-selection-btn-bg, rgba(30, 41, 59, 0.6));
+  border: 1px solid var(--mode-selection-card-border, rgba(255, 255, 255, 0.08));
+  color: var(--mode-selection-btn-text, #cbd5e1);
   font-family: var(--font-family-serif);
-  font-size: 1rem;
-  letter-spacing: 0.1em;
-  padding: 0.8rem 1.5rem;
-  border-radius: 50px;
+  font-size: 0.95rem;
+  letter-spacing: 0.15em;
+  padding: 0.8rem 1.8rem;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  white-space: nowrap;
+  transition: all 0.25s ease;
 }
 
 .action-btn:hover {
-  background: var(--color-surface);
-  color: var(--color-text);
-  border-color: var(--color-primary);
-  box-shadow: 0 0 15px rgba(var(--color-primary-rgb), 0.3);
-  transform: translateY(-2px);
+  background: var(--mode-selection-btn-hover, rgba(51, 65, 85, 0.8));
+  border-color: var(--mode-selection-accent, rgba(147, 197, 253, 0.2));
+  color: var(--mode-selection-text, #f1f5f9);
 }
 
 .action-btn.primary {
-  background: var(--color-primary);
-  color: var(--color-text-on-primary);
-  border-color: var(--color-primary);
-  box-shadow: 0 0 20px rgba(var(--color-primary-rgb), 0.4);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.8), rgba(37, 99, 235, 0.9));
+  border-color: rgba(96, 165, 250, 0.3);
+  color: #ffffff;
 }
 
 .action-btn.primary:hover {
-  background: var(--color-primary-hover);
-  border-color: var(--color-primary-hover);
-  color: var(--color-text-on-primary);
-  box-shadow: 0 0 25px rgba(var(--color-primary-rgb), 0.6);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(37, 99, 235, 1));
+  box-shadow: 0 8px 25px -8px rgba(59, 130, 246, 0.5);
 }
 
+.scroll-btn {
+  background: transparent;
+  border: 1px solid var(--mode-selection-card-border, rgba(255, 255, 255, 0.1));
+  color: var(--mode-selection-subtitle, #94a3b8);
+  font-family: var(--font-family-serif);
+  font-size: 0.95rem;
+  letter-spacing: 0.2em;
+  padding: 0.75rem 2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
 
-@media (max-width: 640px) {
-  .footer-actions {
-    margin-top: 1rem; /* 统一间距 */
-  }
-
-  .start-actions-container {
-    flex-direction: column;
-    width: 100%;
-    max-width: 350px;
-  }
-
-  .action-btn {
-    font-size: 0.95rem;
-    padding: 0.9rem 1.5rem;
-    letter-spacing: 0.2em;
-  }
-
-  .mode-selection-container {
-    padding: 1rem;
-    height: auto;
-    min-height: 100%;
-    align-items: center; /* 居中显示 */
-    justify-content: center;
-  }
-
-  .selection-content {
-    padding: 1.5rem;
-    height: auto;
-    max-height: 95vh;
-    overflow-y: auto; /* 移动端允许滚动 */
-    overflow-x: hidden;
-    /* 隐藏滚动条但保持滚动功能 */
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* IE and Edge */
-    gap: 1rem; /* 减少元素间距 */
-  }
-
-  /* 移动端也隐藏滚动条 */
-  .selection-content::-webkit-scrollbar {
-    display: none;
-  }
-
-  .main-title {
-    font-size: 2.5rem;
-  }
-
-  .header-container {
-    margin-bottom: 1rem; /* 减少间距 */
-    flex-shrink: 0;
-  }
-
-  /* 移动端版本号移到底部 */
-  .title-version-row {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .version-tag {
-    position: static; /* 取消绝对定位 */
-    align-self: center; /* 居中显示 */
-    margin-top: 0.5rem;
-  }
-
-  .gate-container {
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem; /* 减少间距 */
-    flex-shrink: 0;
-  }
-
-  .gate-card {
-    width: 100%;
-    max-width: 350px;
-    padding: 2rem 1.5rem;
-  }
-
-  .gate-detail {
-    font-size: 0.8rem;
-  }
-
-  .privacy-notice {
-    margin-top: 1rem; /* 减少间距 */
-    padding: 1rem;
-    max-width: 100%;
-    flex-shrink: 0;
-  }
-
-  .privacy-notice p {
-    font-size: 0.85rem;
-  }
-
-  .scroll-btn {
-    margin-top: 1rem; /* 减少间距 */
-    margin-bottom: 1rem;
-    flex-shrink: 0;
-    padding: 0.8rem 2rem;
-    font-size: 0.95rem;
-  }
+.scroll-btn:hover {
+  background: var(--mode-selection-card-bg, rgba(30, 41, 59, 0.5));
+  border-color: var(--mode-selection-accent, rgba(147, 197, 253, 0.2));
+  color: var(--mode-selection-text-hover, #e2e8f0);
 }
 
 /* 浮动设置按钮 */
@@ -767,30 +585,25 @@ const handleAuthCancel = () => {
   position: fixed;
   bottom: 24px;
   right: 24px;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: var(--color-surface-transparent);
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--mode-selection-float-bg, rgba(30, 41, 59, 0.8));
   backdrop-filter: blur(10px);
-  border: 1px solid var(--color-border);
-  color: var(--color-text);
+  border: 1px solid var(--mode-selection-card-border, rgba(255, 255, 255, 0.08));
+  color: var(--mode-selection-subtitle, #94a3b8);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.25s ease;
   z-index: 100;
 }
 
 .floating-settings-btn:hover {
-  background: var(--color-surface);
-  transform: scale(1.05);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
-}
-
-.floating-settings-btn:active {
-  transform: scale(0.95);
+  background: var(--mode-selection-float-hover, rgba(51, 65, 85, 0.9));
+  color: var(--mode-selection-text-hover, #e2e8f0);
+  border-color: var(--mode-selection-accent, rgba(147, 197, 253, 0.2));
 }
 
 /* 设置模态框 */
@@ -800,7 +613,7 @@ const handleAuthCancel = () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
@@ -810,51 +623,47 @@ const handleAuthCancel = () => {
 }
 
 .settings-modal-content {
-  background: var(--color-surface);
-  border-radius: 16px;
+  background: var(--mode-selection-modal-bg, #1e293b);
+  border-radius: 12px;
   width: 100%;
-  max-width: 800px;
-  max-height: 85vh;
+  max-width: 700px;
+  max-height: 80vh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  animation: modalSlideIn 0.3s ease-out;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--mode-selection-card-border, rgba(255, 255, 255, 0.06));
+  animation: modalIn 0.25s ease;
 }
 
-@keyframes modalSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-20px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 .modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px;
-  border-bottom: 1px solid var(--color-border);
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--mode-selection-card-border, rgba(255, 255, 255, 0.06));
 }
 
 .modal-header h3 {
   margin: 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--color-text);
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--mode-selection-text, #f1f5f9);
+  letter-spacing: 0.05em;
 }
 
 .close-btn {
   background: none;
   border: none;
-  color: var(--color-text-secondary);
+  color: var(--mode-selection-muted, #64748b);
   cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
+  padding: 6px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -862,102 +671,13 @@ const handleAuthCancel = () => {
 }
 
 .close-btn:hover {
-  background: var(--color-surface-hover);
-  color: var(--color-text);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--mode-selection-subtitle, #94a3b8);
 }
 
 .modal-body {
   flex: 1;
   overflow-y: auto;
-  padding: 0;
-}
-
-.modal-body::-webkit-scrollbar {
-  width: 8px;
-}
-
-.modal-body::-webkit-scrollbar-track {
-  background: var(--color-background);
-}
-
-.modal-body::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: 4px;
-}
-
-.modal-body::-webkit-scrollbar-thumb:hover {
-  background: var(--color-primary);
-}
-
-/* 移动端优化 */
-@media (max-width: 768px) {
-  .floating-settings-btn {
-    bottom: 16px;
-    right: 16px;
-    width: 48px;
-    height: 48px;
-  }
-
-  .settings-modal-content {
-    max-width: 95vw;
-    max-height: 90vh;
-  }
-
-  .modal-header {
-    padding: 16px 20px;
-  }
-}
-
-/* 超小屏幕优化（手机竖屏） */
-@media (max-width: 480px) {
-  .mode-selection-container {
-    padding: 0.5rem;
-  }
-
-  .selection-content {
-    padding: 1rem;
-    border-radius: 15px;
-    gap: 1rem;
-  }
-
-  .main-title {
-    font-size: 2rem;
-    letter-spacing: 0.3em;
-    padding-left: 0.3em;
-  }
-
-  .header-container {
-    margin-bottom: 1.5rem;
-  }
-
-  .version-tag {
-    font-size: 0.7rem;
-    padding: 0.15rem 0.5rem;
-  }
-
-  .gate-container {
-    gap: 1rem;
-  }
-
-  .gate-card {
-    padding: 1.5rem 1rem;
-  }
-
-  .gate-title {
-    font-size: 1.4rem;
-  }
-
-  .privacy-notice {
-    margin-top: 1rem;
-    padding: 0.8rem;
-  }
-
-  .scroll-btn {
-    margin-top: 1rem;
-    margin-bottom: 0.5rem;
-    padding: 0.7rem 1.5rem;
-    font-size: 0.9rem;
-  }
 }
 
 /* 授权状态徽章 */
@@ -972,31 +692,29 @@ const handleAuthCancel = () => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.6rem 1rem;
-  background: var(--color-surface-transparent);
+  padding: 0.5rem 0.9rem;
+  background: var(--mode-selection-float-bg, rgba(30, 41, 59, 0.8));
   backdrop-filter: blur(10px);
-  border: 1px solid var(--color-border);
-  border-radius: 50px;
+  border: 1px solid var(--mode-selection-card-border, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.25s ease;
 }
 
 .auth-status-content:hover {
-  background: var(--color-surface);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+  background: var(--mode-selection-float-hover, rgba(51, 65, 85, 0.9));
+  border-color: var(--mode-selection-accent, rgba(147, 197, 253, 0.2));
 }
 
 .status-icon {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
-  font-weight: bold;
+  font-size: 10px;
+  font-weight: 600;
 }
 
 .status-icon.verified {
@@ -1010,23 +728,118 @@ const handleAuthCancel = () => {
 }
 
 .status-text {
-  font-size: 0.875rem;
-  color: var(--color-text);
+  font-size: 0.8rem;
+  color: var(--mode-selection-subtitle, #94a3b8);
   font-weight: 500;
 }
 
+/* 亮色主题 */
+[data-theme="light"] .mode-selection-container {
+  --mode-selection-bg: rgba(255, 255, 255, 0.85);
+  --mode-selection-border: rgba(0, 0, 0, 0.08);
+  --mode-selection-title: #1e293b;
+  --mode-selection-glow: rgba(59, 130, 246, 0.2);
+  --mode-selection-subtitle: #64748b;
+  --mode-selection-text: #1e293b;
+  --mode-selection-text-hover: #334155;
+  --mode-selection-muted: #94a3b8;
+  --mode-selection-card-bg: rgba(248, 250, 252, 0.8);
+  --mode-selection-card-border: rgba(0, 0, 0, 0.08);
+  --mode-selection-card-hover: rgba(241, 245, 249, 0.95);
+  --mode-selection-card-selected: rgba(219, 234, 254, 0.8);
+  --mode-selection-accent: rgba(59, 130, 246, 0.3);
+  --mode-selection-accent-strong: rgba(59, 130, 246, 0.5);
+  --mode-selection-icon: #3b82f6;
+  --mode-selection-icon-selected: #2563eb;
+  --mode-selection-btn-bg: rgba(248, 250, 252, 0.8);
+  --mode-selection-btn-text: #475569;
+  --mode-selection-btn-hover: rgba(241, 245, 249, 0.95);
+  --mode-selection-float-bg: rgba(255, 255, 255, 0.9);
+  --mode-selection-float-hover: rgba(248, 250, 252, 1);
+  --mode-selection-modal-bg: #ffffff;
+}
+
+/* 响应式 */
 @media (max-width: 768px) {
+  .selection-content {
+    padding: 2rem 1.5rem;
+    gap: 2rem;
+  }
+
+  .main-title {
+    font-size: 2.2rem;
+    letter-spacing: 0.3em;
+  }
+
+  .title-version-row {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .gate-container {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .gate-card {
+    width: 100%;
+    max-width: 320px;
+    padding: 2rem 1.5rem;
+  }
+
+  .start-actions-container {
+    flex-direction: column;
+    width: 100%;
+    max-width: 280px;
+  }
+
+  .action-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .mode-selection-container {
+    padding: 1rem;
+  }
+
+  .selection-content {
+    padding: 1.5rem 1.25rem;
+    gap: 1.5rem;
+    border-radius: 12px;
+  }
+
+  .main-title {
+    font-size: 1.8rem;
+  }
+
+  .sub-title {
+    font-size: 0.95rem;
+  }
+
+  .gate-card {
+    padding: 1.5rem 1.25rem;
+  }
+
+  .gate-title {
+    font-size: 1.2rem;
+  }
+
+  .privacy-notice {
+    padding: 0.75rem 1rem;
+  }
+
+  .floating-settings-btn {
+    bottom: 16px;
+    right: 16px;
+    width: 44px;
+    height: 44px;
+  }
+
   .auth-status-badge {
     bottom: 16px;
     left: 16px;
-  }
-
-  .auth-status-content {
-    padding: 0.5rem 0.8rem;
-  }
-
-  .status-text {
-    font-size: 0.8rem;
   }
 }
 </style>

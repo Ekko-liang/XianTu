@@ -170,6 +170,17 @@
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
 
+          <button class="function-btn system" @click="handlePrompts">
+            <div class="btn-icon">
+              <FileText :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">{{ t('提示词管理') }}</span>
+              <span class="btn-desc">{{ t('自定义AI提示词') }}</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" />
+          </button>
+
           <button class="function-btn system" @click="handleSettings">
             <div class="btn-icon">
               <Settings :size="18" />
@@ -199,7 +210,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { Package, User, Users, BookOpen, Zap, Brain, Map, Globe, Save, Settings, LogOut, Compass, Home, Scroll, ChevronRight, Database, Clock } from 'lucide-vue-next';
+import { Package, User, Users, BookOpen, Zap, Brain, Map, Globe, Save, Settings, LogOut, Compass, Home, Scroll, ChevronRight, Database, Clock, FileText } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import { toast } from '@/utils/toast';
 import { useUIStore } from '@/stores/uiStore';
@@ -283,6 +294,10 @@ const handleWorldMap = () => {
 const handleOnlinePlay = () => {
   // 这个功能保持原样，因为不是真正的面板
   toast.info(t('联机功能开发中...'));
+};
+
+const handlePrompts = () => {
+  router.push('/game/prompts');
 };
 
 const handleSettings = () => {
@@ -558,6 +573,7 @@ const exitToMenu = async () => {
 .function-btn.primary .btn-icon {
   background: rgba(59, 130, 246, 0.1);
   border: 1px solid rgba(59, 130, 246, 0.2);
+  color: rgb(59, 130, 246);
 }
 
 .function-btn.primary:hover .btn-icon {
@@ -568,6 +584,7 @@ const exitToMenu = async () => {
 .function-btn.secondary .btn-icon {
   background: rgba(16, 185, 129, 0.1);
   border: 1px solid rgba(16, 185, 129, 0.2);
+  color: rgb(16, 185, 129);
 }
 
 .function-btn.secondary:hover .btn-icon {
@@ -578,6 +595,7 @@ const exitToMenu = async () => {
 .function-btn.accent .btn-icon {
   background: rgba(139, 92, 246, 0.1);
   border: 1px solid rgba(139, 92, 246, 0.2);
+  color: rgb(139, 92, 246);
 }
 
 .function-btn.accent:hover .btn-icon {
@@ -588,6 +606,7 @@ const exitToMenu = async () => {
 .function-btn.system .btn-icon {
   background: rgba(107, 114, 128, 0.1);
   border: 1px solid rgba(107, 114, 128, 0.2);
+  color: rgb(107, 114, 128);
 }
 
 .function-btn.system:hover .btn-icon {

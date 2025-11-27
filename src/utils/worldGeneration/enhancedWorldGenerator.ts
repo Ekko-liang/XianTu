@@ -113,7 +113,7 @@ export class EnhancedWorldGenerator {
   private async generateWorldData(): Promise<WorldInfo> {
     const tavern = getTavernHelper();
     if (!tavern) {
-      throw new Error('酒馆系统不可用');
+      throw new Error('AI服务未初始化，请在设置中配置AI服务');
     }
 
     const prompt = this.buildPromptWithErrors();

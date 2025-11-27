@@ -1,9 +1,9 @@
 <template>
-  <button 
-    @click="handleSyncCloudData" 
+  <button
+    @click="handleSyncCloudData"
     class="cloud-sync-button"
-    :class="{ 'synced': hasSynced }"
-    :disabled="isSyncing"
+    :class="{ 'synced': hasSynced, 'disabled': isDisabled }"
+    :disabled="isDisabled || isSyncing"
     :title="getSyncButtonTooltip()"
   >
     <span class="sync-icon" v-if="isSyncing">⏳</span>
@@ -40,8 +40,12 @@ const { t } = useI18n();
 const isSyncing = ref(false);
 const hasSynced = ref(false);
 
+// 🔥 暂时禁用云端功能（后端未上线）
+const isDisabled = ref(true);
+
 // 获取同步按钮文本
 function getSyncButtonText() {
+  if (isDisabled.value) return t('暂不可用');
   if (isSyncing.value) return t('同步中');
   if (hasSynced.value) return t('已获取');
   return t('获取云端');
@@ -49,6 +53,7 @@ function getSyncButtonText() {
 
 // 获取按钮提示文本
 function getSyncButtonTooltip() {
+  if (isDisabled.value) return t('云端功能暂未开放');
   if (isSyncing.value) return t('正在同步云端数据...');
   if (hasSynced.value) return t('云端数据已获取');
   return t('获取云端数据');
@@ -140,9 +145,19 @@ async function handleSyncCloudData() {
   color: var(--color-success);
 }
 
-.cloud-sync-button:disabled {
-  opacity: 0.6;
+.cloud-sync-button:disabled,
+.cloud-sync-button.disabled {
+  opacity: 0.5;
   cursor: not-allowed;
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.cloud-sync-button.disabled:hover {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text-muted);
 }
 
 .cloud-sync-button.synced:hover {

@@ -1,0 +1,353 @@
+/**
+ * 默认提示词集合 - 完整版
+ *
+ * 分类说明：
+ * 1. 核心请求提示词 - 正常游戏请求时按顺序发送
+ * 2. 总结请求提示词 - 记忆总结时使用
+ * 3. 生成类提示词 - 世界/NPC/任务等生成
+ * 4. 角色初始化提示词 - 创建角色时使用
+ */
+import { SAVE_DATA_STRUCTURE, DATA_STRUCTURE_EXAMPLES } from '@/utils/prompts/definitions/dataDefinitions';
+import { CHARACTER_INITIALIZATION_PROMPT } from '@/utils/prompts/tasks/characterInitializationPrompts';
+import { getCotCorePrompt } from '@/utils/prompts/cot/cotCore';
+import { EnhancedWorldPromptBuilder } from '@/utils/worldGeneration/enhancedWorldPrompts';
+import { promptStorage } from './promptStorage';
+import * as coreRules from '@/utils/prompts/definitions/coreRules';
+import * as businessRules from '@/utils/prompts/definitions/businessRules';
+import * as textFormats from '@/utils/prompts/definitions/textFormats';
+import * as worldStandards from '@/utils/prompts/definitions/worldStandards';
+import { ACTION_OPTIONS_RULES } from '@/utils/prompts/definitions/actionOptions';
+import { QUEST_SYSTEM_RULES } from '@/utils/prompts/definitions/questSystemRules';
+
+export interface PromptDefinition {
+  name: string;
+  content: string;
+  category: string;
+  description?: string;
+  order?: number; // 用于排序
+}
+
+/**
+ * 提示词分类定义
+ */
+export const PROMPT_CATEGORIES = {
+  coreRequest: {
+    name: '核心请求提示词',
+    description: '正常游戏请求时按顺序发送的提示词',
+    icon: '📨'
+  },
+  summary: {
+    name: '总结请求提示词',
+    description: '记忆总结时使用的提示词',
+    icon: '📝'
+  },
+  generation: {
+    name: '生成类提示词',
+    description: '世界/NPC/任务等内容生成的提示词',
+    icon: '🎨'
+  },
+  initialization: {
+    name: '初始化提示词',
+    description: '角色创建和游戏初始化时使用的提示词',
+    icon: '🚀'
+  }
+};
+
+export function getSystemPrompts(): Record<string, PromptDefinition> {
+  // 合并所有业务规则
+  const allBusinessRules = Object.values(businessRules).filter(r => typeof r === 'string').join('\n\n---\n\n');
+  // 合并核心规则
+  const allCoreRules = Object.values(coreRules).filter(r => typeof r === 'string').join('\n\n---\n\n');
+  // 合并文本格式
+  const allTextFormats = Object.values(textFormats).filter(r => typeof r === 'string').join('\n\n---\n\n');
+  // 合并世界标准
+  const allWorldStandards = Object.values(worldStandards).filter(r => typeof r === 'string').join('\n\n---\n\n');
+
+  return {
+    // ==================== 核心请求提示词（按顺序） ====================
+    coreRules: {
+      name: '1. 核心输出规则',
+      content: allCoreRules,
+      category: 'coreRequest',
+      description: 'JSON输出格式、响应格式要求、数据结构严格性规则',
+      order: 1
+    },
+    businessRules: {
+      name: '2. 业务规则',
+      content: allBusinessRules,
+      category: 'coreRequest',
+      description: '游戏业务逻辑规则、NPC行为规范、战斗修炼规则',
+      order: 2
+    },
+    dataDefinitions: {
+      name: '3. 数据结构定义',
+      content: SAVE_DATA_STRUCTURE,
+      category: 'coreRequest',
+      description: '游戏存档数据结构完整定义',
+      order: 3
+    },
+    textFormats: {
+      name: '4. 文本格式规范',
+      content: allTextFormats,
+      category: 'coreRequest',
+      description: '叙事文本格式标记、判定系统、战斗伤害公式',
+      order: 4
+    },
+    worldStandards: {
+      name: '5. 世界观标准',
+      content: allWorldStandards,
+      category: 'coreRequest',
+      description: '境界属性标准、品质系统、声望变化指南',
+      order: 5
+    },
+    cotCore: {
+      name: '6. CoT思维链',
+      content: getCotCorePrompt('{{用户输入}}', false),
+      category: 'coreRequest',
+      description: '强制AI先思考后输出的思维链协议',
+      order: 6
+    },
+    actionOptions: {
+      name: '7. 行动选项规则',
+      content: ACTION_OPTIONS_RULES,
+      category: 'coreRequest',
+      description: '生成玩家行动选项的规范（可选启用）',
+      order: 7
+    },
+    questSystemRules: {
+      name: '8. 任务系统规则',
+      content: QUEST_SYSTEM_RULES,
+      category: 'coreRequest',
+      description: '任务系统开关控制和触发条件（可选启用）',
+      order: 8
+    },
+
+    // ==================== 总结请求提示词 ====================
+    memorySummary: {
+      name: '记忆总结提示词',
+      content: `你是记忆总结助手。这是一个纯文本总结任务，不是游戏对话或故事续写。
+
+【待总结的记忆内容】：
+{{记忆内容}}
+
+【总结要求】：
+- 第一人称"我"
+- 250-400字
+- 连贯的现代修仙小说叙述风格
+- 仅输出JSON，不要thinking/commands/options
+
+【必须保留】：
+- 原文中的人名、地名
+- 原文中的事件
+- 原文中的物品、功法、境界
+- 原文中的时间节点
+
+【必须忽略】：
+- 对话内容
+- 情绪描写
+- 过程细节
+
+【输出格式】：
+\`\`\`json
+{"text": "总结内容"}
+\`\`\`
+
+【示例】：
+原文："我在青云峰修炼七天，突破到炼气三层。李云送我聚气丹。我去藏经阁学了剑法。"
+总结："我在青云峰闭关七日，成功突破到炼气三层。期间结识了外门弟子李云，他赠予我一枚聚气丹。之后我进入藏经阁，学习了《基础剑法》。"`,
+      category: 'summary',
+      description: '中期记忆转化为长期记忆时的总结提示词',
+      order: 1
+    },
+    npcMemorySummary: {
+      name: 'NPC记忆总结提示词',
+      content: `你是NPC记忆总结助手。总结指定NPC与主角的互动记忆。
+
+【待总结的NPC记忆】：
+{{NPC记忆内容}}
+
+【NPC信息】：
+- 姓名：{{NPC姓名}}
+- 与主角关系：{{关系}}
+
+【总结要求】：
+- 第三人称，以NPC视角
+- 100-200字
+- 保留关键事件和情感变化
+- 仅输出JSON
+
+【输出格式】：
+\`\`\`json
+{"text": "总结内容"}
+\`\`\``,
+      category: 'summary',
+      description: 'NPC记忆总结的提示词',
+      order: 2
+    },
+
+    // ==================== 生成类提示词 ====================
+    worldGeneration: {
+      name: '世界生成提示词',
+      content: EnhancedWorldPromptBuilder.buildPrompt({
+        factionCount: 5,
+        totalLocations: 10,
+        secretRealms: 3,
+        continentCount: 3
+      }),
+      category: 'generation',
+      description: '生成修仙世界设定的完整提示词',
+      order: 1
+    },
+    questGeneration: {
+      name: '任务生成提示词',
+      content: `生成一个修仙世界的任务。
+
+【当前场景信息】：
+{{场景信息}}
+
+【玩家信息】：
+- 境界：{{玩家境界}}
+- 宗门：{{所属宗门}}
+
+【要求】：
+1. 任务名称要有修仙特色
+2. 目标明确可量化
+3. 奖励合理（修为/灵石/物品/声望）
+4. 难度符合玩家当前境界
+
+【输出格式】：
+\`\`\`json
+{
+  "任务ID": "quest_时间戳",
+  "任务名称": "任务名",
+  "任务描述": "详细描述",
+  "任务类型": "主线/支线/日常/宗门",
+  "目标列表": [
+    {"目标描述": "具体目标", "当前进度": 0, "目标进度": 数量, "完成状态": false}
+  ],
+  "奖励": {
+    "修为": 数值,
+    "灵石": {"下品": 数值},
+    "声望": 数值,
+    "物品": []
+  },
+  "时限": "无/X天",
+  "难度": "简单/普通/困难/极难"
+}
+\`\`\``,
+      category: 'generation',
+      description: '根据场景和玩家信息生成任务',
+      order: 2
+    },
+    npcGeneration: {
+      name: 'NPC生成提示词',
+      content: `生成一个修仙世界的NPC角色。
+
+【场景信息】：
+{{场景信息}}
+
+【生成要求】：
+1. 姓名符合修仙世界设定（两字或三字姓名）
+2. 性格特点鲜明，有独特的说话方式
+3. 背景故事合理，与当前场景有联系
+4. 修为境界明确，符合场景定位
+
+【输出格式】：
+\`\`\`json
+{
+  "姓名": "NPC姓名",
+  "性别": "男/女",
+  "年龄": 数字,
+  "境界": {"名称": "境界名", "阶段": "初期/中期/后期/圆满"},
+  "性格": "性格描述（50字内）",
+  "外貌": "外貌描述（100字内）",
+  "背景": "背景故事（200字内）",
+  "说话风格": "说话特点",
+  "初始好感度": 50
+}
+\`\`\``,
+      category: 'generation',
+      description: '生成NPC角色的完整提示词',
+      order: 3
+    },
+    itemGeneration: {
+      name: '物品生成提示词',
+      content: `生成一个修仙世界的物品。
+
+【物品类型】：{{物品类型}}
+【品质要求】：{{品质要求}}
+【场景信息】：{{场景信息}}
+
+【品质系统】：
+- 凡品(grade:1-3): 普通物品
+- 黄阶(grade:4-5): 入门级法宝/功法
+- 玄阶(grade:6-7): 中级法宝/功法
+- 地阶(grade:8-9): 高级法宝/功法
+- 天阶(grade:10): 顶级法宝/功法
+
+【输出格式】：
+\`\`\`json
+{
+  "物品ID": "item_类型_时间戳",
+  "名称": "物品名称",
+  "类型": "装备/功法/丹药/材料/其他",
+  "品质": {"quality": "凡/黄/玄/地/天", "grade": 1-10},
+  "描述": "物品描述（100字内）",
+  "数量": 1,
+  "效果": "效果描述"
+}
+\`\`\``,
+      category: 'generation',
+      description: '生成物品的提示词',
+      order: 4
+    },
+
+    // ==================== 初始化提示词 ====================
+    characterInit: {
+      name: '角色初始化提示词',
+      content: CHARACTER_INITIALIZATION_PROMPT,
+      category: 'initialization',
+      description: '创建新角色时生成初始剧情和状态',
+      order: 1
+    },
+    firstMessage: {
+      name: '开局首条消息提示词',
+      content: `你是修仙世界《大道朝天》的GM。现在要为一个新角色生成开局第一条叙事。
+
+【角色信息】：
+{{角色信息}}
+
+【世界信息】：
+{{世界信息}}
+
+【生成要求】：
+1. 以第三人称描写角色的当前处境
+2. 200-400字的小说风格叙事
+3. 交代角色的出身、当前位置、周围环境
+4. 自然引入一个可以互动的元素（NPC/事件/物品）
+5. 不要替角色做任何决定
+
+【输出格式】：
+\`\`\`json
+{
+  "text": "叙事文本",
+  "mid_term_memory": "开局记忆摘要",
+  "tavern_commands": [],
+  "action_options": ["行动选项1", "行动选项2", "行动选项3", "行动选项4", "行动选项5"]
+}
+\`\`\``,
+      category: 'initialization',
+      description: '生成角色开局第一条叙事消息',
+      order: 2
+    }
+  };
+}
+
+/**
+ * 获取提示词（优先使用用户自定义的）
+ * @param key 提示词键名
+ * @returns 提示词内容（用户自定义 > 默认）
+ */
+export async function getPrompt(key: string): Promise<string> {
+  return await promptStorage.get(key);
+}

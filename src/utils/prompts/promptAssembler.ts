@@ -1,53 +1,58 @@
-import { cotCorePrompt, getCotCorePrompt } from './cot/cotCore';
-import * as coreRules from './definitions/coreRules';
-import * as businessRules from './definitions/businessRules';
-import * as textFormats from './definitions/textFormats';
-import * as worldStandards from './definitions/worldStandards';
-import { SAVE_DATA_STRUCTURE, DATA_STRUCTURE_EXAMPLES } from './definitions/dataDefinitions';
-import { ACTION_OPTIONS_RULES } from './definitions/actionOptions';
-import { QUEST_SYSTEM_RULES } from './definitions/questSystemRules';
+import { getPrompt } from '@/services/defaultPrompts';
+import { SAVE_DATA_STRUCTURE } from './definitions/dataDefinitions';
 
 // 导出常用的规则常量
 export { SAVE_DATA_STRUCTURE as DATA_STRUCTURE_DEFINITIONS };
 
 /**
- * 组装最终的系统Prompt
+ * 组装最终的系统Prompt（异步版本，支持自定义提示词）
+ * 所有提示词都通过 getPrompt() 获取，支持用户自定义
  * @param activePrompts - 一个包含了当前需要激活的prompt模块名称的数组
  * @param customActionPrompt - 自定义行动选项提示词（可选）
- * @returns {string} - 拼接好的完整prompt字符串
+ * @returns {Promise<string>} - 拼接好的完整prompt字符串
  */
-export function assembleSystemPrompt(activePrompts: string[], customActionPrompt?: string): string {
+export async function assembleSystemPrompt(activePrompts: string[], customActionPrompt?: string): Promise<string> {
+  // 所有提示词都使用 getPrompt() 获取，支持用户自定义
+  const [
+    coreRulesPrompt,
+    businessRulesPrompt,
+    dataDefinitionsPrompt,
+    textFormatsPrompt,
+    worldStandardsPrompt
+  ] = await Promise.all([
+    getPrompt('coreRules'),
+    getPrompt('businessRules'),
+    getPrompt('dataDefinitions'),
+    getPrompt('textFormats'),
+    getPrompt('worldStandards')
+  ]);
+
   const promptSections = [
-    // 核心规则（JSON格式、响应格式、数据结构严格性）
-    Object.values(coreRules).filter(rule => typeof rule === 'string').join('\n\n'),
-    // 业务规则（境界系统、三千大道、NPC规则、命令路径构建、NSFW规则）
-    Object.values(businessRules).filter(rule => typeof rule === 'string').join('\n\n'),
-    // 数据结构定义
-    SAVE_DATA_STRUCTURE,
-    DATA_STRUCTURE_EXAMPLES,
-    // 文本格式与命名
-    Object.values(textFormats).join('\n\n'),
-    // 世界设定参考
-    Object.values(worldStandards).join('\n\n'),
+    // 1. 核心规则（JSON格式、响应格式、数据结构严格性）
+    coreRulesPrompt,
+    // 2. 业务规则
+    businessRulesPrompt,
+    // 3. 数据结构定义
+    dataDefinitionsPrompt,
+    // 4. 文本格式与命名
+    textFormatsPrompt,
+    // 5. 世界设定参考
+    worldStandardsPrompt,
   ];
 
   // 根据激活列表来添加可选模块
   if (activePrompts.includes('actionOptions')) {
+    const actionOptionsPrompt = await getPrompt('actionOptions');
     const customPromptSection = customActionPrompt
       ? `**用户自定义要求**：${customActionPrompt}\n\n请严格按照以上自定义要求生成行动选项。`
       : '（无特殊要求，按默认规则生成）';
-    const actionRules = ACTION_OPTIONS_RULES.replace('{{CUSTOM_ACTION_PROMPT}}', customPromptSection);
-    promptSections.push(actionRules);
+    promptSections.push(actionOptionsPrompt.replace('{{CUSTOM_ACTION_PROMPT}}', customPromptSection));
   }
 
   if (activePrompts.includes('questSystem')) {
-    promptSections.push(QUEST_SYSTEM_RULES);
+    const questPrompt = await getPrompt('questGeneration');
+    promptSections.push(questPrompt);
   }
-
-  // 注意：不再在这里添加CoT，CoT现在通过inject方式动态注入
-  // if (activePrompts.includes('cot')) {
-  //   promptSections.push(cotCorePrompt);
-  // }
 
   return promptSections.join('\n\n---\n\n');
 }

@@ -425,7 +425,7 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
   console.log('  - 大陆数量:', worldContext.availableContinents.length);
   console.log('  - 地点数量:', worldContext.availableLocations.length);
 
-  const systemPrompt = buildCharacterInitializationPrompt();
+  const systemPrompt = await buildCharacterInitializationPrompt();
   const selectionsSummary = buildCharacterSelectionsSummary(userSelections, worldContext);
 
   const userPrompt = `我创建了角色"${baseInfo.名字}"，请根据我的选择生成开局故事和初始数据。

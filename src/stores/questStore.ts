@@ -18,17 +18,29 @@ export const useQuestStore = defineStore('quest', () => {
   const gameStateStore = useGameStateStore();
   const isGenerating = ref(false);
 
+  // 清理无效任务数据
+  if (gameStateStore.questSystem?.当前任务列表) {
+    const before = gameStateStore.questSystem.当前任务列表.length;
+    gameStateStore.questSystem.当前任务列表 = gameStateStore.questSystem.当前任务列表.filter(
+      (q: Quest) => q && q.任务ID && q.任务名称
+    );
+    const after = gameStateStore.questSystem.当前任务列表.length;
+    if (before !== after) {
+      console.log(`[任务系统] 已清理 ${before - after} 个无效任务`);
+      gameStateStore.saveGame();
+    }
+  }
+
   // 一次性数据迁移：将旧的已完成任务合并到主列表
   if (gameStateStore.questSystem && (gameStateStore.questSystem as any).已完成任务?.length > 0) {
     console.log('[任务系统] 检测到旧版存档数据，正在迁移已完成任务...');
-    // 使用 Set 来防止重复添加
     const existingIds = new Set(gameStateStore.questSystem.当前任务列表.map(q => q.任务ID));
     const questsToMigrate = (gameStateStore.questSystem as any).已完成任务.filter((q: Quest) => !existingIds.has(q.任务ID));
 
     if (questsToMigrate.length > 0) {
       gameStateStore.questSystem.当前任务列表.push(...questsToMigrate);
       delete (gameStateStore.questSystem as any).已完成任务;
-      gameStateStore.saveGame(); // 持久化迁移
+      gameStateStore.saveGame();
       toast.info('任务数据已更新至新版格式');
     }
   }
@@ -45,17 +57,19 @@ export const useQuestStore = defineStore('quest', () => {
     };
   });
 
-  // 所有任务的单一真实来源
-  const currentQuests = computed<Quest[]>(() => gameStateStore.questSystem?.当前任务列表 || []);
+  // 所有任务的单一真实来源（过滤掉null和无效任务）
+  const currentQuests = computed<Quest[]>(() =>
+    (gameStateStore.questSystem?.当前任务列表 || []).filter((q: Quest) => q && q.任务ID && q.任务名称)
+  );
 
   // 已完成的任务列表 (动态计算)
   const completedQuests = computed(() =>
-    currentQuests.value.filter((q: Quest) => q.任务状态 === '已完成')
+    currentQuests.value.filter((q: Quest) => q && q.任务状态 === '已完成')
   );
 
   // 进行中的任务 (动态计算)
   const activeQuests = computed(() =>
-    currentQuests.value.filter((q: Quest) => q.任务状态 === '进行中' || !q.任务状态) // 兼容没有状态的旧任务
+    currentQuests.value.filter((q: Quest) => q && (q.任务状态 === '进行中' || !q.任务状态)) // 兼容没有状态的旧任务
   );
 
   /**

@@ -15,7 +15,7 @@ import type { GM_Response } from '@/types/AIGameMaster';
 import type { CharacterProfile, StateChangeLog, SaveData, GameTime, StateChange, GameMessage, StatusEffect } from '@/types/game';
 import { updateMasteredSkills } from './masteredSkillsCalculator';
 import {  assembleSystemPrompt } from './prompts/promptAssembler';
-import { getCotCorePrompt } from './prompts/cot/cotCore';
+import { getPrompt } from '@/services/defaultPrompts';
 import { normalizeGameTime } from './time';
 import { updateStatusEffects } from './statusEffectManager';
 
@@ -94,8 +94,13 @@ class AIBidirectionalSystemClass {
     const tavernHelper = getTavernHelper();
     const uiStore = useUIStore();
 
+    // 检查AI服务可用性（酒馆或自定义API）
     if (!tavernHelper) {
-      throw new Error('TavernHelper 未初始化，请检查配置');
+      const { aiService } = await import('@/services/aiService');
+      const availability = aiService.checkAvailability();
+      if (!availability.available) {
+        throw new Error(availability.message);
+      }
     }
 
     // 生成唯一的generation_id，如果未提供
@@ -179,8 +184,9 @@ class AIBidirectionalSystemClass {
         activePrompts.push('questSystem');
       }
 
+      const assembledPrompt = await assembleSystemPrompt(activePrompts, uiStore.actionOptionsPrompt);
       const systemPrompt = `
-${assembleSystemPrompt(activePrompts, uiStore.actionOptionsPrompt)}
+${assembledPrompt}
 
 ${coreStatusSummary}
 
@@ -215,8 +221,9 @@ ${stateJsonString}
 
       // 🔥 添加 CoT 提示词（仅在启用系统CoT时注入）
       if (uiStore.useSystemCot) {
+        const cotPrompt = await getPrompt('cotCore');
         injects.push({
-          content: getCotCorePrompt(userActionForAI, uiStore.enableActionOptions),
+          content: cotPrompt.replace('{{用户输入}}', userActionForAI),
           role: 'system',
           depth: 1,
           position: 'in_chat',
@@ -235,15 +242,28 @@ ${stateJsonString}
       });
 
       // 🔥 [流式传输修复]
-      // 使用酒馆的事件系统处理流式传输
       const useStreaming = options?.useStreaming !== false;
 
-      const response = await tavernHelper!.generate({
-        user_input: finalUserInput,
-        should_stream: useStreaming,
-        generation_id: generationId,
-        injects: injects as any,
-      });
+      let response: string;
+      if (tavernHelper) {
+        // 酒馆模式
+        response = await tavernHelper.generate({
+          user_input: finalUserInput,
+          should_stream: useStreaming,
+          generation_id: generationId,
+          injects: injects as any,
+        });
+      } else {
+        // 自定义API模式
+        const { aiService } = await import('@/services/aiService');
+        response = await aiService.generate({
+          user_input: finalUserInput,
+          should_stream: useStreaming,
+          generation_id: generationId,
+          injects: injects as any,
+          onStreamChunk: options?.onStreamChunk,
+        });
+      }
 
       // 流式传输通过事件系统在 MainGamePanel 中处理
       // 这里只需要解析最终响应
@@ -257,6 +277,7 @@ ${stateJsonString}
         let extractedText = '';
         let extractedMemory = '';
         let extractedCommands: any[] = [];
+        let extractedActionOptions: string[] = [];
 
         // 1. 尝试提取JSON代码块（```json ... ```）
         const jsonBlockMatch = responseText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
@@ -266,6 +287,7 @@ ${stateJsonString}
             extractedText = jsonObj.text || jsonObj.叙事文本 || jsonObj.narrative || '';
             extractedMemory = jsonObj.mid_term_memory || jsonObj.中期记忆 || '';
             extractedCommands = jsonObj.tavern_commands || jsonObj.指令 || [];
+            extractedActionOptions = jsonObj.action_options || [];
           } catch (e) {
             console.warn('[AI双向系统] JSON代码块解析失败:', e);
           }
@@ -278,6 +300,7 @@ ${stateJsonString}
             extractedText = jsonObj.text || jsonObj.叙事文本 || jsonObj.narrative || '';
             extractedMemory = jsonObj.mid_term_memory || jsonObj.中期记忆 || '';
             extractedCommands = jsonObj.tavern_commands || jsonObj.指令 || [];
+            extractedActionOptions = jsonObj.action_options || [];
           } catch {
             // 3. 尝试提取JSON中的text字段（使用正则）
             const textMatch = responseText.match(/"(?:text|叙事文本|narrative)"\s*:\s*"((?:[^"\\]|\\.)*)"/);
@@ -292,6 +315,7 @@ ${stateJsonString}
                   extractedText = jsonObj.text || '';
                   extractedMemory = jsonObj.mid_term_memory || '';
                   extractedCommands = jsonObj.tavern_commands || [];
+                  extractedActionOptions = jsonObj.action_options || [];
                 } catch {
                   // 5. 最后降级：使用整个响应作为文本
                   extractedText = responseText;
@@ -304,9 +328,10 @@ ${stateJsonString}
         gmResponse = {
           text: extractedText,
           mid_term_memory: extractedMemory,
-          tavern_commands: extractedCommands
+          tavern_commands: extractedCommands,
+          action_options: extractedActionOptions
         };
-        console.warn('[AI双向系统] 使用容错模式提取内容 - 文本长度:', extractedText.length, '记忆:', extractedMemory.length, '指令数:', extractedCommands.length);
+        console.warn('[AI双向系统] 使用容错模式提取内容 - 文本长度:', extractedText.length, '记忆:', extractedMemory.length, '指令数:', extractedCommands.length, '行动选项:', extractedActionOptions.length);
       }
 
       if (!gmResponse || !gmResponse.text || gmResponse.text.trim() === '') {
@@ -343,8 +368,14 @@ ${stateJsonString}
     options?: ProcessOptions
   ): Promise<GM_Response> {
     const tavernHelper = getTavernHelper();
+
+    // 检查AI服务可用性（酒馆或自定义API）
     if (!tavernHelper) {
-      throw new Error('TavernHelper 未初始化，请检查配置');
+      const { aiService } = await import('@/services/aiService');
+      const availability = aiService.checkAvailability();
+      if (!availability.available) {
+        throw new Error(availability.message);
+      }
     }
 
     options?.onProgressUpdate?.('构建提示词并请求AI生成…');
@@ -355,35 +386,72 @@ ${stateJsonString}
 
       let response: string;
 
-      if (generateMode === 'generateRaw') {
-        // 🔥 使用 generateRaw 模式：纯净生成，不使用角色卡预设
-        console.log('[AI双向系统] 使用 generateRaw 模式生成初始消息');
-        response = String(await tavernHelper.generateRaw({
-          ordered_prompts: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt }
-          ],
-          should_stream: useStreaming,
-          generation_id: `initial_message_raw_${Date.now()}`,
-        }));
-      } else {
-        // 🔥 使用标准 generate 模式：包含角色卡预设和聊天历史
-        console.log('[AI双向系统] 使用 generate 模式生成初始消息');
-        const injects: Array<{ content: string; role: 'system' | 'assistant' | 'user'; depth: number; position: 'in_chat' | 'none' }> = [
-          {
-            content: systemPrompt,
-            role: 'user',
-            depth: 4,
-            position: 'in_chat',
-          }
-        ];
+      if (tavernHelper) {
+        // 酒馆模式
+        if (generateMode === 'generateRaw') {
+          // 🔥 使用 generateRaw 模式：纯净生成，不使用角色卡预设
+          console.log('[AI双向系统] 酒馆模式 - 使用 generateRaw 模式生成初始消息');
+          response = String(await tavernHelper.generateRaw({
+            ordered_prompts: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt }
+            ],
+            should_stream: useStreaming,
+            generation_id: `initial_message_raw_${Date.now()}`,
+          }));
+        } else {
+          // 🔥 使用标准 generate 模式：包含角色卡预设和聊天历史
+          console.log('[AI双向系统] 酒馆模式 - 使用 generate 模式生成初始消息');
+          const injects: Array<{ content: string; role: 'system' | 'assistant' | 'user'; depth: number; position: 'in_chat' | 'none' }> = [
+            {
+              content: systemPrompt,
+              role: 'user',
+              depth: 4,
+              position: 'in_chat',
+            }
+          ];
 
-        response = await tavernHelper.generate({
-          user_input: userPrompt,
-          should_stream: useStreaming,
-          generation_id: `initial_message_${Date.now()}`,
-          injects,
-        });
+          response = await tavernHelper.generate({
+            user_input: userPrompt,
+            should_stream: useStreaming,
+            generation_id: `initial_message_${Date.now()}`,
+            injects,
+          });
+        }
+      } else {
+        // 自定义API模式
+        const { aiService } = await import('@/services/aiService');
+
+        if (generateMode === 'generateRaw') {
+          console.log('[AI双向系统] 自定义API模式 - 使用 generateRaw 模式生成初始消息');
+          response = await aiService.generateRaw({
+            ordered_prompts: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt }
+            ],
+            should_stream: useStreaming,
+            generation_id: `initial_message_raw_${Date.now()}`,
+            onStreamChunk: options?.onStreamChunk,
+          });
+        } else {
+          console.log('[AI双向系统] 自定义API模式 - 使用 generate 模式生成初始消息');
+          const injects: Array<{ content: string; role: 'system' | 'assistant' | 'user'; depth: number; position: 'in_chat' | 'none' }> = [
+            {
+              content: systemPrompt,
+              role: 'user',
+              depth: 4,
+              position: 'in_chat',
+            }
+          ];
+
+          response = await aiService.generate({
+            user_input: userPrompt,
+            should_stream: useStreaming,
+            generation_id: `initial_message_${Date.now()}`,
+            injects: injects as any,
+            onStreamChunk: options?.onStreamChunk,
+          });
+        }
       }
 
       // 流式传输通过事件系统在调用方处理
@@ -768,44 +836,26 @@ ${stateJsonString}
       console.log(`[AI双向系统] 准备总结：从${midTermMemories.length}条中期记忆中，总结最旧的${numToSummarize}条，保留最新的${memoriesToKeep.length}条`);
       console.log(`[AI双向系统] 配置：触发阈值=${midTermTrigger}, 保留数量=${midTermKeep}, 总结数量=${numToSummarize}`);
 
-      // 4. 构建提示词（优化：防止AI误解任务）
-      const userPrompt = `这是一个纯粹的文本总结任务，不是游戏对话。请严格按照以下记忆内容进行总结，不要编造新内容。
-
-【待总结的记忆内容】：
-${memoriesText}
-
-【总结要求】：
-- 视角：第一人称"我"
-- 字数：200-400字
-- 风格：连贯的现代修仙小说叙述
-- 核心原则：只总结上述记忆中已发生的事件，不要添加任何新情节
-
-【必须包含的要素】：
-1. 记忆中提到的具体人名、地名
-2. 记忆中发生的具体事件
-3. 记忆中的物品、功法、境界变化
-4. 记忆中的时间节点
-
-【禁止事项】：
-❌ 不要编造记忆中没有的新情节
-❌ 不要添加记忆中没有的新人物
-❌ 不要推进故事发展
-❌ 不要生成游戏对话
-❌ 不要包含对话细节和情绪描写
-
-【正确示例】：
-记忆："我在青云峰修炼七天，突破到炼气三层。李云送我聚气丹。我去藏经阁学了剑法。"
-总结："我在青云峰闭关七日，成功突破到炼气三层。期间结识了外门弟子李云，他赠予我一枚聚气丹。之后我进入藏经阁，学习了《基础剑法》。"
-
-现在请严格根据上述【待总结的记忆内容】进行总结，不要偏离。`;
+      // 4. 使用用户自定义的记忆总结提示词
+      const memorySummaryPrompt = await getPrompt('memorySummary');
+      const userPrompt = memorySummaryPrompt.replace('{{记忆内容}}', memoriesText);
 
       // 5. 调用 AI
       const tavernHelper = getTavernHelper();
-      if (!tavernHelper) throw new Error('TavernHelper 未初始化');
 
-      // 默认使用Raw模式和非流式传输
-      const useRawMode = options?.useRawMode !== false; // 默认true（Raw模式，推荐）
-      const useStreaming = options?.useStreaming === true; // 默认false
+      // 从aiService读取配置
+      const { aiService } = await import('@/services/aiService');
+      const aiConfig = aiService.getConfig();
+      const useRawMode = aiConfig.memorySummaryMode === 'raw';
+      const useStreaming = aiConfig.streaming !== false;
+
+      // 检查AI服务可用性
+      if (!tavernHelper) {
+        const availability = aiService.checkAvailability();
+        if (!availability.available) {
+          throw new Error(availability.message);
+        }
+      }
 
       // 🔥 获取精简版游戏存档数据（只包含记忆总结需要的信息）
       const simplifiedSaveData = this._extractEssentialDataForSummary(saveData);
@@ -813,83 +863,84 @@ ${memoriesText}
 
       console.log(`[AI双向系统] 记忆总结模式: ${useRawMode ? 'Raw模式（纯净总结）' : '标准模式（带预设）'}, 传输方式: ${useStreaming ? '流式' : '非流式'}`);
 
-      // 🔥 提取共享提示词内容（避免重复）
-      const MEMORY_SUMMARY_PROMPTS = {
-        roleDefinition: '你是记忆总结助手。这是一个纯文本总结任务，不是游戏对话或故事续写。',
-        saveData: `【游戏存档数据】（供参考）：\n${saveDataJson}`,
-        keyConstraints: '【关键约束】：\n1. 这不是游戏推进，不要生成新剧情\n2. 这不是对话任务，不要生成角色对话\n3. 只总结用户提供的记忆内容，不要编造\n4. 必须严格基于原文，不要添加原文没有的内容',
-        outputFormat: '【输出格式】：\n```json\n{"text": "总结内容"}\n```',
-        summaryRequirements: '【总结要求】：\n- 第一人称"我"\n- 250-400字\n- 连贯的现代修仙小说叙述风格\n- 仅输出JSON，不要thinking/commands/options',
-        mustKeep: '【必须保留】：\n- 原文中的人名、地名\n- 原文中的事件\n- 原文中的物品、功法、境界\n- 原文中的时间节点',
-        mustIgnore: '【必须忽略】：\n- 对话内容\n- 情绪描写\n- 过程细节',
-        example: '【示例】：\n原文："张长老说你天赋不错。你去了藏经阁。三天后在青云峰修炼突破到炼气二层。李云送你聚气丹。"\n正确："我获得了张长老的认可，进入藏经阁领取了令牌。三日后我在青云峰修炼，成功突破到炼气二层。期间结识了李云，他赠予我一枚聚气丹，我们结为道友。"\n错误："我继续修炼，遇到了新的挑战..."（❌ 编造了原文没有的内容）',
-        reminder: '【重要提醒】：\n- 不要把这当成游戏对话\n- 不要推进故事\n- 不要编造新内容\n- 严格基于用户提供的记忆进行总结'
-      };
-
       let response: string;
-      if (useRawMode) {
-        // Raw模式：分条目发送提示词
-        const rawResponse = await tavernHelper.generateRaw({
-          ordered_prompts: [
-            { role: 'system', content: MEMORY_SUMMARY_PROMPTS.roleDefinition },
-            { role: 'system', content: MEMORY_SUMMARY_PROMPTS.saveData },
-            { role: 'system', content: MEMORY_SUMMARY_PROMPTS.keyConstraints },
-            { role: 'system', content: MEMORY_SUMMARY_PROMPTS.outputFormat },
-            { role: 'system', content: MEMORY_SUMMARY_PROMPTS.summaryRequirements },
-            { role: 'system', content: MEMORY_SUMMARY_PROMPTS.mustKeep },
-            { role: 'system', content: MEMORY_SUMMARY_PROMPTS.mustIgnore },
-            { role: 'system', content: MEMORY_SUMMARY_PROMPTS.example },
-            { role: 'system', content: MEMORY_SUMMARY_PROMPTS.reminder },
-            { role: 'user', content: userPrompt },
-            // 🛡️ 添加随机前缀（规避内容检测）
-            { role: 'user', content: ['Continue.', 'Proceed.', 'Next.', 'Go on.', 'Resume.'][Math.floor(Math.random() * 5)] },
-            // 🛡️ 添加assistant角色的占位消息（防止输入截断）
-            { role: 'assistant', content: '</input>' }
-          ],
-          should_stream: useStreaming
-        });
-        response = String(rawResponse);
+
+      if (tavernHelper) {
+        // 酒馆模式
+        if (useRawMode) {
+          // Raw模式：使用自定义提示词
+          const rawResponse = await tavernHelper.generateRaw({
+            ordered_prompts: [
+              { role: 'system', content: `【游戏存档数据】（供参考）：\n${saveDataJson}` },
+              { role: 'user', content: userPrompt },
+              { role: 'user', content: ['Continue.', 'Proceed.', 'Next.', 'Go on.', 'Resume.'][Math.floor(Math.random() * 5)] },
+              { role: 'assistant', content: '</input>' }
+            ],
+            should_stream: useStreaming
+          });
+          response = String(rawResponse);
+        } else {
+          // 标准模式：使用自定义提示词
+          const systemPromptCombined = `${memorySummaryPrompt}
+
+【游戏存档数据】（供参考）：
+${saveDataJson}`;
+
+          const standardResponse = await tavernHelper.generate({
+            user_input: userPrompt,
+            should_stream: useStreaming,
+            generation_id: `memory_summary_${Date.now()}`,
+            injects: [
+              {
+                content: systemPromptCombined,
+                role: 'system',
+                depth: 4,  // 插入到较深位置，确保在用户输入之前
+                position: 'in_chat'
+              },
+              // 🛡️ 添加assistant角色的占位消息（防止输入截断）
+              {
+                content: '</input>',
+                role: 'assistant',
+                depth: 0,  // 插入到最新位置
+                position: 'in_chat'
+              }
+            ]
+          });
+          response = String(standardResponse);
+        }
       } else {
-        // 标准模式：合并提示词，减少条目数量
-        const systemPromptCombined = `${MEMORY_SUMMARY_PROMPTS.roleDefinition}
+        // 自定义API模式
+        if (useRawMode) {
+          console.log('[AI双向系统] 自定义API模式 - Raw模式记忆总结');
+          response = await aiService.generateRaw({
+            ordered_prompts: [
+              { role: 'system', content: `【游戏存档数据】（供参考）：\n${saveDataJson}` },
+              { role: 'user', content: userPrompt },
+              { role: 'user', content: ['Continue.', 'Proceed.', 'Next.', 'Go on.', 'Resume.'][Math.floor(Math.random() * 5)] }
+            ],
+            should_stream: useStreaming
+          });
+        } else {
+          console.log('[AI双向系统] 自定义API模式 - 标准模式记忆总结');
+          const systemPromptCombined = `${memorySummaryPrompt}
 
-${MEMORY_SUMMARY_PROMPTS.saveData}
+【游戏存档数据】（供参考）：
+${saveDataJson}`;
 
-${MEMORY_SUMMARY_PROMPTS.keyConstraints}
-
-${MEMORY_SUMMARY_PROMPTS.outputFormat}
-
-${MEMORY_SUMMARY_PROMPTS.summaryRequirements}
-
-${MEMORY_SUMMARY_PROMPTS.mustKeep}
-
-${MEMORY_SUMMARY_PROMPTS.mustIgnore}
-
-${MEMORY_SUMMARY_PROMPTS.example}
-
-${MEMORY_SUMMARY_PROMPTS.reminder}`;
-
-        const standardResponse = await tavernHelper.generate({
-          user_input: userPrompt,
-          should_stream: useStreaming,
-          generation_id: `memory_summary_${Date.now()}`,
-          injects: [
-            {
-              content: systemPromptCombined,
-              role: 'system',
-              depth: 4,  // 插入到较深位置，确保在用户输入之前
-              position: 'in_chat'
-            },
-            // 🛡️ 添加assistant角色的占位消息（防止输入截断）
-            {
-              content: '</input>',
-              role: 'assistant',
-              depth: 0,  // 插入到最新位置
-              position: 'in_chat'
-            }
-          ]
-        });
-        response = String(standardResponse);
+          response = await aiService.generate({
+            user_input: userPrompt,
+            should_stream: useStreaming,
+            generation_id: `memory_summary_${Date.now()}`,
+            injects: [
+              {
+                content: systemPromptCombined,
+                role: 'system',
+                depth: 4,
+                position: 'in_chat'
+              }
+            ] as any
+          });
+        }
       }
 
       // 解析响应（与NPC记忆总结相同的方式）
