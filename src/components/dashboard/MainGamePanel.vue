@@ -502,8 +502,8 @@ const currentNarrative = computed(() => {
   // 优先从短期记忆获取文本内容
   let content = '';
   if (shortTermMemory && shortTermMemory.length > 0) {
-    // 短期记忆最新的在前面（unshift添加的）
-    const latestMemory = shortTermMemory[0];
+    // 短期记忆使用push添加，最新的在末尾
+    const latestMemory = shortTermMemory[shortTermMemory.length - 1];
     content = latestMemory.replace(/^【.*?】\s*/, ''); // 移除时间前缀
   } else if (narrativeHistory && narrativeHistory.length > 0) {
     // 回退到叙事历史
@@ -828,8 +828,9 @@ const confirmAction = () => {
 const recentMemories = computed(() => {
   const mems = gameStateStore.memory?.短期记忆;
   if (mems && mems.length > 0) {
-    // 返回短期记忆的副本并按时间顺序（最旧的在前，最新的在后），避免在 computed 中产生副作用
-    return mems.slice().reverse();
+    // 短期记忆使用push添加，数组本身就是时间顺序（最旧的在前，最新的在后）
+    // 返回副本以避免在 computed 中产生副作用
+    return mems.slice();
   }
   return [];
 });
