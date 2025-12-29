@@ -1134,8 +1134,16 @@ const sendMessage = async () => {
         useStreaming: useStreaming.value
       };
 
-      // 注意：流式传输通过酒馆的事件系统处理（STREAM_TOKEN_RECEIVED_INCREMENTALLY）
-      // 不需要设置 onStreamChunk 回调
+      // 酒馆环境：流式通过事件系统处理（STREAM_TOKEN_RECEIVED_INCREMENTALLY）
+      // 非酒馆环境（网页版自定义API）：需要设置 onStreamChunk 才能实时渲染
+      if (!isTavernEnvFlag) {
+        (options as any).onStreamChunk = (chunk: string) => {
+          if (!useStreaming.value || !chunk) return;
+          rawStreamingContent.value += chunk;
+          uiStore.setStreamingContent(rawStreamingContent.value);
+        };
+      }
+
       // 生成唯一的 generation_id
       const generationId = `gen_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       uiStore.setCurrentGenerationId(generationId);

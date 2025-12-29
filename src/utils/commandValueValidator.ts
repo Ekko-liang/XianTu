@@ -14,6 +14,35 @@ interface ValidationResult {
   errors: string[];
 }
 
+function coerceNumeric(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function coerceStringArray(value: unknown): string[] | null {
+  if (Array.isArray(value)) {
+    return value
+      .map((v) => (typeof v === 'string' ? v.trim() : ''))
+      .filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    // 兼容：用中文/英文分隔符拼接
+    return trimmed
+      .split(/[、,，;；\n]/)
+      .map((v) => v.trim())
+      .filter(Boolean);
+  }
+  return null;
+}
+
 /**
  * 验证指令值的格式（只验证，不修复）
  */
@@ -53,15 +82,23 @@ export function validateAndRepairCommandValue(command: TavernCommand): Validatio
     }
 
     // 6. NPC对象（创建或更新）
-    // 🔥 修复：只在创建新NPC时验证完整性，更新现有NPC时不验证
-    // 判断是否是创建新NPC：value包含多个必需字段（姓名、性别、年龄等）
+    // 🔥 只在“创建/完整覆盖NPC对象”时验证完整性；更新现有NPC时不验证
+    // 判断是否是创建新NPC：value包含多个核心字段（名字、性别、出生日期、外貌等）
     if (key.startsWith('人物关系.') && (key.match(/\./g) || []).length === 1 && action === 'set') {
-      // 检查是否是完整的NPC对象（包含姓名字段）
-      if (value && typeof value === 'object' && (value as any).姓名) {
+      const isLikelyFullNpcObject =
+        value &&
+        typeof value === 'object' &&
+        (value as any).名字 &&
+        (value as any).性别 &&
+        (value as any).出生日期 &&
+        ((value as any).外貌描述 || (value as any).性格特征 || (value as any).境界);
+
+      // 如果看起来是完整NPC对象，则执行完整性验证
+      if (isLikelyFullNpcObject) {
         const result = validateNPCObject(value);
         errors.push(...result.errors);
       }
-      // 如果不包含姓名字段，说明是部分更新，跳过验证
+      // 否则视为部分更新，跳过验证（避免误伤 set|人物关系.NPC|{"好感度":...} 之类的指令）
     }
 
     // 7. NPC境界对象
@@ -111,11 +148,15 @@ function validateRealmObject(value: any, type: '玩家' | 'NPC'): ValidationResu
   if (!value.阶段) errors.push('境界缺少"阶段"字段');
 
   // 可选字段类型检查（如果提供了就检查类型）
-  if (value.当前进度 !== undefined && typeof value.当前进度 !== 'number') {
-    errors.push('境界"当前进度"字段类型错误，应为数字');
+  if (value.当前进度 !== undefined) {
+    const numeric = coerceNumeric(value.当前进度);
+    if (numeric === null) errors.push('境界"当前进度"字段类型错误，应为数字');
+    else value.当前进度 = numeric;
   }
-  if (value.下一级所需 !== undefined && typeof value.下一级所需 !== 'number') {
-    errors.push('境界"下一级所需"字段类型错误，应为数字');
+  if (value.下一级所需 !== undefined) {
+    const numeric = coerceNumeric(value.下一级所需);
+    if (numeric === null) errors.push('境界"下一级所需"字段类型错误，应为数字');
+    else value.下一级所需 = numeric;
   }
   if (value.突破描述 !== undefined && typeof value.突破描述 !== 'string') {
     errors.push('境界"突破描述"字段类型错误，应为字符串');
@@ -237,9 +278,17 @@ function validateNPCObject(value: any): ValidationResult {
   }
 
   if (!value.出生) errors.push('NPC缺少"出生"字段');
+  if (value.性格特征 !== undefined) {
+    const coerced = coerceStringArray(value.性格特征);
+    if (coerced) value.性格特征 = coerced;
+  }
   if (!value.性格特征) errors.push('NPC缺少"性格特征"字段');
   if (!value.外貌描述) errors.push('NPC缺少"外貌描述"字段');
   if (!value.与玩家关系) errors.push('NPC缺少"与玩家关系"字段');
+  if (value.好感度 !== undefined) {
+    const numeric = coerceNumeric(value.好感度);
+    if (numeric !== null) value.好感度 = numeric;
+  }
   if (typeof value.好感度 !== 'number') errors.push('NPC缺少"好感度"字段或类型错误');
 
   // 可选字段验证
@@ -248,9 +297,17 @@ function validateNPCObject(value: any): ValidationResult {
   }
 
   if (value.私密信息 && typeof value.私密信息 === 'object') {
-    if (value.私密信息.身体部位 !== undefined && !Array.isArray(value.私密信息.身体部位)) {
-      errors.push('NPC私密信息.身体部位必须是数组类型');
+    if (value.私密信息.身体部位 !== undefined) {
+      const bp = value.私密信息.身体部位;
+      const ok = Array.isArray(bp) || (bp && typeof bp === 'object');
+      if (!ok) errors.push('NPC私密信息.身体部位必须是数组或对象类型');
     }
+  }
+
+  // 记忆字段容错：字符串 -> 数组
+  if (value.记忆 !== undefined && !Array.isArray(value.记忆)) {
+    const coerced = coerceStringArray(value.记忆);
+    if (coerced) value.记忆 = coerced;
   }
 
   return { valid: errors.length === 0, errors };

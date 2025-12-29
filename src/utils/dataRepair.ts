@@ -144,13 +144,25 @@ export function repairSaveData(saveData: SaveData | null | undefined): SaveData 
   if (!repaired.人物关系 || typeof repaired.人物关系 !== 'object') {
     repaired.人物关系 = {};
   } else {
-    // 清理无效NPC
+    // 清理并修复 NPC：允许缺少“名字”字段（用键名回填）
+    const raw = repaired.人物关系 as Record<string, unknown>;
     const validNpcs: Record<string, NpcProfile> = {};
-    for (const [name, npc] of Object.entries(repaired.人物关系)) {
-      if (npc && typeof npc === 'object' && (npc as any).名字) {
-        validNpcs[name] = repairNpc(npc as NpcProfile);
-      }
+
+    for (const [key, value] of Object.entries(raw)) {
+      // 跳过元数据（例如 _AI重要提醒）或其它非NPC键
+      if (key.startsWith('_')) continue;
+      if (!value || typeof value !== 'object') continue;
+
+      const npc = value as any;
+      const nameFromValue = typeof npc.名字 === 'string' ? npc.名字.trim() : '';
+      const nameFromKey = typeof key === 'string' ? key.trim() : '';
+      const finalName = nameFromValue || nameFromKey;
+      if (!finalName) continue;
+
+      npc.名字 = finalName;
+      validNpcs[finalName] = repairNpc(npc as NpcProfile);
     }
+
     repaired.人物关系 = validNpcs;
   }
 

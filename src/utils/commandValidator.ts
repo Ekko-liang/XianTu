@@ -255,8 +255,10 @@ function validateValueType(key: string, value: unknown, action: string): string[
       if (val.私密信息) {
         if (typeof val.私密信息 !== 'object' || val.私密信息 === null) {
           errors.push('NPC私密信息必须是对象类型');
-        } else if (val.私密信息.身体部位 !== undefined && !Array.isArray(val.私密信息.身体部位)) {
-          errors.push('NPC私密信息.身体部位必须是数组类型');
+        } else if (val.私密信息.身体部位 !== undefined) {
+          const bodyParts = val.私密信息.身体部位;
+          const ok = Array.isArray(bodyParts) || (bodyParts && typeof bodyParts === 'object');
+          if (!ok) errors.push('NPC私密信息.身体部位必须是数组或对象类型');
         }
       }
     }

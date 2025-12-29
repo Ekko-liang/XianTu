@@ -640,6 +640,23 @@ class AIService {
                   continue;
                 }
 
+                // 容错：部分模型可能不会输出 </thinking>，但会直接开始输出 ```json
+                // 此时为了避免把后续JSON也吞掉，检测到代码块起始后自动结束 thinking 过滤。
+                if (inThinkingTag) {
+                  const jsonFenceIndex = thinkingBuffer.indexOf('```json');
+                  const anyFenceIndex = thinkingBuffer.indexOf('```');
+                  const fenceIndex = jsonFenceIndex !== -1 ? jsonFenceIndex : anyFenceIndex;
+
+                  if (fenceIndex !== -1) {
+                    const carry = thinkingBuffer.slice(fenceIndex);
+                    inThinkingTag = false;
+                    thinkingBuffer = '';
+                    fullText += carry;
+                    if (onStreamChunk) onStreamChunk(carry);
+                    continue;
+                  }
+                }
+
                 if (!inThinkingTag) {
                   const possibleTagStart = '<thinking>'.startsWith(thinkingBuffer) ||
                                           '</thinking>'.startsWith(thinkingBuffer);

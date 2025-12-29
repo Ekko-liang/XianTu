@@ -195,6 +195,13 @@ const RELATIONS_STRUCTURE = `
 - **[正确]** 使用 set 操作创建完整的 NPC 对象，包含所有必需字段
 - **[错误]** 先创建空对象，再逐个添加字段
 - **[错误]** 只添加部分字段，缺少必需字段
+- **[强制]** NPC对象里必须包含 \`名字\` 字段，且与路径中的NPC名一致（\`set|人物关系.张三|{...\"名字\":\"张三\"...}\`）
+
+### ✅ 【NPC数量很多时的“最小可用字段”】
+当人物关系很多、上下文紧张时，允许精简描述性字段，但 **以下字段绝不能缺失**（否则前端可能无法展示/系统会清理为无效数据）：
+- \`名字\`、\`性别\`、\`出生日期\`、\`境界\`、\`与玩家关系\`、\`好感度\`
+- \`当前位置.描述\`、\`当前外貌状态\`、\`当前内心想法\`
+- \`记忆\`（数组，可为空数组）、\`背包\`、\`实时关注\`
 
 **示例 - 正确做法：**
 \`\`\`
@@ -237,7 +244,29 @@ set|人物关系.张三.名字|张三
   - 当前外貌状态: string (用set实时更新)
   - 当前内心想法: string (用set实时更新)
   - 背包: {灵石, 物品}
+  - 私密信息?: PrivacyProfile (NSFW；仅当 系统.nsfwMode=true 且 性别符合 系统.nsfwGenderFilter 才生成)
   - 实时关注: boolean
+
+### NSFW：PrivacyProfile（私密信息模块）
+- 是否为处女: boolean
+- 身体部位: [BodyPartDevelopment] (数组；每个元素都是对象)
+- 性格倾向: string
+- 性取向: string
+- 性癖好: [string]
+- 性渴望程度: number (0-100)
+- 当前性状态: string
+- 体液分泌状态: string
+- 性交总次数: number
+- 性伴侣名单: [string]
+- 最近一次性行为时间: string
+- 特殊体质: [string]
+
+### NSFW：BodyPartDevelopment（身体部位开发条目）
+- 部位名称: string (如：胸部/小穴/菊穴/嘴唇/耳朵等)
+- 敏感度: number (0-100)
+- 开发度: number (0-100；统一使用“开发度”字段名)
+- 特殊印记?: string
+- 特征描述: string
 `
 
 const MEMORY_STRUCTURE = `
@@ -353,6 +382,11 @@ const SYSTEM_CONFIG_STRUCTURE = `
 - nsfwGenderFilter: "all"|"female"|"male"
 `
 
+const BODY_PART_DEV_STRUCTURE = `
+## 10. 身体部位开发 (NSFW - Modifiable)
+- 身体部位开发?: {部位名称: {特征描述}} (仅NSFW；玩家身体部位开发的简化结构)
+`
+
 export const SAVE_DATA_STRUCTURE = `
 # 【数据结构定义】完整SaveData结构
 ${CHARACTER_STRUCTURE}
@@ -364,6 +398,7 @@ ${WORLD_INFO_STRUCTURE}
 ${GAME_STATE_STRUCTURE}
 ${QUEST_SYSTEM_STRUCTURE}
 ${SYSTEM_CONFIG_STRUCTURE}
+${BODY_PART_DEV_STRUCTURE}
 `.trim()
 
 export const DATA_STRUCTURE_EXAMPLES = ``

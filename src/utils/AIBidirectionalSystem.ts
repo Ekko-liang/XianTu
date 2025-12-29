@@ -1296,103 +1296,12 @@ ${saveDataJson}`;
     console.log('[parseAIResponse] 原始响应长度:', rawText.length);
     console.log('[parseAIResponse] 原始响应前500字符:', rawText.substring(0, 500));
 
-    // ==================== 新标签格式解析 ====================
-    // 尝试解析新的标签格式：<narrative>, <memory>, <commands>, <options>
-    const parseTagFormat = (text: string): GM_Response | null => {
-      // 提取 <narrative> 标签内容
-      const narrativeMatch = text.match(/<narrative>([\s\S]*?)<\/narrative>/i);
-      // 提取 <memory> 标签内容
-      const memoryMatch = text.match(/<memory>([\s\S]*?)<\/memory>/i);
-      // 提取 <commands> 标签内容
-      const commandsMatch = text.match(/<commands>([\s\S]*?)<\/commands>/i);
-      // 提取 <options> 标签内容
-      const optionsMatch = text.match(/<options>([\s\S]*?)<\/options>/i);
-
-      // 至少需要 narrative 标签才认为是标签格式
-      if (!narrativeMatch) {
-        return null;
-      }
-
-      console.log('[parseAIResponse] ✅ 检测到标签格式');
-
-      const narrative = narrativeMatch[1].trim();
-      const memory = memoryMatch ? memoryMatch[1].trim() : '';
-
-      // 解析 commands：每行一条，格式 操作|路径|值
-      const tavernCommands: Array<{action: "set" | "add" | "delete" | "push" | "pull"; key: string; value: any}> = [];
-      if (commandsMatch) {
-        const commandLines = commandsMatch[1].trim().split('\n');
-        for (const line of commandLines) {
-          const trimmedLine = line.trim();
-          if (!trimmedLine || trimmedLine.startsWith('[') || trimmedLine.startsWith('#')) continue;
-
-          // 格式：操作|路径|值
-          const parts = trimmedLine.split('|');
-          if (parts.length >= 2) {
-            const actionStr = parts[0].trim().toLowerCase();
-            const key = parts[1].trim();
-            let value: any = parts.slice(2).join('|').trim(); // 值可能包含 |
-
-            // 尝试解析值为JSON（对象或数组）
-            if (value.startsWith('{') || value.startsWith('[')) {
-              try {
-                value = JSON.parse(value);
-              } catch {
-                // 保持字符串格式
-              }
-            } else if (value === 'true') {
-              value = true;
-            } else if (value === 'false') {
-              value = false;
-            } else if (!isNaN(Number(value)) && value !== '') {
-              value = Number(value);
-            }
-
-            if (['set', 'add', 'push', 'delete', 'pull'].includes(actionStr)) {
-              tavernCommands.push({ action: actionStr as "set" | "add" | "delete" | "push" | "pull", key, value });
-            }
-          }
-        }
-        console.log(`[parseAIResponse] 解析到 ${tavernCommands.length} 条指令`);
-      }
-
-      // 解析 options：每行一个选项
-      let actionOptions: string[] = [];
-      if (optionsMatch) {
-        const optionLines = optionsMatch[1].trim().split('\n');
-        actionOptions = optionLines
-          .map(line => line.trim())
-          .filter(line => line && !line.startsWith('[') && !line.startsWith('#') && line.length > 2);
-      }
-
-      // 确保选项不为空
-      if (actionOptions.length === 0) {
-        console.warn('[parseAIResponse] ⚠️ options为空，使用默认选项');
-        actionOptions = [
-          '继续当前活动',
-          '观察周围环境',
-          '与附近的人交谈',
-          '查看自身状态',
-          '稍作休息调整'
-        ];
-      }
-
-      return {
-        text: narrative,
-        mid_term_memory: memory,
-        tavern_commands: tavernCommands,
-        action_options: actionOptions
-      };
-    };
-
-    // 优先尝试标签格式
-    const tagResult = parseTagFormat(rawText);
-    if (tagResult) {
-      return tagResult;
-    }
-
-    // ==================== 旧JSON格式解析（兼容） ====================
-    console.log('[parseAIResponse] 标签格式未匹配，尝试JSON格式');
+    // ==================== 旧JSON格式解析（稳定版） ====================
+    // 兼容形态：
+    // 1) 纯 JSON 文本
+    // 2) ```json ... ``` 代码块
+    // 3) 文本前后夹杂内容（比如 <thinking>...</thinking>），从中提取第一个完整 JSON 对象
+    console.log('[parseAIResponse] 使用JSON解析流程');
 
     const tryParse = (text: string): Record<string, unknown> | null => {
       try {
@@ -1500,7 +1409,7 @@ ${saveDataJson}`;
       }
     }
 
-    throw new Error('无法解析AI响应：未找到有效的标签格式或JSON格式');
+    throw new Error('无法解析AI响应：未找到有效的JSON格式');
   }
 }
 

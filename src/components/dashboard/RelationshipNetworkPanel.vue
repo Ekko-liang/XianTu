@@ -24,8 +24,13 @@
             </div>
             <div v-else-if="filteredRelationships.length === 0" class="empty-state">
               <Users2 :size="48" class="empty-icon" />
-              <p class="empty-text">{{ t('尚未建立人际关系') }}</p>
-              <p class="empty-hint">{{ t('在游戏中与更多人物互动建立关系') }}</p>
+              <p class="empty-text">
+                {{ relationshipStats.total > 0 ? '人物关系数据不完整或未能解析' : t('尚未建立人际关系') }}
+              </p>
+              <p class="empty-hint" v-if="relationshipStats.total > 0">
+                已检测到 {{ relationshipStats.total }} 条关系记录，但有效NPC为 0；建议继续进行一回合以触发数据修复，或在「调试信息」里执行同步/强制刷新。
+              </p>
+              <p class="empty-hint" v-else>{{ t('在游戏中与更多人物互动建立关系') }}</p>
             </div>
             <div v-else class="person-list">
               <div
@@ -228,20 +233,127 @@
 
                 <!-- Tab: 私密信息（仅酒馆环境） -->
                 <div v-if="isTavernEnvFlag" v-show="activeTab === 'nsfw'" class="tab-panel">
-                  <div class="detail-section">
+                  <div class="detail-section nsfw-section">
                     <h5 class="section-title">🔞 私密信息</h5>
 
                     <div v-if="!nsfwEnabled" class="bottomline-empty">
                       成人内容未启用（可在设置面板开启）
                     </div>
 
-                    <div v-else-if="selectedPerson?.私密信息" class="info-grid-responsive">
-                      <div class="info-item-row"><span class="info-label">是否为处女</span><span class="info-value">{{ selectedPerson.私密信息.是否为处女 ? '是' : '否' }}</span></div>
-                      <div class="info-item-row"><span class="info-label">性渴望程度</span><span class="info-value">{{ selectedPerson.私密信息.性渴望程度 }}</span></div>
-                      <div class="info-item-row"><span class="info-label">当前性状态</span><span class="info-value">{{ selectedPerson.私密信息.当前性状态 }}</span></div>
-                      <div class="info-item-row"><span class="info-label">体液分泌状态</span><span class="info-value">{{ selectedPerson.私密信息.体液分泌状态 }}</span></div>
-                      <div class="info-item-row"><span class="info-label">性交总次数</span><span class="info-value">{{ selectedPerson.私密信息.性交总次数 }}</span></div>
-                      <div class="info-item-row"><span class="info-label">特殊体质</span><span class="info-value">{{ (selectedPerson.私密信息.特殊体质 || []).join('、') || '无' }}</span></div>
+                    <div v-else-if="privacy">
+                      <!-- 概览 -->
+                      <div class="nsfw-subsection">
+                        <h6 class="subsection-title">概览</h6>
+
+                        <div class="info-grid-responsive">
+                          <div class="info-item-row"><span class="info-label">是否为处女</span><span class="info-value">{{ privacy.是否为处女 ? '是' : '否' }}</span></div>
+                          <div class="info-item-row"><span class="info-label">性格倾向</span><span class="info-value">{{ privacy.性格倾向 || '无' }}</span></div>
+                          <div class="info-item-row"><span class="info-label">性取向</span><span class="info-value">{{ privacy.性取向 || '无' }}</span></div>
+                          <div class="info-item-row"><span class="info-label">当前性状态</span><span class="info-value">{{ privacy.当前性状态 || '无' }}</span></div>
+                          <div class="info-item-row"><span class="info-label">体液分泌状态</span><span class="info-value"><span class="status-badge" :class="`status-${privacy.体液分泌状态 || '正常'}`">{{ privacy.体液分泌状态 || '正常' }}</span></span></div>
+                          <div class="info-item-row"><span class="info-label">性交总次数</span><span class="info-value">{{ privacy.性交总次数 ?? 0 }}</span></div>
+                        </div>
+
+                        <div class="development-bars" style="margin-top: 0.75rem;">
+                          <div class="dev-bar-item">
+                            <div class="dev-bar-header">
+                              <span class="dev-label">性渴望程度</span>
+                              <span class="dev-value">{{ privacy.性渴望程度 ?? 0 }}/100</span>
+                            </div>
+                            <div class="dev-bar-track">
+                              <div class="dev-bar-fill desire-fill" :style="{ width: `${clampPercent(privacy.性渴望程度)}%` }"></div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div v-if="privacyLastTime" class="last-time-info">
+                          <span class="last-time-label">最近一次：</span>
+                          <span class="last-time-value">{{ privacyLastTime }}</span>
+                        </div>
+                      </div>
+
+                      <!-- 偏好/体质 -->
+                      <div v-if="privacyFetishesAll.length || privacyTraitsAll.length" class="nsfw-subsection">
+                        <h6 class="subsection-title">偏好与体质</h6>
+                        <div v-if="privacyFetishesAll.length" class="bottomline-tags">
+                          <span v-for="(kink, index) in privacyFetishesAll" :key="`${kink}-${index}`" class="fetish-tag">{{ kink }}</span>
+                        </div>
+                        <div v-if="privacyTraitsAll.length" class="bottomline-tags" style="margin-top: 0.5rem;">
+                          <span v-for="(trait, index) in privacyTraitsAll" :key="`${trait}-${index}`" class="special-trait-tag">{{ trait }}</span>
+                        </div>
+                      </div>
+
+                      <!-- 性伴侣名单 -->
+                      <div v-if="privacyPartnersAll.length" class="nsfw-subsection">
+                        <h6 class="subsection-title">性伴侣名单</h6>
+                        <div class="bottomline-tags partner-list">
+                          <span v-for="(partner, index) in privacyPartners" :key="`${partner}-${index}`" class="partner-tag">{{ partner }}</span>
+                        </div>
+                        <button
+                          v-if="privacyPartnersAll.length > privacyPartners.length"
+                          class="toggle-more-btn"
+                          @click="showAllPrivacyPartners = true"
+                          type="button"
+                        >
+                          显示全部（{{ privacyPartnersAll.length }}）
+                        </button>
+                        <button
+                          v-else-if="privacyPartnersAll.length > privacyPartnersPreviewLimit && showAllPrivacyPartners"
+                          class="toggle-more-btn"
+                          @click="showAllPrivacyPartners = false"
+                          type="button"
+                        >
+                          收起
+                        </button>
+                      </div>
+
+                      <!-- 身体部位 -->
+                      <div v-if="privacyBodyPartsAll.length" class="nsfw-subsection">
+                        <h6 class="subsection-title">身体部位</h6>
+
+                        <div class="body-parts-list">
+                          <div v-for="(part, index) in privacyBodyParts" :key="`${part.部位名称}-${index}`" class="body-part-item">
+                            <div class="part-header">
+                              <span class="part-name">{{ part.部位名称 || `部位${index + 1}` }}</span>
+                              <span v-if="part.特殊印记" class="part-mark">{{ part.特殊印记 }}</span>
+                            </div>
+                            <div v-if="part.特征描述" class="part-description">{{ part.特征描述 }}</div>
+                            <div class="part-stats">
+                              <div class="part-stat">
+                                <span class="stat-label">敏感度</span>
+                                <div class="stat-bar-mini">
+                                  <div class="stat-bar-fill sensitivity" :style="{ width: `${clampPercent(part.敏感度)}%` }"></div>
+                                </div>
+                                <span class="stat-value">{{ part.敏感度 ?? 0 }}</span>
+                              </div>
+                              <div class="part-stat">
+                                <span class="stat-label">开发度</span>
+                                <div class="stat-bar-mini">
+                                  <div class="stat-bar-fill development" :style="{ width: `${clampPercent(part.开发度)}%` }"></div>
+                                </div>
+                                <span class="stat-value">{{ part.开发度 ?? 0 }}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          v-if="privacyBodyPartsAll.length > privacyBodyParts.length"
+                          class="toggle-more-btn"
+                          @click="showAllPrivacyBodyParts = true"
+                          type="button"
+                        >
+                          显示全部（{{ privacyBodyPartsAll.length }}）
+                        </button>
+                        <button
+                          v-else-if="privacyBodyPartsAll.length > privacyBodyPartsPreviewLimit && showAllPrivacyBodyParts"
+                          class="toggle-more-btn"
+                          @click="showAllPrivacyBodyParts = false"
+                          type="button"
+                        >
+                          收起
+                        </button>
+                      </div>
                     </div>
 
                     <div v-else class="bottomline-empty">
@@ -402,7 +514,7 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useActionQueueStore } from '@/stores/actionQueueStore';
 import { useI18n } from '@/i18n';
-import type { NpcProfile, Item } from '@/types/game';
+import type { NpcProfile, Item, BodyPartDevelopment, PrivacyProfile, SaveData } from '@/types/game';
 import type { SpiritRoot } from '@/types';
 import {
   Users2, Search,
@@ -414,7 +526,6 @@ import { useGameStateStore } from '@/stores/gameStateStore';
 import { getMemoryTime, getMemoryEvent } from '@/utils/memoryUtils';
 import { isTavernEnv } from '@/utils/tavern';
 import { cloneDeep } from 'lodash';
-import type { SaveData } from '@/types/game';
 
 /**
  * 提取NPC记忆总结所需的精简存档数据
@@ -439,6 +550,76 @@ function extractEssentialDataForNPCSummary(saveData: SaveData | null): SaveData 
   return simplified;
 }
 
+function clampPercent(value: unknown): number {
+  const numeric = typeof value === 'number' && Number.isFinite(value) ? value : 0;
+  return Math.max(0, Math.min(100, numeric));
+}
+
+function normalizeNonEmptyString(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function normalizeStringList(value: unknown): string[] {
+  const dedupe = (items: string[]) => {
+    const seen = new Set<string>();
+    return items.filter((item) => {
+      if (seen.has(item)) return false;
+      seen.add(item);
+      return true;
+    });
+  };
+
+  if (Array.isArray(value)) {
+    return dedupe(
+      value
+      .map((item) => (typeof item === 'string' ? item.trim() : ''))
+        .filter(Boolean),
+    );
+  }
+
+  const single = normalizeNonEmptyString(value);
+  if (!single) return [];
+
+  // 兼容旧数据：可能是“a、b、c”这种拼接字符串
+  if (/[、,，;；\n]/.test(single)) {
+    return dedupe(
+      single
+      .split(/[、,，;；\n]/)
+      .map((s) => s.trim())
+        .filter(Boolean),
+    );
+  }
+
+  return [single];
+}
+
+function normalizeBodyParts(value: unknown): BodyPartDevelopment[] {
+  if (Array.isArray(value)) {
+    const parts = value.filter((p): p is BodyPartDevelopment => typeof p === 'object' && p !== null);
+    const seen = new Set<string>();
+    return parts.filter((part, index) => {
+      const key = normalizeNonEmptyString((part as any).部位名称) ?? `__index_${index}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+  if (typeof value === 'object' && value !== null) {
+    const entries = Object.values(value as Record<string, unknown>);
+    const parts = entries.filter((p): p is BodyPartDevelopment => typeof p === 'object' && p !== null);
+    const seen = new Set<string>();
+    return parts.filter((part, index) => {
+      const key = normalizeNonEmptyString((part as any).部位名称) ?? `__index_${index}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+  return [];
+}
+
 // 🔥 新架构：从 gameStateStore 获取数据
 const gameStateStore = useGameStateStore();
 const isTavernEnvFlag = isTavernEnv();
@@ -451,6 +632,27 @@ const isLoading = ref(false);
 const selectedPerson = ref<NpcProfile | null>(null);
 const searchQuery = ref('');
 const isDetailViewActive = ref(false); // 用于移动端视图切换
+
+const privacy = computed<PrivacyProfile | null>(() => selectedPerson.value?.私密信息 ?? null);
+const privacyLastTime = computed(() => normalizeNonEmptyString(privacy.value?.最近一次性行为时间) ?? '');
+const privacyFetishesAll = computed(() => normalizeStringList(privacy.value?.性癖好));
+const privacyTraitsAll = computed(() => normalizeStringList(privacy.value?.特殊体质));
+
+const privacyPartnersPreviewLimit = 10;
+const showAllPrivacyPartners = ref(false);
+const privacyPartnersAll = computed(() => normalizeStringList(privacy.value?.性伴侣名单));
+const privacyPartners = computed(() =>
+  showAllPrivacyPartners.value ? privacyPartnersAll.value : privacyPartnersAll.value.slice(0, privacyPartnersPreviewLimit),
+);
+
+const privacyBodyPartsPreviewLimit = 6;
+const showAllPrivacyBodyParts = ref(false);
+const privacyBodyPartsAll = computed(() => normalizeBodyParts(privacy.value?.身体部位));
+const privacyBodyParts = computed(() =>
+  showAllPrivacyBodyParts.value
+    ? privacyBodyPartsAll.value
+    : privacyBodyPartsAll.value.slice(0, privacyBodyPartsPreviewLimit),
+);
 
 const nsfwEnabled = computed(() => {
   try {
@@ -618,32 +820,39 @@ const getNpcAge = (npc: NpcProfile | null): string => {
   return age > 0 ? `${age}岁` : '1岁以内';
 };
 
-// 类型守卫：判断值是否为有效的NpcProfile
-const isNpcProfile = (val: unknown): val is NpcProfile => {
-  if (!val || typeof val !== 'object' || val === null) {
-    return false;
+const relationshipStats = computed(() => {
+  const raw = characterData.value?.人物关系;
+  if (!raw || typeof raw !== 'object') {
+    return { total: 0, valid: 0, invalid: 0, list: [] as NpcProfile[] };
   }
-  const obj = val as Record<string, unknown>;
-  // 核心校验：只要有名字，就认为是有效的NPC Profile，以增强容错性
-  // 修复：使用更健壮的检查，防止原型链上的属性或非字符串类型导致问题
-  const isValid = Object.prototype.hasOwnProperty.call(obj, '名字') &&
-                  typeof obj.名字 === 'string' &&
-                  (obj.名字 as string).length > 0;
 
-  if (!isValid) {
-    console.warn('[人脉系统] 检测到无效的人物关系条目，已自动过滤:', val);
-  }
-  return isValid;
-};
+  const entries = Object.entries(raw as Record<string, unknown>).filter(([key]) => !key.startsWith('_'));
+  const total = entries.length;
+  const list: NpcProfile[] = [];
+  let invalid = 0;
 
-const relationships = computed<NpcProfile[]>(() => {
-  if (!characterData.value?.人物关系 || typeof characterData.value.人物关系 !== 'object') {
-    return [];
+  for (const [key, value] of entries) {
+    if (!value || typeof value !== 'object') {
+      invalid += 1;
+      continue;
+    }
+
+    const npc = value as any;
+    const nameFromValue = typeof npc.名字 === 'string' ? npc.名字.trim() : '';
+    const nameFromKey = typeof key === 'string' ? key.trim() : '';
+    const finalName = nameFromValue || nameFromKey;
+    if (!finalName) {
+      invalid += 1;
+      continue;
+    }
+
+    list.push({ ...npc, 名字: finalName } as NpcProfile);
   }
-  // 仅保留有效NPC
-  return Object.values(characterData.value.人物关系)
-    .filter(isNpcProfile);
+
+  return { total, valid: list.length, invalid, list };
 });
+
+const relationships = computed<NpcProfile[]>(() => relationshipStats.value.list);
 
 // 过滤后的关系列表（只保留搜索功能）
 const filteredRelationships = computed<NpcProfile[]>(() => {
@@ -2667,6 +2876,24 @@ const confirmDeleteNpc = (person: NpcProfile) => {
 
 .partner-list {
   margin-top: 0.75rem;
+}
+
+.toggle-more-btn {
+  margin-top: 0.75rem;
+  background: rgba(236, 72, 153, 0.08);
+  border: 1px solid rgba(236, 72, 153, 0.25);
+  color: #db2777;
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toggle-more-btn:hover {
+  background: rgba(236, 72, 153, 0.12);
+  border-color: rgba(236, 72, 153, 0.35);
 }
 
 .pregnancy-info {

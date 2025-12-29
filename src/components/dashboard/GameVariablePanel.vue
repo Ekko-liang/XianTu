@@ -126,7 +126,6 @@ const coreDataViews = computed(() => {
       [t('掌握技能')]: gameStateStore.masteredSkills,
       [t('系统')]: gameStateStore.systemConfig,
       [t('叙事历史')]: gameStateStore.narrativeHistory,
-      ...(isTavernEnvFlag ? { [t('身体部位开发')]: gameStateStore.bodyPartDevelopment } : {})
     },
     [t('角色数据')]: gameStateStore.character,
     [t('记忆数据')]: gameStateStore.memory,
@@ -164,7 +163,6 @@ const saveData = computed(() => {
     [t('掌握技能')]: gameStateStore.masteredSkills,
     [t('系统')]: gameStateStore.systemConfig,
     [t('叙事历史')]: gameStateStore.narrativeHistory,
-    ...(isTavernEnvFlag ? { [t('身体部位开发')]: gameStateStore.bodyPartDevelopment } : {})
   }
 })
 const worldInfo = computed(() => gameStateStore.worldInfo || {})
@@ -343,7 +341,6 @@ const saveVariable = async (item: EditingItem) => {
       '掌握技能': 'masteredSkills',
       '系统': 'systemConfig',
       '叙事历史': 'narrativeHistory',
-      '身体部位开发': 'bodyPartDevelopment'
     };
 
     // 查找匹配的前缀（只替换第一个匹配的前缀）

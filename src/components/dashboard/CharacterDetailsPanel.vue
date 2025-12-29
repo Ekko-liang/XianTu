@@ -339,31 +339,6 @@
             </div>
           </div>
 
-          <!-- 身体部位开发 -->
-          <div v-if="isTavernEnvFlag" class="info-section">
-            <h3 class="section-title">
-              <div class="title-icon">
-                <Sparkles :size="18" />
-              </div>
-              {{ t('身体部位开发') }}
-            </h3>
-            <div v-if="bodyParts.length" class="body-parts-list">
-              <div v-for="part in bodyParts" :key="part.name" class="body-part-item">
-                <div class="part-header">
-                  <span class="part-name">{{ part.name }}</span>                </div>
-                <div class="part-description">
-                  {{ part.description }}
-                </div>
-              </div>
-            </div>
-            <div v-else class="empty-state">
-              <div class="empty-icon">
-                <Sparkles :size="32" />
-              </div>
-              <span>{{ t('暂无数据') }}</span>
-            </div>
-          </div>
-
           <!-- 修炼功法 -->
           <div class="info-section">
             <h3 class="section-title">
@@ -858,7 +833,7 @@ import { useGameStateStore } from '@/stores/gameStateStore';
 import { isTavernEnv } from '@/utils/tavern';
 import { debug } from '@/utils/debug';
 import { calculateFinalAttributes } from '@/utils/attributeCalculation';
-import type { CharacterBaseInfo, DaoData, Item, SkillInfo, InnateAttributes, StatusEffect, ItemQuality, Realm, PlayerBodyPart, TechniqueSkill, GameTime, NpcProfile, TechniqueItem } from '@/types/game.d.ts';
+import type { CharacterBaseInfo, DaoData, Item, SkillInfo, InnateAttributes, StatusEffect, ItemQuality, Realm, TechniqueSkill, GameTime, NpcProfile, TechniqueItem } from '@/types/game.d.ts';
 import type { Origin, TalentTier, SpiritRoot } from '@/types';
 
 const calculateAgeFromBirthdate = (birthdate: GameTime, currentTime: GameTime): number => {
@@ -1026,21 +1001,6 @@ const acquiredAttributes = computed((): InnateAttributes => {
   if (!saveData.value) return defaultAttributes;
   const result = calculateFinalAttributes(innateAttributesWithDefaults.value, saveData.value);
   return result?.后天六司 || defaultAttributes;
-});
-
-const bodyParts = computed(() => {
-  const parts = saveData.value?.身体部位开发;
-  if (!parts || typeof parts !== 'object') return [];
-
-  return Object.entries(parts)
-    .filter(([, details]) => details && typeof details === 'object')
-    .map(([name, details]) => {
-      const part = details as PlayerBodyPart;
-      return {
-        name,
-        description: part.特征描述 || t('暂无描述'),
-      };
-    });
 });
 
 const hasTechniqueEffects = computed(() => {

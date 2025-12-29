@@ -21,10 +21,10 @@ export async function assembleSystemPrompt(activePrompts: string[], customAction
     textFormatsPrompt,
     worldStandardsPrompt
   ] = await Promise.all([
-    getPrompt('coreRules'),
+    getPrompt('coreOutputRules'),
     getPrompt('businessRules'),
     getPrompt('dataDefinitions'),
-    getPrompt('textFormats'),
+    getPrompt('textFormatRules'),
     getPrompt('worldStandards')
   ]);
 

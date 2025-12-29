@@ -109,6 +109,7 @@ export const NPC_RULES = `
 - **创建**: 必须一次性创建完整对象（见上方规则）。
 - **记忆**: 每次交互 push "【时间】事件摘要"。
 - **关系**: 实时更新好感度与关系状态。
+- **NSFW私密信息**：当 "系统.nsfwMode=true" 且 NPC 性别符合 "系统.nsfwGenderFilter" 时，创建NPC对象时同时生成完整 "私密信息(PrivacyProfile)"；否则不要输出 "私密信息" 字段。
 
 ## 5. NPC境界更新（重要！）
 **必须用 set 更新整个境界对象，不能单独更新子字段！**
@@ -361,4 +362,3 @@ export const PLAYER_AUTONOMY_RULES = `
 `.trim();
 
 // NSFW内容规则已移除 - 适用于国内版本
-

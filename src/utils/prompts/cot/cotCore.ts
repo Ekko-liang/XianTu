@@ -74,8 +74,8 @@ export function getCotCorePrompt(userInput: string, enableActionOptions: boolean
 - 核心场景: [本次重点描写什么]
 
 ## 8. 行动选项检查（必须！）
-- action_options 是必填字段，禁止省略或为空
-- 必须生成 3-5 个选项
+- 若系统启用“行动选项”功能：必须输出 action_options（3-5个选项）
+- 若未启用：不要输出 action_options 字段
 - 选项方向: [保守/中立/积极/特殊]
 - 预设选项: [列出将要生成的选项]
 </thinking>
@@ -85,20 +85,20 @@ export function getCotCorePrompt(userInput: string, enableActionOptions: boolean
 - 筑基+无需饮食睡眠，NPC有独立目标
 
 ## 🔄 数据同步铁律
-**叙事写了什么，<commands>就必须更新什么！**
+**叙事写了什么，tavern_commands 就必须更新什么！**
 
-- 场景变化 → set|玩家角色状态.位置|{描述,x,y}
-- 任何行动 → add|游戏时间.分钟|数值
-- NPC出场 → set|人物关系.NPC名.当前外貌状态|描述
-- NPC互动 → push|人物关系.NPC名.记忆|事件 + add|好感度|数值
+- 场景变化 → set 玩家角色状态.位置 {描述,x,y}
+- 任何行动 → add 游戏时间.分钟/小时
+- NPC出场 → set 人物关系.NPC名.当前外貌状态 / 当前内心想法
+- NPC互动 → push 人物关系.NPC名.记忆 + add 好感度
 
-## 🚨 输出格式（必须使用五个标签）
-按顺序输出五个标签：
-1. \`<thinking>\` - 思维链分析（先完成上方模板）
-2. \`<narrative>\` - 叙事文本（1500-2500字）
-3. \`<memory>\` - 事件摘要（50-100字）
-4. \`<commands>\` - 数据指令（每行一条）
-5. \`<options>\` - 行动选项（3-5个）
+## 🚨 输出格式（必须）
+1) 输出 \`<thinking>...</thinking>\`
+2) 输出 JSON 代码块，字段：
+- text（1500-2500字叙事）
+- mid_term_memory（50-100字摘要）
+- tavern_commands（指令数组）
+- action_options（仅在启用行动选项时输出）
 
 ${DICE_ROLLING_RULES}
 `;
