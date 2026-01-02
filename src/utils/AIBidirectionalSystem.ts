@@ -93,6 +93,11 @@ class AIBidirectionalSystemClass {
     character: CharacterProfile,
     options?: ProcessOptions & { generation_id?: string }
   ): Promise<GM_Response | null> {
+    console.log('[AI双向系统] processPlayerAction 接收到的options:', {
+      hasOnStreamChunk: !!options?.onStreamChunk,
+      useStreaming: options?.useStreaming,
+      splitResponseGeneration: options?.splitResponseGeneration
+    });
     const gameStateStore = useGameStateStore();
     const tavernHelper = getTavernHelper();
     const uiStore = useUIStore();

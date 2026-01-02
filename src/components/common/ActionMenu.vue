@@ -116,7 +116,8 @@ const offsetStyle = computed(() => {
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   z-index: 2;
-  min-width: 160px;
+  min-width: 180px;
+  white-space: nowrap;
 }
 
 :deep(.action-menu-item) {
@@ -132,9 +133,15 @@ const offsetStyle = computed(() => {
   transition: all 0.2s ease;
   text-align: left;
   width: 100%;
-  text-decoration: none; /* For <a> tags */
+  text-decoration: none;
   font-family: inherit;
   font-size: 0.95rem;
+  box-sizing: border-box;
+}
+
+/* 确保 <a> 标签作为菜单项时样式一致 */
+:deep(a.action-menu-item) {
+  display: flex;
 }
 
 :deep(.action-menu-item:hover) {

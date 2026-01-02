@@ -3,7 +3,6 @@
     <transition-group name="toast-fade" tag="div">
       <div v-for="toast in toasts" :key="toast.id" :class="['toast', `toast-${toast.type}`]">
         <div class="toast-icon">
-          <!-- You can use SVGs or an icon library here -->
           <span v-if="toast.type === 'success'">✅</span>
           <span v-else-if="toast.type === 'error'">❌</span>
           <span v-else-if="toast.type === 'warning'">⚠️</span>

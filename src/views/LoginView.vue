@@ -50,7 +50,7 @@
       </form>
 
       <div v-else class="form-actions">
-        <button type="button" @click="emit('back')" class="btn btn-secondary">{{ $t('??') }}</button>
+        <button type="button" @click="emit('back')" class="btn btn-secondary">{{ $t('返回') }}</button>
       </div>
     </div>
   </div>
@@ -106,6 +106,7 @@ const initTurnstile = async () => {
       theme: document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light',
       onSuccess: (token) => {
         turnstileToken.value = token;
+        error.value = null;
         if (pendingAutoLogin.value && !isRegisterMode.value && !isLoading.value) {
           pendingAutoLogin.value = false;
           void handleLogin();
@@ -116,6 +117,7 @@ const initTurnstile = async () => {
       },
       onError: () => {
         turnstileToken.value = '';
+        error.value = '无效域。如果此问题仍然存在，请与站点管理员联系。';
       },
     });
   } catch (e) {

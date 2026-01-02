@@ -4,10 +4,46 @@ import { buildBackendUrl, isBackendConfigured } from './backendConfig';
 
 // 后端API服务器地址
 
+const normalizeRequestErrorMessage = (message: string): string => {
+  const trimmed = message.trim();
+  if (!trimmed) {
+    return '网络连接失败或后端地址无效，请检查后端服务。';
+  }
+  const lower = trimmed.toLowerCase();
+  if (
+    lower.includes('failed to fetch') ||
+    lower.includes('networkerror') ||
+    lower.includes('fetch failed') ||
+    lower.includes('load failed')
+  ) {
+    return '网络连接失败或后端地址无效，请检查后端服务。';
+  }
+  if (lower.includes('invalid url')) {
+    return '后端地址无效，请检查配置后重试。';
+  }
+  return trimmed;
+};
+
+const shouldSkipAuthRedirect = (path: string): boolean =>
+  path.includes('/api/v1/auth/token') ||
+  path.includes('/api/v1/auth/register') ||
+  path.includes('/api/v1/auth/me');
+
+const redirectToLogin = () => {
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('username');
+  void import('@/router').then(({ default: router }) => {
+    if (router.currentRoute.value?.path !== '/login') {
+      void router.push('/login');
+    }
+  });
+};
+
 // 统一的请求函数
 export async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem('access_token');
   const headers = new Headers(options.headers || {});
+  let didToast = false;
 
   if (token) {
     headers.append('Authorization', `Bearer ${token}`);
@@ -53,7 +89,16 @@ export async function request<T>(url: string, options: RequestInit = {}): Promis
         errorMessage = rawText.substring(0, 100) || '无法解析服务器响应。';
       }
 
-      toast.error(errorMessage);
+      errorMessage = normalizeRequestErrorMessage(errorMessage);
+      if (response.status === 401 && !shouldSkipAuthRedirect(url)) {
+        errorMessage = '登录已失效或未登录，请先登录后再试。';
+        toast.info(errorMessage);
+        didToast = true;
+        redirectToLogin();
+      } else {
+        toast.error(errorMessage);
+        didToast = true;
+      }
       throw new Error(errorMessage);
     }
 
@@ -67,14 +112,16 @@ export async function request<T>(url: string, options: RequestInit = {}): Promis
 
   } catch (error) {
     console.error(`[Request] 网络层或未知错误 for url: ${url}`, error);
-    const errorMessage = error instanceof Error ? error.message : '网络连接失败，请检查天网灵脉。';
+    const errorMessage = normalizeRequestErrorMessage(
+      error instanceof Error ? error.message : '网络连接失败或后端地址无效，请检查后端服务。'
+    );
 
     // 避免重复显示由 !response.ok 块已经处理过的错误
-    if (!errorMessage.includes('服务器错误')) {
+    if (!didToast) {
       toast.error(errorMessage);
     }
 
-    throw error; // 重新抛出原始错误，以便调用者可以进一步处理
+    throw new Error(errorMessage); // 重新抛出，避免上层看到英文错误
   }
 }
 

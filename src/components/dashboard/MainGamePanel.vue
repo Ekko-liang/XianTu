@@ -1137,8 +1137,10 @@ const sendMessage = async () => {
       // 酒馆环境：流式通过事件系统处理（STREAM_TOKEN_RECEIVED_INCREMENTALLY）
       // 非酒馆环境（网页版自定义API）：需要设置 onStreamChunk 才能实时渲染
       if (!isTavernEnvFlag) {
+        console.log('[网页版流式] 设置 onStreamChunk 回调');
         (options as any).onStreamChunk = (chunk: string) => {
           if (!useStreaming.value || !chunk) return;
+          console.log('[网页版流式] 收到chunk:', chunk.length, '字符');
           rawStreamingContent.value += chunk;
           uiStore.setStreamingContent(rawStreamingContent.value);
         };

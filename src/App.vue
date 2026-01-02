@@ -83,18 +83,16 @@
 
     <!-- 路由视图将在这里渲染所有页面 -->
     <router-view v-slot="{ Component }">
-      <transition name="fade" mode="out-in">
-        <component
-          :is="Component"
-          @start-creation="handleStartCreation"
-          @show-character-list="handleShowCharacterList"
-          @back="handleBack"
-          @creation-complete="handleCreationComplete"
-          @loggedIn="handleLoggedIn"
-          @login="handleGoToLogin"
-          @show-help="showHelp"
-        />
-      </transition>
+      <component
+        :is="Component"
+        @start-creation="handleStartCreation"
+        @show-character-list="handleShowCharacterList"
+        @back="handleBack"
+        @creation-complete="handleCreationComplete"
+        @loggedIn="handleLoggedIn"
+        @login="handleGoToLogin"
+        @show-help="showHelp"
+      />
     </router-view>
 
     <!-- Settings Modal -->

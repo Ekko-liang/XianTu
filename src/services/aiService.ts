@@ -853,9 +853,11 @@ class AIService {
                                           '</thinking>'.startsWith(thinkingBuffer);
 
                   if (!possibleTagStart && thinkingBuffer.length > 0) {
+                    console.log('[AI服务-流式] 发送chunk到前端:', thinkingBuffer.length, '字符');
                     if (onStreamChunk) onStreamChunk(thinkingBuffer);
                     thinkingBuffer = '';
                   } else if (thinkingBuffer.length > 10) {
+                    console.log('[AI服务-流式] 发送chunk到前端(缓冲区过大):', thinkingBuffer.length, '字符');
                     if (onStreamChunk) onStreamChunk(thinkingBuffer);
                     thinkingBuffer = '';
                   }
