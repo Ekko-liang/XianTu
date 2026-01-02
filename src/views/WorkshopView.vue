@@ -157,7 +157,6 @@
 
       <div class="actions">
         <button class="btn btn-secondary" @click="goBack">返回</button>
-        <button class="btn" @click="activeTab = 'upload'">去上传</button>
       </div>
       </template>
 

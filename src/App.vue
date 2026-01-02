@@ -628,7 +628,9 @@ onMounted(async () => {
   await characterStore.initializeStore();
   console.log('[App] ✅ characterStore 初始化完成');
 
-  // 1. Iframe 高度适配 (主动查询父窗口模式)
+  // 1. Iframe 高度适配 (主动查询父窗口模式，支持多层iframe嵌套)
+  let targetParentWindow: Window | null = null; // 记录找到 #chat 的父窗口，用于后续清理
+
   const updateHeight = () => {
     try {
       // 检查是否在 iframe 中
@@ -636,28 +638,50 @@ onMounted(async () => {
         return;
       }
 
-      const externalDiv = $('#chat', parent.document);
-      if (externalDiv.length > 0) {
-        const height = externalDiv.height();
-        if (height) {
-          const calculatedHeight = height * 0.9;
-          const newMinHeight = `${calculatedHeight}px`;
-          document.documentElement.style.minHeight = newMinHeight;
-          console.log(`[App.vue] 主动查询父窗口#chat高度成功，应用min-height: ${newMinHeight}`);
+      // 向上遍历所有父窗口，最多5层，查找包含 #chat 的窗口
+      let currentWindow: Window = window;
+      for (let i = 0; i < 5; i++) {
+        try {
+          if (currentWindow.parent && currentWindow.parent !== currentWindow) {
+            const externalDiv = $('#chat', currentWindow.parent.document);
+            if (externalDiv.length > 0) {
+              const height = externalDiv.height();
+              if (height) {
+                const calculatedHeight = height * 0.9;
+                const newMinHeight = `${calculatedHeight}px`;
+                document.documentElement.style.minHeight = newMinHeight;
+                console.log(`[App.vue] 在第${i + 1}层父窗口找到#chat，应用min-height: ${newMinHeight}`);
+                targetParentWindow = currentWindow.parent;
+                return;
+              }
+            }
+            currentWindow = currentWindow.parent;
+          } else {
+            break;
+          }
+        } catch {
+          // 跨域访问失败，停止向上查找
+          break;
         }
-      } else {
-        console.warn('[App.vue] 在父窗口中未找到 #chat 元素，无法自动调整高度。');
       }
+      console.warn('[App.vue] 在所有可访问的父窗口中未找到 #chat 元素，无法自动调整高度。');
     } catch (e) {
-      console.error('[App.vue] 访问父窗口DOM失败，可能是跨域限制。请确保iframe与父页面同源。', e);
-      // 如果跨域，则停止后续尝试
-      $(parent.window).off('resize', updateHeight);
+      console.error('[App.vue] 访问父窗口DOM失败，可能是跨域限制。', e);
     }
   };
 
   // 初始化并监听父窗口大小变化
   updateHeight();
-  $(parent.window).on('resize', updateHeight);
+  // 尝试在找到 #chat 的父窗口上监听 resize，如果没找到则用直接父窗口
+  try {
+    if (targetParentWindow) {
+      $(targetParentWindow).on('resize', updateHeight);
+    } else if (window.parent !== window) {
+      $(parent.window).on('resize', updateHeight);
+    }
+  } catch {
+    // 跨域错误，忽略
+  }
 
   // 2. 主题已由 watchEffect 处理，此处无需操作
 
@@ -699,12 +723,14 @@ onMounted(async () => {
     // 清理定时保存定时器
     clearInterval(saveInterval);
     // 清理父窗口resize监听
-    if (window.parent !== window) {
-      try {
+    try {
+      if (targetParentWindow) {
+        $(targetParentWindow).off('resize', updateHeight);
+      } else if (window.parent !== window) {
         $(parent.window).off('resize', updateHeight);
-      } catch {
-        // 忽略跨域错误
       }
+    } catch {
+      // 忽略跨域错误
     }
     // 清理全屏监听
     document.removeEventListener('fullscreenchange', syncFullscreenState);

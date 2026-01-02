@@ -10,7 +10,7 @@
             {{ loggedIn ? '已登录' : '未登录' }}
           </span>
         </div>
-        <p class="subtitle">集中管理账号信息与后续扩展内容</p>
+        <p class="subtitle">集中管理账号信息</p>
       </div>
 
       <div v-if="!backendReady" class="backend-locked">
@@ -88,12 +88,6 @@ const sections = computed(() => {
       open: true,
       items: infoItems,
       emptyText: '未获取到账号信息',
-    },
-    {
-      title: '扩展信息',
-      open: false,
-      items: [],
-      emptyText: '后续内容将展示在此',
     },
   ];
 });

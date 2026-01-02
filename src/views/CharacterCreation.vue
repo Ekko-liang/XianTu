@@ -144,7 +144,7 @@ import RedemptionCodeModal from '../components/character-creation/RedemptionCode
 import { request } from '../services/request'
 import { toast } from '../utils/toast'
 import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue';
-import { getCurrentCharacterName } from '../utils/tavern';
+import { getCurrentCharacterName, isTavernEnv } from '../utils/tavern';
 import { useI18n } from '../i18n';
 import type { CharacterPreset } from '@/utils/presetManager';
 
@@ -448,7 +448,7 @@ async function createCharacter() {
   // 出身和灵根可以为空（表示随机选择）
   console.log('[DEBUG] selectedOrigin:', store.selectedOrigin, '(可为空，表示随机出生)');
   console.log('[DEBUG] selectedSpiritRoot:', store.selectedSpiritRoot, '(可为空，表示随机灵根)');
-  if (!store.isLocalCreation && !window.parent?.TavernHelper) {
+  if (!store.isLocalCreation && !isTavernEnv()) {
     console.log('[DEBUG] 验证失败：联机模式但非SillyTavern环境');
     toast.error('联机模式需要在SillyTavern扩展中运行。');
     return;

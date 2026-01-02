@@ -1,19 +1,43 @@
 import { aiService } from '@/services/aiService';
 import type { TavernHelper } from '@/types';
 
+/**
+ * 递归向上查找 TavernHelper，兼容多层 iframe 嵌套
+ * 最多查找 5 层，防止无限循环
+ */
 function getNativeTavernHelper(): any | null {
   if (typeof window === 'undefined') return null;
+
+  // 先检查当前 window
   if ((window as any).TavernHelper) return (window as any).TavernHelper;
+
   try {
-    if (window.parent && (window.parent as any).TavernHelper) {
-      return (window.parent as any).TavernHelper;
-    }
-    if (window.top && (window.top as any).TavernHelper) {
+    // 尝试直接访问 top（最顶层窗口）
+    if (window.top && window.top !== window && (window.top as any).TavernHelper) {
       return (window.top as any).TavernHelper;
     }
   } catch {
-    return null;
+    // 跨域访问失败，忽略
   }
+
+  // 逐层向上查找，最多 5 层
+  let currentWindow: Window = window;
+  for (let i = 0; i < 5; i++) {
+    try {
+      if (currentWindow.parent && currentWindow.parent !== currentWindow) {
+        if ((currentWindow.parent as any).TavernHelper) {
+          return (currentWindow.parent as any).TavernHelper;
+        }
+        currentWindow = currentWindow.parent;
+      } else {
+        break;
+      }
+    } catch {
+      // 跨域访问失败，停止向上查找
+      break;
+    }
+  }
+
   return null;
 }
 

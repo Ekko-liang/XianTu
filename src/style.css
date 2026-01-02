@@ -1,34 +1,34 @@
 /* --- Design Tokens (The Alchemist's Formula) --- */
 :root {
-  /* --- Light Theme Colors --- */
-  --color-background: #e8e6e3;
-  --color-background-transparent: rgba(232, 230, 227, 0.85);
-  --color-surface: #f2f1ee; /* 温润的米白色，类似古宣纸 */
-  --color-surface-transparent: rgba(242, 241, 238, 0.75);
-  --color-surface-light: #ebe9e6; /* 更温润的浅色 */
+  /* --- Light Theme Colors (柔和护眼版) --- */
+  --color-background: #d4d0c8; /* 更深的暖灰色背景 */
+  --color-background-transparent: rgba(212, 208, 200, 0.88);
+  --color-surface: #e6e2d9; /* 柔和的米黄色，降低亮度 */
+  --color-surface-transparent: rgba(230, 226, 217, 0.78);
+  --color-surface-light: #dcd8cf; /* 稍深的浅色 */
   /* Derived/interactive states (light) */
-  --color-surface-hover: #eeede9; /* 悬浮时的温润色 */
-  --color-primary: #2e5cb8;
-  --color-primary-rgb: 46, 92, 184;
-  --color-primary-hover: #274f9d;
-  --color-primary-active: #1f3f80;
+  --color-surface-hover: #d8d4cb; /* 悬浮时的柔和色 */
+  --color-primary: #1e4a9a; /* 更深的主色调 */
+  --color-primary-rgb: 30, 74, 154;
+  --color-primary-hover: #163d82;
+  --color-primary-active: #0f2f6a;
   /* Lighten variant used by some components */
-  --color-primary-light: rgba(46, 92, 184, 0.12);
-  --color-accent: #7c4dff;
-  --color-accent-hover: #6c3eff;
-  --color-accent-light: rgba(124, 77, 255, 0.15);
+  --color-primary-light: rgba(30, 74, 154, 0.15);
+  --color-accent: #6a3de0; /* 更深的强调色 */
+  --color-accent-hover: #5a2fd0;
+  --color-accent-light: rgba(106, 61, 224, 0.18);
   --color-text: #1a1a1a;
-  --color-text-secondary: #606060; /* 增强对比度 */
-  --color-text-muted: #757575; /* 增强对比度 */
-  --color-white-soft: #f2f1ee; /* 新增：温润的白色，替代纯白 */
-  --color-border: rgba(0, 0, 0, 0.1);
-  --color-border-hover: rgba(0, 0, 0, 0.2);
-  --color-success: #4caf50;
-  --color-success-hover: #43a047;
-  --color-warning: #ff9800;
-  --color-warning-hover: #fb8c00;
-  --color-error: #ff2929; /* 与气血统一，更红一些 */
-  --color-error-hover: #e6375a;
+  --color-text-secondary: #4a4a4a; /* 更深，提高对比度 */
+  --color-text-muted: #5a5a5a; /* 更深，提高对比度 */
+  --color-white-soft: #e6e2d9; /* 柔和的白色 */
+  --color-border: rgba(0, 0, 0, 0.15); /* 更明显的边框 */
+  --color-border-hover: rgba(0, 0, 0, 0.28);
+  --color-success: #2e8b32; /* 更深的绿色，提高可读性 */
+  --color-success-hover: #267529;
+  --color-warning: #e68a00; /* 更深的橙色 */
+  --color-warning-hover: #cc7a00;
+  --color-error: #dc2626; /* 更深的红色 */
+  --color-error-hover: #c22050;
   --color-info: #2196f3;
   --color-info-hover: #1e88e5;
   /* Keep danger alias for components that expect it */
@@ -50,13 +50,13 @@
   --vital-lifespan: #c253ff; /* 寿元(紫色) */
 
   /* Derived RGB triplets for rgba() usage (light) */
-  --color-background-rgb: 232, 230, 227;
-  --color-surface-rgb: 242, 241, 238;
-  --color-accent-rgb: 124, 77, 255;
+  --color-background-rgb: 212, 208, 200;
+  --color-surface-rgb: 230, 226, 217;
+  --color-accent-rgb: 106, 61, 224;
   --color-border-rgb: 0, 0, 0;
-  --color-success-rgb: 76, 175, 80;
-  --color-warning-rgb: 255, 152, 0;
-  --color-error-rgb: 255, 41, 41;
+  --color-success-rgb: 46, 139, 50;
+  --color-warning-rgb: 230, 138, 0;
+  --color-error-rgb: 220, 38, 38;
   --color-info-rgb: 33, 150, 243;
 
   /* UI缩放变量 */
@@ -560,13 +560,13 @@ body {
 
 .theme-toggle,
 .fullscreen-toggle {
-  --color: #a5a5b0;
+  --color: #555560;
   --size: 24px;
   width: 48px;
   height: 48px;
   border: none;
   border-radius: 12px;
-  background: rgba(242, 241, 238, 0.9); /* 使用更温润的背景色 */
+  background: rgba(230, 226, 217, 0.92); /* 使用更柔和的背景色 */
   backdrop-filter: blur(10px);
   cursor: pointer;
   display: flex;
@@ -574,7 +574,7 @@ body {
   justify-content: center;
   position: relative;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
   color: var(--color);
   font-size: var(--size);
   user-select: none;
@@ -584,8 +584,8 @@ body {
 .theme-toggle:hover,
 .fullscreen-toggle:hover {
   transform: translateY(-2px) scale(1.05);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-  background: rgba(242, 241, 238, 0.95); /* 悬浮时也使用温润背景色 */
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  background: rgba(220, 216, 207, 0.95); /* 悬浮时稍深 */
 }
 
 .theme-toggle:active,
