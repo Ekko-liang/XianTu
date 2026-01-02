@@ -560,8 +560,13 @@ const submitUpload = async () => {
 
   if (uploadType.value === 'saves') {
     const payload = uploadPayload.value as any;
-    if (payload?.type !== 'saves' || !Array.isArray(payload.saves)) {
-      toast.error('单机存档必须使用游戏导出的存档文件（type=saves）');
+    // 支持两种格式：
+    // 1. 存档文件: { type: 'saves', saves: [...] }
+    // 2. 角色文件: { type: 'character', character: { 存档列表: [...] } }
+    const isSavesFormat = payload?.type === 'saves' && Array.isArray(payload.saves);
+    const isCharacterFormat = payload?.type === 'character' && Array.isArray(payload.character?.存档列表);
+    if (!isSavesFormat && !isCharacterFormat) {
+      toast.error('单机存档必须使用游戏导出的存档或角色文件');
       return;
     }
   }
