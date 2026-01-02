@@ -155,7 +155,7 @@
         </div>
       </div>
 
-      <div class="actions">
+      <div v-if="activeTab !== 'upload'" class="actions">
         <button class="btn btn-secondary" @click="goBack">返回</button>
       </div>
       </template>
