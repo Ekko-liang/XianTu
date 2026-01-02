@@ -1,13 +1,13 @@
 /* --- Design Tokens (The Alchemist's Formula) --- */
 :root {
   /* --- Light Theme Colors (柔和护眼版) --- */
-  --color-background: #d4d0c8; /* 更深的暖灰色背景 */
-  --color-background-transparent: rgba(212, 208, 200, 0.88);
-  --color-surface: #e6e2d9; /* 柔和的米黄色，降低亮度 */
-  --color-surface-transparent: rgba(230, 226, 217, 0.78);
-  --color-surface-light: #dcd8cf; /* 稍深的浅色 */
+  --color-background: #e1ddd4; /* 枣米色基底，更轻柔 */
+  --color-background-transparent: rgba(225, 221, 212, 0.9);
+  --color-surface: #f1eee7; /* 主面板更亮，但不过分刺眼 */
+  --color-surface-transparent: rgba(241, 238, 231, 0.82);
+  --color-surface-light: #e7e3db; /* 略深一档做层次 */
   /* Derived/interactive states (light) */
-  --color-surface-hover: #d8d4cb; /* 悬浮时的柔和色 */
+  --color-surface-hover: #ebe7df; /* 悬浮时的柔和色 */
   --color-primary: #1e4a9a; /* 更深的主色调 */
   --color-primary-rgb: 30, 74, 154;
   --color-primary-hover: #163d82;
@@ -20,7 +20,7 @@
   --color-text: #1a1a1a;
   --color-text-secondary: #4a4a4a; /* 更深，提高对比度 */
   --color-text-muted: #5a5a5a; /* 更深，提高对比度 */
-  --color-white-soft: #e6e2d9; /* 柔和的白色 */
+  --color-white-soft: #f1eee7; /* 柔和的白色 */
   --color-border: rgba(0, 0, 0, 0.15); /* 更明显的边框 */
   --color-border-hover: rgba(0, 0, 0, 0.28);
   --color-success: #2e8b32; /* 更深的绿色，提高可读性 */
@@ -50,8 +50,8 @@
   --vital-lifespan: #c253ff; /* 寿元(紫色) */
 
   /* Derived RGB triplets for rgba() usage (light) */
-  --color-background-rgb: 212, 208, 200;
-  --color-surface-rgb: 230, 226, 217;
+  --color-background-rgb: 225, 221, 212;
+  --color-surface-rgb: 241, 238, 231;
   --color-accent-rgb: 106, 61, 224;
   --color-border-rgb: 0, 0, 0;
   --color-success-rgb: 46, 139, 50;
