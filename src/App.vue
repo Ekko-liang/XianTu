@@ -11,6 +11,7 @@
     />
     <DetailModal />
     <!-- 全局操作按钮 - 只在非游戏界面显示 -->
+    <!--
     <div v-if="!isInGameView" class="global-actions">
       <label class="theme-toggle" @click.prevent="toggleTheme">
         <input type="checkbox" ref="globalThemeCheckbox" :checked="!isDarkMode" />
@@ -48,6 +49,25 @@
         <HelpCircle :size="24" />
       </a>
     </div>
+    -->
+
+    <!-- 全局操作按钮（合并菜单） - 只在非游戏界面显示 -->
+    <ActionMenu v-if="!isInGameView" position="top-right" openTitle="功能" closeTitle="关闭">
+      <template #menu="{ close }">
+        <button class="action-menu-item" @click="toggleTheme(); close()">
+          <component :is="isDarkMode ? Sun : Moon" :size="18" />
+          <span>{{ isDarkMode ? '切换到亮色' : '切换到暗色' }}</span>
+        </button>
+        <button class="action-menu-item" @click="toggleFullscreen(); close()">
+          <component :is="isFullscreenMode ? Minimize2 : Maximize2" :size="18" />
+          <span>{{ isFullscreenMode ? '退出全屏' : '进入全屏' }}</span>
+        </button>
+        <button class="action-menu-item" @click="showHelp(); close()">
+          <HelpCircle :size="18" />
+          <span>教程 / 说明</span>
+        </button>
+      </template>
+    </ActionMenu>
 
     <!-- 路由视图将在这里渲染所有页面 -->
     <router-view v-slot="{ Component }">
@@ -60,6 +80,7 @@
           @creation-complete="handleCreationComplete"
           @loggedIn="handleLoggedIn"
           @login="handleGoToLogin"
+          @show-help="showHelp"
         />
       </transition>
     </router-view>
@@ -139,13 +160,14 @@
 import { ref, onMounted, onUnmounted, computed, watchEffect, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import $ from 'jquery'; // 导入 jQuery
-import { HelpCircle } from 'lucide-vue-next'; // 导入图标
+import { HelpCircle, Maximize2, Minimize2, Moon, Sun } from 'lucide-vue-next'; // 导入图标
 import ToastContainer from './components/common/ToastContainer.vue';
 import GlobalLoadingOverlay from './components/common/GlobalLoadingOverlay.vue';
 import RetryConfirmDialog from './components/common/RetryConfirmDialog.vue';
 import DataValidationErrorDialog from './components/common/DataValidationErrorDialog.vue';
 import StateChangeViewer from './components/common/StateChangeViewer.vue';
 import DetailModal from './components/common/DetailModal.vue';
+import ActionMenu from './components/common/ActionMenu.vue';
 import './style.css';
 import { useCharacterCreationStore } from './stores/characterCreationStore';
 import { useCharacterStore } from './stores/characterStore';
@@ -159,8 +181,6 @@ import type { CharacterCreationPayload, Talent, World, TalentTier } from '@/type
 // --- 响应式状态定义 ---
 const isLoggedIn = ref(false);
 const isDarkMode = ref(localStorage.getItem('theme') !== 'light');
-const globalThemeCheckbox = ref<HTMLInputElement>();
-const globalFullscreenCheckbox = ref<HTMLInputElement>();
 const isFullscreenMode = ref(localStorage.getItem('fullscreen') === 'true');
 const showAuthorModal = ref(false);
 const isTavernEnvFlag = ref(isTavernEnv());
@@ -426,10 +446,6 @@ watchEffect(() => {
   const theme = isDarkMode.value ? 'dark' : 'light';
   document.documentElement.setAttribute('data-theme', theme);
   localStorage.setItem('theme', theme);
-
-  if (globalThemeCheckbox.value) {
-    globalThemeCheckbox.value.checked = !isDarkMode.value;
-  }
 });
 
 const toggleTheme = () => {
@@ -526,10 +542,6 @@ onMounted(async () => {
     const isCurrentlyFullscreen = !!getFullscreenElement();
     isFullscreenMode.value = isCurrentlyFullscreen;
     localStorage.setItem('fullscreen', isCurrentlyFullscreen.toString());
-
-    if (globalFullscreenCheckbox.value) {
-      globalFullscreenCheckbox.value.checked = isCurrentlyFullscreen;
-    }
   };
 
   document.addEventListener('fullscreenchange', syncFullscreenState);

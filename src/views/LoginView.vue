@@ -40,7 +40,7 @@
         </div>
 
         <div class="form-actions">
-           <button type="button" @click="props.onBack" class="btn btn-secondary">{{ $t('返回') }}</button>
+           <button type="button" @click="emit('back')" class="btn btn-secondary">{{ $t('返回') }}</button>
            <button type="submit" class="btn" :class="{ 'is-loading': isLoading }" :disabled="isLoading">
              <span class="btn-text">{{ isRegisterMode ? $t('注册') : $t('登入') }}</span>
            </button>
@@ -62,11 +62,7 @@ import { toast } from '../utils/toast';
 import { request } from '../services/request';
 import { TURNSTILE_SITE_KEY, waitForTurnstile, renderTurnstile, resetTurnstile, removeTurnstile } from '../services/turnstile';
 
-const props = defineProps<{
-  onBack: () => void;
-}>();
-
-const emit = defineEmits(['loggedIn']);
+const emit = defineEmits(['loggedIn', 'back']);
 
 const username = ref('');
 const password = ref('');
@@ -93,10 +89,65 @@ const toggleMode = () => {
   resetTurnstile(turnstileWidgetId.value);
 };
 
+const initTurnstile = async () => {
+  if (!turnstileContainer.value) return;
+
+  turnstileLoadError.value = null;
+  const ok = await waitForTurnstile();
+  if (!ok) {
+    turnstileLoadError.value = 'Turnstile 加载失败，请检查网络或刷新页面后重试';
+    return;
+  }
+
+  try {
+    removeTurnstile(turnstileWidgetId.value);
+    turnstileWidgetId.value = renderTurnstile(turnstileContainer.value, {
+      siteKey: TURNSTILE_SITE_KEY,
+      theme: document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light',
+      onSuccess: (token) => {
+        turnstileToken.value = token;
+        if (pendingAutoLogin.value && !isRegisterMode.value && !isLoading.value) {
+          pendingAutoLogin.value = false;
+          void handleLogin();
+        }
+      },
+      onExpired: () => {
+        turnstileToken.value = '';
+      },
+      onError: () => {
+        turnstileToken.value = '';
+      },
+    });
+  } catch (e) {
+    console.error('[Turnstile] render failed:', e);
+    turnstileLoadError.value = 'Turnstile 渲染失败，请刷新页面后重试';
+  }
+};
+
+onMounted(() => {
+  void initTurnstile();
+});
+
+onBeforeUnmount(() => {
+  removeTurnstile(turnstileWidgetId.value);
+});
+
 const handleRegister = async () => {
   if (isLoading.value) return; // 防止重复提交
   if (password.value !== confirmPassword.value) {
     error.value = '两次输入的令牌不一致！';
+    return;
+  }
+
+  if (!turnstileToken.value) {
+    error.value = '请先完成 Cloudflare Turnstile 人机验证';
+    toast.error(error.value);
+    return;
+  }
+
+  if (!turnstileToken.value) {
+    error.value = '请先完成 Cloudflare Turnstile 人机验证';
+    toast.error(error.value);
     return;
   }
 
@@ -110,18 +161,21 @@ const handleRegister = async () => {
       body: JSON.stringify({
         user_name: username.value,
         password: password.value,
+        turnstile_token: turnstileToken.value,
       }),
     });
 
-    successMessage.value = '注册成功！正在为您登入...';
+    successMessage.value = '注册成功！请再次完成人机验证以自动登录...';
     toast.success('道号注册成功，欢迎踏入修仙之路！');
 
-    // 自动登录
-    setTimeout(() => {
-      handleLogin();
-    }, 1000);
+    // Turnstile token 通常为单次有效；注册成功后重置并等待新 token 再自动登录
+    pendingAutoLogin.value = true;
+    isRegisterMode.value = false;
+    turnstileToken.value = '';
+    resetTurnstile(turnstileWidgetId.value);
 
   } catch (e: unknown) {
+    pendingAutoLogin.value = false;
     let errorMessage = '一个未知的错误发生了';
     if (typeof e === 'object' && e !== null) {
       if ('detail' in e && typeof (e as any).detail === 'string') {
@@ -134,11 +188,19 @@ const handleRegister = async () => {
     toast.error(errorMessage);
   } finally {
     isLoading.value = false;
+    turnstileToken.value = '';
+    resetTurnstile(turnstileWidgetId.value);
   }
 };
 
 const handleLogin = async () => {
   if (isLoading.value) return; // 防止重复提交
+  if (!turnstileToken.value) {
+    error.value = '请先完成 Cloudflare Turnstile 人机验证';
+    toast.error(error.value);
+    return;
+  }
+
   isLoading.value = true;
   error.value = null;
   successMessage.value = null;
@@ -147,6 +209,7 @@ const handleLogin = async () => {
     const body = {
       username: username.value,
       password: password.value,
+      turnstile_token: turnstileToken.value,
     };
 
     const data = await request<any>('/api/v1/auth/token', {
@@ -165,6 +228,7 @@ const handleLogin = async () => {
     emit('loggedIn');
 
   } catch (e: unknown) {
+    pendingAutoLogin.value = false;
     let errorMessage = '一个未知的错误发生了';
     if (typeof e === 'object' && e !== null) {
       if ('detail' in e && typeof (e as any).detail === 'string') {
@@ -177,6 +241,8 @@ const handleLogin = async () => {
     toast.error(errorMessage);
   } finally {
     isLoading.value = false;
+    turnstileToken.value = '';
+    resetTurnstile(turnstileWidgetId.value);
   }
 };
 </script>
@@ -243,6 +309,25 @@ const handleLogin = async () => {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 10px rgba(var(--color-primary-rgb), 0.3);
+}
+
+.turnstile-group {
+  margin-top: 0.25rem;
+}
+
+.turnstile-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 72px;
+}
+
+.turnstile-hint {
+  margin-top: 0.5rem;
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
 }
 
 .error-message {

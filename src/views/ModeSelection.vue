@@ -66,15 +66,23 @@
       </div>
     </div>
 
-    <!-- 右下角设置按钮 -->
-    <button class="floating-settings-btn" @click="showSettings = true" :title="$t('设置')">
-      <Settings :size="22" />
-    </button>
-
-    <!-- 右下角游戏介绍按钮 -->
-    <button class="floating-intro-btn" @click="openGameIntro" :title="$t('游戏介绍')">
-      <BookOpen :size="22" />
-    </button>
+    <!-- 右下角功能入口（合并按钮） -->
+    <ActionMenu position="bottom-right">
+      <template #menu="{ close }">
+        <button class="action-menu-item" @click="openSettings(); close()">
+          <Settings :size="18" />
+          <span>{{ $t('设置') }}</span>
+        </button>
+        <button class="action-menu-item" @click="openWorkshop(); close()">
+          <Store :size="18" />
+          <span>{{ $t('创意工坊') }}</span>
+        </button>
+        <button class="action-menu-item" @click="openGameIntro(); close()">
+          <BookOpen :size="18" />
+          <span>{{ $t('游戏介绍') }}</span>
+        </button>
+      </template>
+    </ActionMenu>
 
     <!-- 设置模态框 -->
     <div v-if="showSettings" class="settings-modal-overlay" @click="showSettings = false">
@@ -95,9 +103,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
+import ActionMenu from '@/components/common/ActionMenu.vue';
 import VideoBackground from '@/components/common/VideoBackground.vue';
 import SettingsPanel from '@/components/dashboard/SettingsPanel.vue';
-import { Settings, X, Sparkles, History, User, Users, BookOpen } from 'lucide-vue-next';
+import { Settings, X, Sparkles, History, User, Users, BookOpen, Store } from 'lucide-vue-next';
 import { useUIStore } from '@/stores/uiStore';
 import { isTavernEnv } from '@/utils/tavern';
 
@@ -119,9 +129,11 @@ onMounted(async () => {
 const emit = defineEmits<{
   (e: 'start-creation', mode: 'single' | 'cloud'): void;
   (e: 'show-character-list'): void;
+  (e: 'show-help'): void;
 }>();
 
 const uiStore = useUIStore();
+const router = useRouter();
 
 const selectPath = (mode: 'single' | 'cloud') => {
   if (mode === 'cloud' && !isTavernEnvFlag.value) {
@@ -149,8 +161,16 @@ const startNewGame = () => {
   }
 };
 
+const openWorkshop = () => {
+  router.push('/workshop');
+};
+
 const openGameIntro = () => {
-  window.open('./游戏介绍.html', '_blank');
+  emit('show-help');
+};
+
+const openSettings = () => {
+  showSettings.value = true;
 };
 
 const enterCharacterSelection = async () => {
@@ -414,58 +434,6 @@ const enterCharacterSelection = async () => {
   color: var(--mode-selection-text-hover, #e2e8f0);
 }
 
-/* 浮动设置按钮 */
-.floating-settings-btn {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: var(--mode-selection-float-bg, rgba(30, 41, 59, 0.8));
-  backdrop-filter: blur(10px);
-  border: 1px solid var(--mode-selection-card-border, rgba(255, 255, 255, 0.08));
-  color: var(--mode-selection-subtitle, #94a3b8);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.25s ease;
-  z-index: 100;
-}
-
-.floating-settings-btn:hover {
-  background: var(--mode-selection-float-hover, rgba(51, 65, 85, 0.9));
-  color: var(--mode-selection-text-hover, #e2e8f0);
-  border-color: var(--mode-selection-accent, rgba(147, 197, 253, 0.2));
-}
-
-/* 浮动游戏介绍按钮 */
-.floating-intro-btn {
-  position: fixed;
-  bottom: 24px;
-  right: 84px;
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: var(--mode-selection-float-bg, rgba(30, 41, 59, 0.8));
-  backdrop-filter: blur(10px);
-  border: 1px solid var(--mode-selection-card-border, rgba(255, 255, 255, 0.08));
-  color: var(--mode-selection-subtitle, #94a3b8);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.25s ease;
-  z-index: 100;
-}
-
-.floating-intro-btn:hover {
-  background: var(--mode-selection-float-hover, rgba(51, 65, 85, 0.9));
-  color: var(--mode-selection-text-hover, #e2e8f0);
-  border-color: var(--mode-selection-accent, rgba(147, 197, 253, 0.2));
-}
-
 /* 设置模态框 */
 .settings-modal-overlay {
   position: fixed;
@@ -718,20 +686,6 @@ const enterCharacterSelection = async () => {
   .action-btn {
     padding: 0.7rem 1.2rem;
     font-size: 0.85rem;
-  }
-
-  .floating-settings-btn {
-    bottom: 12px;
-    right: 12px;
-    width: 40px;
-    height: 40px;
-  }
-
-  .floating-intro-btn {
-    bottom: 12px;
-    right: 60px;
-    width: 40px;
-    height: 40px;
   }
 
   .auth-status-badge {

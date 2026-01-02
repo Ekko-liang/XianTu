@@ -553,6 +553,25 @@
 
           <div class="setting-item">
             <div class="setting-info">
+              <label class="setting-name">{{ t('正则替换规则') }}</label>
+              <span class="setting-desc">{{ t('对AI输出进行替换：正则 / 纯文本（用于格式修正、屏蔽词替换等）') }}</span>
+            </div>
+            <div class="setting-control">
+              <button class="utility-btn" @click="showReplaceRulesModal = true">
+                {{ t('编辑规则') }} <span v-if="enabledReplaceRulesCount > 0">({{ enabledReplaceRulesCount }})</span>
+              </button>
+            </div>
+          </div>
+
+          <TextReplaceRulesModal
+            :open="showReplaceRulesModal"
+            :rules="settings.replaceRules"
+            @close="showReplaceRulesModal = false"
+            @save="handleSaveReplaceRules"
+          />
+
+          <div class="setting-item">
+            <div class="setting-info">
               <label class="setting-name">{{ t('提示词管理') }}</label>
               <span class="setting-desc">{{ t('自定义AI提示词和规则') }}</span>
             </div>
@@ -615,6 +634,8 @@ import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
 import { useI18n } from '@/i18n';
 import { aiService } from '@/services/aiService';
+import TextReplaceRulesModal from '@/components/common/TextReplaceRulesModal.vue';
+import type { TextReplaceRule } from '@/types/textRules';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -834,6 +855,7 @@ const settings = reactive({
   customStripRegex: '',
   customStripTags: '',
   customStripText: '',
+  replaceRules: [] as TextReplaceRule[],
 
   // 任务系统相关设置
   questSystemType: '修仙辅助系统', // 系统任务类型
@@ -851,6 +873,18 @@ const settings = reactive({
 
 const loading = ref(false);
 const hasUnsavedChanges = ref(false);
+const showReplaceRulesModal = ref(false);
+
+const enabledReplaceRulesCount = computed(() => {
+  const rules = (settings as any).replaceRules as TextReplaceRule[] | undefined;
+  if (!Array.isArray(rules)) return 0;
+  return rules.filter(r => r && r.enabled).length;
+});
+
+const handleSaveReplaceRules = (rules: TextReplaceRule[]) => {
+  (settings as any).replaceRules = rules;
+  onSettingChange();
+};
 
 // 监听所有设置变化
 watch(settings, () => {
@@ -1030,6 +1064,24 @@ const validateSettings = () => {
       (settings as any).customStripText = '';
     } else if ((settings as any).customStripText.length > 2000) {
       (settings as any).customStripText = (settings as any).customStripText.slice(0, 2000);
+    }
+
+    // 正则替换规则：确保结构正确并限制大小，避免卡顿/存储膨胀
+    const rawReplaceRules = (settings as any).replaceRules;
+    if (!Array.isArray(rawReplaceRules)) {
+      (settings as any).replaceRules = [];
+    } else {
+      (settings as any).replaceRules = rawReplaceRules.slice(0, 50).map((r: any, idx: number) => ({
+        id: typeof r?.id === 'string' ? r.id.slice(0, 80) : `rule_${idx}`,
+        enabled: r?.enabled !== false,
+        mode: r?.mode === 'text' ? 'text' : 'regex',
+        pattern: typeof r?.pattern === 'string' ? r.pattern.slice(0, 500) : '',
+        replacement: typeof r?.replacement === 'string' ? r.replacement.slice(0, 1500) : '',
+        ignoreCase: !!r?.ignoreCase,
+        global: r?.global !== false,
+        multiline: !!r?.multiline,
+        dotAll: !!r?.dotAll,
+      }));
     }
 
 

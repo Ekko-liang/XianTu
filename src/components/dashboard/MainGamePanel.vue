@@ -1565,8 +1565,16 @@ onMounted(async () => {
         // 🔥 创建事件处理函数并保存到全局
         const globalHandlers = globalWindowState[GLOBAL_HANDLERS_KEY] as Record<string, unknown>;
 
+        // 🔥 辅助函数：检查 generationId 是否匹配（支持分步生成的 _step1/_step2 后缀）
+        const isMatchingGenerationId = (eventId: string): boolean => {
+          const currentId = currentGenerationId.value;
+          if (!currentId || !eventId) return false;
+          // 精确匹配 或 分步生成后缀匹配（eventId 以 currentId 开头，后面是 _step）
+          return eventId === currentId || eventId.startsWith(currentId + '_step');
+        };
+
         globalHandlers.onGenerationStarted = (generationId: string) => {
-          if (generationId === currentGenerationId.value) {
+          if (isMatchingGenerationId(generationId)) {
             uiStore.setStreamingContent('');
             rawStreamingContent.value = '';
             console.log('[流式输出] GENERATION_STARTED - 已重置状态');
@@ -1574,7 +1582,7 @@ onMounted(async () => {
         };
 
         globalHandlers.onStreamToken = (chunk: string, generationId: string) => {
-          if (generationId === currentGenerationId.value && useStreaming.value && chunk) {
+          if (isMatchingGenerationId(generationId) && useStreaming.value && chunk) {
             // 增量追加到原始内容
             rawStreamingContent.value += chunk;
             uiStore.setStreamingContent(rawStreamingContent.value);
@@ -1582,7 +1590,7 @@ onMounted(async () => {
         };
 
         globalHandlers.onGenerationEnded = (generationId: string) => {
-          if (generationId === currentGenerationId.value) {
+          if (isMatchingGenerationId(generationId)) {
             console.log('[流式输出] GENERATION_ENDED 事件触发，清除AI处理状态');
             // 不在这里立即清除，让 sendMessage 的成功路径处理
             // 这里只是确保事件被触发的日志
