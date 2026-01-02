@@ -387,11 +387,16 @@ ${step1Text}
 请按“分步生成（第2步）”规则输出 JSON。
 `.trim();
 
+        if (useStreaming && options?.onStreamChunk) {
+          options.onStreamChunk('\n\n---\n\n**正在生成指令与记忆...**\n\n');
+        }
+
         response = await generateOnce({
           user_input: step2UserInput,
-          should_stream: false,
+          should_stream: useStreaming,
           generation_id: `${generationId}_step2`,
           injects: injectsStep2 as any,
+          onStreamChunk: options?.onStreamChunk,
         });
 
         let parsedStep2: GM_Response;
@@ -684,11 +689,16 @@ ${step1Text}
 请按“分步生成（开局-第2步）”规则输出 JSON。
         `.trim();
 
+        if (useStreaming && options?.onStreamChunk) {
+          options.onStreamChunk('\n\n---\n\n**正在生成指令与记忆...**\n\n');
+        }
+
         const step2Raw = await generateOnce({
           step: 2,
           system: await buildInitialSplitSystemPrompt(2),
           user: step2UserPrompt,
-          should_stream: false,
+          should_stream: useStreaming,
+          onStreamChunk: options?.onStreamChunk,
         });
 
         let parsedStep2: GM_Response;

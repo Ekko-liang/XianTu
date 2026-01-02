@@ -2,12 +2,8 @@
   <div class="toast-container">
     <transition-group name="toast-fade" tag="div">
       <div v-for="toast in toasts" :key="toast.id" :class="['toast', `toast-${toast.type}`]">
-        <div class="toast-icon">
-          <span v-if="toast.type === 'success'">✅</span>
-          <span v-else-if="toast.type === 'error'">❌</span>
-          <span v-else-if="toast.type === 'warning'">⚠️</span>
-          <span v-else-if="toast.type === 'info'">ℹ️</span>
-          <div v-else-if="toast.type === 'loading'" class="spinner"></div>
+        <div v-if="toast.type === 'loading'" class="toast-icon">
+          <div class="spinner"></div>
         </div>
         <div class="toast-message" v-html="toast.message"></div>
       </div>

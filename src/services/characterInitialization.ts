@@ -432,6 +432,17 @@ ${selectionsSummary}
   console.log(`[初始化] 可用大陆列表:`, worldContext.availableContinents.map(c => c.名称));
   console.log(`[初始化] 可用地点数量:`, worldContext.availableLocations?.length || 0);
 
+  let fullStreamingText = '';
+  const onStreamChunk = (chunk: string) => {
+    fullStreamingText += chunk;
+    // 只显示最后300个字符，避免遮挡loading界面
+    const displayWindow = fullStreamingText.length > 300 
+      ? '...' + fullStreamingText.slice(-300) 
+      : fullStreamingText;
+    // 使用 pre-wrap 样式保持换行
+    uiStore.updateLoadingText(`天道正在为你书写命运之章...<br/><br/><div style="text-align: left; font-size: 0.9em; opacity: 0.8; white-space: pre-wrap;">${displayWindow}</div>`);
+  };
+
   const initialMessageResponse = await robustAICall(
 async () => {
   console.log('[初始化] ===== 开始生成开场剧情 =====');
@@ -439,7 +450,11 @@ async () => {
   try {
     // 🔥 [新架构] 使用 AIBidirectionalSystem 生成初始消息
     const aiSystem = AIBidirectionalSystem;
-    const response = await aiSystem.generateInitialMessage(systemPrompt, userPrompt, { useStreaming, generateMode });
+    const response = await aiSystem.generateInitialMessage(systemPrompt, userPrompt, { 
+      useStreaming, 
+      generateMode,
+      onStreamChunk: onStreamChunk
+    });
 
     const elapsed = Date.now() - startTime;
     console.log(`[初始化] ✅ AI生成完成,耗时: ${elapsed}ms, 流式模式: ${useStreaming}, 生成模式: ${generateMode}`);

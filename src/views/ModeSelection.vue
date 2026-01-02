@@ -7,7 +7,7 @@
       <div class="header-container">
         <div class="title-version-row">
           <h1 class="main-title">仙 途</h1>
-          <span class="version-tag">V{{ appVersion }} {{ $t('正式版') }}</span>
+          <span class="version-tag">V{{ displayVersion }} {{ $t('正式版') }}</span>
         </div>
         <p class="sub-title">朝游北海暮苍梧，醉卧云霞食朝露</p>
         <!-- 酒馆环境指示器 -->
@@ -79,22 +79,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import VideoBackground from '@/components/common/VideoBackground.vue';
 import { Sparkles, History, User, Users } from 'lucide-vue-next';
 import { useUIStore } from '@/stores/uiStore';
 import { fetchBackendVersion, isBackendConfigured } from '@/services/backendConfig';
 
-const appVersion = ref(APP_VERSION);
+const backendVersion = ref<string | null>(null);
 
 const selectedMode = ref<'single' | 'cloud' | null>(null);
 const backendReady = ref(isBackendConfigured());
+const displayVersion = computed(() => (
+  backendReady.value ? (backendVersion.value ?? '同步中') : APP_VERSION
+));
 
 onMounted(async () => {
   if (!backendReady.value) return;
-  const backendVersion = await fetchBackendVersion();
-  if (backendVersion) {
-    appVersion.value = backendVersion;
+  const fetchedVersion = await fetchBackendVersion();
+  if (fetchedVersion) {
+    backendVersion.value = fetchedVersion;
   }
 });
 

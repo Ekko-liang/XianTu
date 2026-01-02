@@ -4,6 +4,7 @@ import CharacterCreation from '../views/CharacterCreation.vue';
 import LoginView from '../views/LoginView.vue';
 import WorkshopView from '../views/WorkshopView.vue';
 import GameView from '../views/GameView.vue';
+import AccountCenter from '../views/AccountCenter.vue';
 
 // 创建一个包装组件来传递fullscreen属性
 import { h } from 'vue';
@@ -67,6 +68,11 @@ const routes = [
     path: '/workshop',
     name: 'Workshop',
     component: WorkshopView,
+  },
+  {
+    path: '/account',
+    name: 'AccountCenter',
+    component: AccountCenter,
   },
   {
     // 提示词管理 - 独立顶级路由，不需要加载游戏数据

@@ -32,11 +32,12 @@
 
       <template v-else>
       <div class="tabs">
-        <button class="tab" :class="{ active: activeTab === 'browse' }" @click="activeTab = 'browse'">浏览</button>
-        <button class="tab" :class="{ active: activeTab === 'upload' }" @click="activeTab = 'upload'">上传</button>
+        <button class="tab" :class="{ active: activeTab === 'browse' }" @click="switchTab('browse')">浏览</button>
+        <button class="tab" :class="{ active: activeTab === 'mine' }" @click="switchTab('mine')">我的发布</button>
+        <button class="tab" :class="{ active: activeTab === 'upload' }" @click="switchTab('upload')">上传</button>
       </div>
 
-      <div v-if="activeTab === 'browse'" class="browse">
+      <div v-if="activeTab !== 'upload'" class="browse">
         <div class="filters">
           <select v-model="filterType" class="input">
             <option value="">全部类型</option>
@@ -45,8 +46,18 @@
             <option value="saves">单机存档</option>
             <option value="start_config">开局配置</option>
           </select>
-          <input v-model="query" class="input" placeholder="搜索标题 / 作者 / 说明" />
+          <input v-model="query" class="input" :placeholder="isMineTab ? '搜索标题 / 说明' : '搜索标题 / 作者 / 说明'" />
+          <select v-model.number="pageSize" class="input">
+            <option v-for="size in pageSizeOptions" :key="size" :value="size">
+              每页 {{ size }} 个
+            </option>
+          </select>
           <button class="btn btn-secondary" @click="refreshList" :disabled="loadingList">刷新</button>
+        </div>
+
+        <div v-if="isMineTab" class="manage-bar">
+          <div class="manage-title">我的发布管理</div>
+          <div class="manage-meta">仅显示自己发布的内容 · 共 {{ total }} 条</div>
         </div>
 
         <div v-if="loadingList" class="loading">加载中…</div>
@@ -69,8 +80,20 @@
               <span v-for="t in item.tags" :key="t" class="tag">{{ t }}</span>
             </div>
             <div class="item-actions">
-              <button class="btn" @click="openDownload(item.id)">下载</button>
+              <button class="btn btn-secondary" @click="openDownload(item.id)">下载</button>
+              <button v-if="isMineTab" class="btn danger" @click="deleteItem(item)">删除</button>
             </div>
+          </div>
+        </div>
+
+        <div v-if="totalPages > 1" class="pagination">
+          <div class="page-meta">
+            <span>共 {{ total }} 条</span>
+            <span>第 {{ page }} / {{ totalPages }} 页</span>
+          </div>
+          <div class="page-controls">
+            <button class="btn btn-secondary" @click="goPrevPage" :disabled="page <= 1">上一页</button>
+            <button class="btn" @click="goNextPage" :disabled="page >= totalPages">下一页</button>
           </div>
         </div>
       </div>
@@ -189,13 +212,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import VideoBackground from '@/components/common/VideoBackground.vue';
 import { verifyStoredToken } from '@/services/request';
 import { toast } from '@/utils/toast';
 import { promptStorage } from '@/services/promptStorage';
-import { createWorkshopItem, downloadWorkshopItem, listWorkshopItems, type WorkshopItemOut, type WorkshopItemType } from '@/services/workshop';
+import { createWorkshopItem, deleteWorkshopItem, downloadWorkshopItem, listMyWorkshopItems, listWorkshopItems, type WorkshopItemOut, type WorkshopItemType } from '@/services/workshop';
 import { useCharacterStore } from '@/stores/characterStore';
 import { fetchBackendVersion, isBackendConfigured } from '@/services/backendConfig';
 
@@ -203,11 +226,25 @@ const router = useRouter();
 const characterStore = useCharacterStore();
 
 const backendReady = ref(isBackendConfigured());
-const appVersion = ref(APP_VERSION);
+const backendVersion = ref<string | null>(null);
+const effectiveVersion = computed(() => {
+  if (!backendReady.value) {
+    return APP_VERSION;
+  }
+  return backendVersion.value ?? '';
+});
+const versionLabel = computed(() => effectiveVersion.value || '未知版本');
 
 const authState = ref<'checking' | 'authed' | 'unauthed'>('checking');
-const activeTab = ref<'browse' | 'upload'>('browse');
-
+const activeTab = ref<'browse' | 'upload' | 'mine'>('browse');
+const page = ref(1);
+const pageSize = ref(12);
+const total = ref(0);
+const pageSizeOptions = [8, 12, 20, 30];
+const listMode = computed(() => (activeTab.value === 'mine' ? 'mine' : 'browse'));
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)));
+const isMineTab = computed(() => activeTab.value === 'mine');
+const isListTab = computed(() => activeTab.value !== 'upload');
 const typeLabel: Record<string, string> = {
   settings: '设置',
   prompts: '提示词',
@@ -231,9 +268,9 @@ const refreshAuth = async () => {
 
 onMounted(async () => {
   if (!backendReady.value) return;
-  const backendVersion = await fetchBackendVersion();
-  if (backendVersion) {
-    appVersion.value = backendVersion;
+  const fetchedVersion = await fetchBackendVersion();
+  if (fetchedVersion) {
+    backendVersion.value = fetchedVersion;
   }
   void refreshAuth();
   void refreshList();
@@ -251,6 +288,14 @@ const goLogin = () => {
   router.push('/login');
 };
 
+const switchTab = (tab: 'browse' | 'upload' | 'mine') => {
+  if (tab === 'mine' && authState.value !== 'authed') {
+    goLogin();
+    return;
+  }
+  activeTab.value = tab;
+};
+
 // --- 浏览 ---
 const filterType = ref<WorkshopItemType | ''>('');
 const query = ref('');
@@ -260,18 +305,66 @@ const loadingList = ref(false);
 const refreshList = async () => {
   if (!backendReady.value) {
     items.value = [];
+    total.value = 0;
+    return;
+  }
+  if (listMode.value === 'mine' && authState.value !== 'authed') {
+    goLogin();
     return;
   }
   loadingList.value = true;
   try {
-    const res = await listWorkshopItems({ type: filterType.value, q: query.value, page: 1, pageSize: 20 });
+    const res = listMode.value === 'mine'
+      ? await listMyWorkshopItems({ type: filterType.value, q: query.value, page: page.value, pageSize: pageSize.value })
+      : await listWorkshopItems({ type: filterType.value, q: query.value, page: page.value, pageSize: pageSize.value });
     items.value = res.items || [];
+    total.value = res.total || 0;
   } catch (_e) {
     items.value = [];
+    total.value = 0;
   } finally {
     loadingList.value = false;
   }
 };
+
+const goPrevPage = () => {
+  if (page.value > 1) {
+    page.value -= 1;
+  }
+};
+
+const goNextPage = () => {
+  if (page.value < totalPages.value) {
+    page.value += 1;
+  }
+};
+
+watch(activeTab, () => {
+  page.value = 1;
+  if (isListTab.value) {
+    void refreshList();
+  }
+});
+
+watch(page, () => {
+  if (isListTab.value) {
+    void refreshList();
+  }
+});
+
+watch(pageSize, () => {
+  page.value = 1;
+  if (isListTab.value) {
+    void refreshList();
+  }
+});
+
+watch(filterType, () => {
+  page.value = 1;
+  if (isListTab.value) {
+    void refreshList();
+  }
+});
 
 // --- 下载/导入 ---
 const downloadModal = ref<{
@@ -309,6 +402,22 @@ const openDownload = async (itemId: number) => {
     closeDownloadModal();
   } finally {
     downloadModal.value.loading = false;
+  }
+};
+
+const deleteItem = async (item: WorkshopItemOut) => {
+  if (authState.value !== 'authed') {
+    goLogin();
+    return;
+  }
+  const ok = window.confirm(`确定删除「${item.title}」吗？删除后将无法恢复。`);
+  if (!ok) return;
+  try {
+    await deleteWorkshopItem(item.id);
+    toast.success('已删除');
+    await refreshList();
+  } catch (_e) {
+    // request.ts 已 toast
   }
 };
 
@@ -415,10 +524,10 @@ const loadLocalSettings = () => {
     const settings = JSON.parse(raw);
     uploadPayload.value = {
       settings,
-      exportInfo: { timestamp: new Date().toISOString(), version: appVersion.value, gameVersion: `仙途 v${appVersion.value}` },
+      exportInfo: { timestamp: new Date().toISOString(), version: versionLabel.value, gameVersion: `仙途 v${versionLabel.value}` },
     };
     payloadHint.value = '已从本地读取 dad_game_settings';
-    if (!uploadTitle.value) uploadTitle.value = `设置-${appVersion.value}`;
+    if (!uploadTitle.value) uploadTitle.value = `设置-${versionLabel.value}`;
   } catch (_e) {
     toast.error('读取本地设置失败');
   }
@@ -429,7 +538,7 @@ const loadLocalPrompts = async () => {
     const data = await promptStorage.exportAll();
     uploadPayload.value = data;
     payloadHint.value = '已从本地导出提示词';
-    if (!uploadTitle.value) uploadTitle.value = `提示词-${appVersion.value}`;
+    if (!uploadTitle.value) uploadTitle.value = `提示词-${versionLabel.value}`;
   } catch (_e) {
     toast.error('导出本地提示词失败');
   }
@@ -466,7 +575,7 @@ const submitUpload = async () => {
       description: uploadDesc.value.trim() || undefined,
       tags: parseTags(uploadTagsText.value),
       payload: uploadPayload.value,
-      game_version: `仙途 v${appVersion.value}`,
+      game_version: `仙途 v${versionLabel.value}`,
       data_version: '1',
     });
     toast.success('上传成功');
@@ -476,6 +585,7 @@ const submitUpload = async () => {
     uploadPayload.value = null;
     payloadHint.value = '';
     activeTab.value = 'browse';
+    page.value = 1;
     await refreshList();
   } catch (_e) {
     // request.ts 已 toast
@@ -500,15 +610,15 @@ const submitUpload = async () => {
 
 .workshop-panel {
   width: 100%;
-  max-width: 720px;
-  background: var(--mode-selection-bg, rgba(15, 23, 42, 0.75));
-  border: 1px solid var(--mode-selection-border, rgba(255, 255, 255, 0.08));
+  max-width: 1100px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 16px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   padding: 2.5rem;
-  color: var(--mode-selection-text, #e2e8f0);
+  color: var(--color-text);
 }
 
 .title-row {
@@ -522,7 +632,7 @@ const submitUpload = async () => {
   margin: 0;
   font-family: var(--font-family-serif);
   font-size: 2rem;
-  color: var(--mode-selection-accent, #93c5fd);
+  color: var(--color-primary);
 }
 
 .auth-pill {
@@ -531,25 +641,33 @@ const submitUpload = async () => {
   gap: 0.6rem;
   padding: 0.5rem 0.75rem;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  background: rgba(30, 41, 59, 0.50);
-  color: #e2e8f0;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-light);
+  color: var(--color-text);
   user-select: none;
   white-space: nowrap;
 }
 
 .auth-pill.ok {
-  border-color: rgba(34, 197, 94, 0.30);
+  border-color: var(--color-success);
+}
+
+.auth-pill.ok span {
+  color: var(--color-success);
 }
 
 .auth-pill.warn {
-  border-color: rgba(251, 191, 36, 0.25);
+  border-color: var(--color-warning);
+}
+
+.auth-pill.warn span:first-child {
+  color: var(--color-error);
 }
 
 .pill-link {
   border: none;
   background: transparent;
-  color: var(--mode-selection-accent, #93c5fd);
+  color: var(--color-primary);
   cursor: pointer;
   padding: 0;
 }
@@ -560,13 +678,13 @@ const submitUpload = async () => {
 
 .subtitle {
   margin: 0.75rem 0 0;
-  color: var(--mode-selection-subtitle, #94a3b8);
+  color: var(--color-text-secondary);
   line-height: 1.6;
 }
 
 .notice {
   margin: 0.6rem 0 0;
-  color: rgba(148, 163, 184, 0.9);
+  color: var(--color-text-muted);
   font-size: 0.92rem;
   line-height: 1.6;
 }
@@ -582,15 +700,16 @@ const submitUpload = async () => {
   flex: 1;
   padding: 0.9rem 1rem;
   border-radius: 10px;
-  border: 1px solid var(--mode-selection-card-border, rgba(255, 255, 255, 0.08));
-  background: rgba(51, 65, 85, 0.7);
-  color: #e2e8f0;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-light);
+  color: var(--color-text);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .btn:hover {
-  background: rgba(51, 65, 85, 0.9);
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-hover);
 }
 
 .btn:disabled {
@@ -599,15 +718,15 @@ const submitUpload = async () => {
 }
 
 .btn-secondary {
-  background: rgba(30, 41, 59, 0.6);
+  background: var(--color-surface);
 }
 
 .tabs {
   margin-top: 1.25rem;
   display: flex;
   gap: 0.75rem;
-  background: rgba(30, 41, 59, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 6px;
 }
@@ -618,32 +737,72 @@ const submitUpload = async () => {
   border-radius: 10px;
   border: 1px solid transparent;
   background: transparent;
-  color: rgba(226, 232, 240, 0.85);
+  color: var(--color-text-secondary);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .tab.active {
-  background: rgba(51, 65, 85, 0.75);
-  border-color: rgba(147, 197, 253, 0.22);
-  color: #e2e8f0;
+  background: var(--color-surface);
+  border-color: var(--color-primary);
+  color: var(--color-text);
 }
 
 .filters {
   margin-top: 1rem;
   display: grid;
-  grid-template-columns: 160px 1fr auto;
+  grid-template-columns: 160px 1fr 160px auto;
   gap: 0.75rem;
+  align-items: center;
+}
+
+.manage-bar {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.manage-title {
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.manage-meta {
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
 }
 
 .input {
   width: 100%;
   padding: 0.75rem 0.9rem;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  background: rgba(15, 23, 42, 0.35);
-  color: #e2e8f0;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
   outline: none;
+}
+
+select.input {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-right: 2.5rem;
+  cursor: pointer;
+}
+
+select.input option {
+  background: var(--color-surface);
+  color: var(--color-text);
+  padding: 0.5rem;
 }
 
 .textarea {
@@ -653,29 +812,29 @@ const submitUpload = async () => {
 
 .loading {
   margin-top: 1.25rem;
-  color: rgba(148, 163, 184, 0.9);
+  color: var(--color-text-secondary);
 }
 
 .empty {
   margin-top: 1.25rem;
   padding: 1rem 1.25rem;
   border-radius: 12px;
-  background: rgba(30, 41, 59, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
 }
 
 .item-list {
   margin-top: 1rem;
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 0.9rem;
 }
 
 .item-card {
   padding: 1rem 1.1rem;
   border-radius: 14px;
-  background: var(--mode-selection-card-bg, rgba(30, 41, 59, 0.45));
-  border: 1px solid var(--mode-selection-card-border, rgba(255, 255, 255, 0.06));
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
 }
 
 .item-top {
@@ -688,22 +847,22 @@ const submitUpload = async () => {
 .item-title {
   font-weight: 800;
   font-size: 1.05rem;
-  color: #e2e8f0;
+  color: var(--color-text);
 }
 
 .item-type {
   font-size: 0.85rem;
-  color: rgba(148, 163, 184, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.35);
+  background: var(--color-surface-light);
   white-space: nowrap;
 }
 
 .item-desc {
   margin-top: 0.5rem;
-  color: rgba(148, 163, 184, 0.95);
+  color: var(--color-text-secondary);
   line-height: 1.6;
 }
 
@@ -712,7 +871,7 @@ const submitUpload = async () => {
   display: flex;
   flex-wrap: wrap;
   gap: 0.9rem;
-  color: rgba(148, 163, 184, 0.9);
+  color: var(--color-text-muted);
   font-size: 0.9rem;
 }
 
@@ -727,23 +886,55 @@ const submitUpload = async () => {
   font-size: 0.8rem;
   padding: 0.2rem 0.55rem;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  background: rgba(15, 23, 42, 0.35);
-  color: rgba(226, 232, 240, 0.85);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-light);
+  color: var(--color-text-secondary);
 }
 
 .item-actions {
   margin-top: 0.9rem;
   display: flex;
   justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.btn.danger {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+
+.btn.danger:hover {
+  background: rgba(239, 68, 68, 0.18);
+}
+
+.pagination {
+  margin-top: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.page-meta {
+  display: flex;
+  gap: 1rem;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+}
+
+.page-controls {
+  display: flex;
+  gap: 0.75rem;
 }
 
 .upload-locked {
   margin-top: 1.25rem;
   padding: 1rem 1.25rem;
   border-radius: 14px;
-  background: rgba(30, 41, 59, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
 }
 
 .upload-form {
@@ -760,7 +951,7 @@ const submitUpload = async () => {
 }
 
 .label {
-  color: rgba(226, 232, 240, 0.85);
+  color: var(--color-text);
   font-weight: 700;
   font-size: 0.92rem;
   padding-top: 0.55rem;
@@ -780,7 +971,7 @@ const submitUpload = async () => {
 }
 
 .hint {
-  color: rgba(148, 163, 184, 0.9);
+  color: var(--color-text-muted);
   font-size: 0.9rem;
 }
 
@@ -803,8 +994,8 @@ const submitUpload = async () => {
   display: flex;
   flex-direction: column;
   border-radius: 14px;
-  background: rgba(15, 23, 42, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
 }
 
@@ -813,19 +1004,19 @@ const submitUpload = async () => {
   align-items: center;
   justify-content: space-between;
   padding: 1rem 1.1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .modal-header h3 {
   margin: 0;
   font-size: 1.05rem;
-  color: #e2e8f0;
+  color: var(--color-text);
 }
 
 .close-btn {
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(15, 23, 42, 0.55);
-  color: rgba(226, 232, 240, 0.9);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-light);
+  color: var(--color-text-secondary);
   width: 32px;
   height: 32px;
   border-radius: 10px;
@@ -840,13 +1031,13 @@ const submitUpload = async () => {
 .modal-info {
   padding: 0.9rem 1rem;
   border-radius: 12px;
-  background: rgba(30, 41, 59, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--color-surface-light);
+  border: 1px solid var(--color-border);
 }
 
 .modal-title {
   font-weight: 800;
-  color: #e2e8f0;
+  color: var(--color-text);
 }
 
 .modal-sub {
@@ -854,7 +1045,7 @@ const submitUpload = async () => {
   display: flex;
   flex-wrap: wrap;
   gap: 0.9rem;
-  color: rgba(148, 163, 184, 0.9);
+  color: var(--color-text-muted);
   font-size: 0.9rem;
 }
 
@@ -868,7 +1059,7 @@ const submitUpload = async () => {
 .import-saves {
   margin-top: 1rem;
   padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--color-border);
 }
 
 @media (max-width: 768px) {

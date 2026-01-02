@@ -62,6 +62,10 @@
           <Store :size="18" />
           <span>创意工坊</span>
         </button>
+        <button class="action-menu-item" :class="{ 'is-disabled': !backendReady }" @click="openAccountCenter(close)">
+          <UserCircle :size="18" />
+          <span>账号中心</span>
+        </button>
         <button class="action-menu-item" @click="toggleTheme(); close()">
           <component :is="isDarkMode ? Sun : Moon" :size="18" />
           <span>{{ isDarkMode ? '切换到亮色' : '切换到暗色' }}</span>
@@ -118,7 +122,7 @@
             <div class="game-title">
               <span class="title-icon">⚔️</span>
               <span class="title-text">仙途</span>
-              <span class="version-tag">v{{ appVersion }}</span>
+              <span class="version-tag">v{{ displayVersion }}</span>
             </div>
             <p class="game-subtitle">AI驱动的沉浸式修仙文字冒险</p>
           </div>
@@ -248,7 +252,7 @@
 import { ref, onMounted, onUnmounted, computed, watchEffect, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import $ from 'jquery'; // 导入 jQuery
-import { HelpCircle, Maximize2, Minimize2, Moon, Sun, Settings, Store, Globe } from 'lucide-vue-next'; // 导入图标
+import { HelpCircle, Maximize2, Minimize2, Moon, Sun, Settings, Store, Globe, UserCircle } from 'lucide-vue-next'; // 导入图标
 import ToastContainer from './components/common/ToastContainer.vue';
 import GlobalLoadingOverlay from './components/common/GlobalLoadingOverlay.vue';
 import RetryConfirmDialog from './components/common/RetryConfirmDialog.vue';
@@ -268,7 +272,7 @@ import { getFullscreenElement, isFullscreenEnabled, requestFullscreen, exitFulls
 import type { CharacterBaseInfo } from '@/types/game';
 import type { CharacterCreationPayload, Talent, World, TalentTier } from '@/types';
 
-const appVersion = ref(APP_VERSION);
+const backendVersion = ref<string | null>(null);
 
 // --- 响应式状态定义 ---
 const isLoggedIn = ref(false);
@@ -277,6 +281,9 @@ const isFullscreenMode = ref(localStorage.getItem('fullscreen') === 'true');
 const showAuthorModal = ref(false);
 const showSettingsModal = ref(false);
 const backendReady = ref(isBackendConfigured());
+const displayVersion = computed(() => (
+  backendReady.value ? (backendVersion.value ?? '同步中') : APP_VERSION
+));
 
 // --- 路由与视图管理 ---
 const router = useRouter();
@@ -364,6 +371,15 @@ const openWorkshop = (close: () => void) => {
     return;
   }
   router.push('/workshop');
+  close();
+};
+
+const openAccountCenter = (close: () => void) => {
+  if (!backendReady.value) {
+    toast.info('未配置后端服务器，账号中心不可用');
+    return;
+  }
+  router.push('/account');
   close();
 };
 
@@ -602,9 +618,9 @@ const showHelp = () => {
 // --- 生命周期钩子 ---
 onMounted(async () => {
   if (backendReady.value) {
-    const backendVersion = await fetchBackendVersion();
-    if (backendVersion) {
-      appVersion.value = backendVersion;
+    const fetchedVersion = await fetchBackendVersion();
+    if (fetchedVersion) {
+      backendVersion.value = fetchedVersion;
     }
   }
   // 0. 等待 characterStore 初始化完成（加载 IndexedDB 数据）

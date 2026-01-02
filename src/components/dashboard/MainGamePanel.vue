@@ -950,16 +950,29 @@ const retryAIResponse = async (
 上次响应的问题：${previousErrors.join(', ')}
 请修正这些问题并确保结构正确。`;
 
+      const options: Record<string, unknown> = {
+        onProgressUpdate: (progress: string) => {
+          console.log('[AI重试进度]', progress);
+        },
+        useStreaming: useStreaming.value, // 🔥 启用流式传输
+        generation_id: retryGenerationId  // 🔥 传递 generation_id
+      };
+
+      // 非酒馆环境（网页版自定义API）：需要设置 onStreamChunk 才能实时渲染
+      if (!isTavernEnvFlag) {
+        console.log('[网页版流式-重试] 设置 onStreamChunk 回调');
+        (options as any).onStreamChunk = (chunk: string) => {
+          if (!useStreaming.value || !chunk) return;
+          console.log('[网页版流式-重试] 收到chunk:', chunk.length, '字符');
+          rawStreamingContent.value += chunk;
+          uiStore.setStreamingContent(rawStreamingContent.value);
+        };
+      }
+
       const aiResponse = await bidirectionalSystem.processPlayerAction(
         enhancedMessage,
         character,
-        {
-          onProgressUpdate: (progress: string) => {
-            console.log('[AI重试进度]', progress);
-          },
-          useStreaming: useStreaming.value, // 🔥 启用流式传输
-          generation_id: retryGenerationId  // 🔥 传递 generation_id
-        }
+        options
       );
 
       if (aiResponse) {
