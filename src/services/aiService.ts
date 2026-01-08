@@ -5,6 +5,7 @@
  * 2. 自定义API模式（OpenAI兼容）
  */
 import axios from 'axios';
+import type { APIUsageType, APIConfig as StoreAPIConfig } from '@/stores/apiManagementStore';
 
 // ============ API提供商类型 ============
 export type APIProvider = 'openai' | 'claude' | 'gemini' | 'deepseek' | 'custom';
@@ -44,6 +45,8 @@ export interface GenerateOptions {
   ordered_prompts?: AIMessage[];
   should_stream?: boolean;
   generation_id?: string;
+  /** 功能类型，用于多API配置时选择对应的API，不填则使用主API */
+  usageType?: APIUsageType;
   injects?: Array<{
     content: string;
     role: 'system' | 'assistant' | 'user';
@@ -140,11 +143,54 @@ class AIService {
   }
 
   /**
+   * 根据 usageType 获取对应的 API 配置
+   * 返回 null 表示使用默认配置
+   */
+  private getAPIConfigForUsageType(usageType?: APIUsageType): StoreAPIConfig | null {
+    if (!usageType) return null;
+
+    try {
+      // 动态导入 store 避免循环依赖
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { useAPIManagementStore } = require('@/stores/apiManagementStore');
+      const apiStore = useAPIManagementStore();
+
+      // 获取该功能分配的 API
+      const apiConfig = apiStore.getAPIForType(usageType);
+      if (!apiConfig) return null;
+
+      // 如果是默认 API，返回 null 表示使用主配置
+      if (apiConfig.id === 'default') return null;
+
+      return apiConfig;
+    } catch (e) {
+      console.warn('[AI服务] 获取功能API配置失败，使用默认配置:', e);
+      return null;
+    }
+  }
+
+  /**
    * 标准生成（带角色卡、聊天历史）
    */
   async generate(options: GenerateOptions): Promise<string> {
     this.syncModeWithEnvironment();
-    console.log(`[AI服务] 调用generate，模式: ${this.config.mode}`);
+    console.log(`[AI服务] 调用generate，模式: ${this.config.mode}, usageType: ${options.usageType || '默认'}`);
+
+    // 检查是否需要使用特定功能的 API 配置
+    if (options.usageType && this.config.mode === 'custom') {
+      const apiConfig = this.getAPIConfigForUsageType(options.usageType);
+      if (apiConfig) {
+        console.log(`[AI服务] 使用功能[${options.usageType}]分配的API: ${apiConfig.name}`);
+        return this.generateWithAPIConfig(options, {
+          provider: apiConfig.provider,
+          url: apiConfig.url,
+          apiKey: apiConfig.apiKey,
+          model: apiConfig.model,
+          temperature: apiConfig.temperature,
+          maxTokens: apiConfig.maxTokens
+        });
+      }
+    }
 
     if (this.config.mode === 'tavern') {
       return this.generateWithTavern(options);
@@ -158,12 +204,113 @@ class AIService {
    */
   async generateRaw(options: GenerateOptions): Promise<string> {
     this.syncModeWithEnvironment();
-    console.log(`[AI服务] 调用generateRaw，模式: ${this.config.mode}`);
+    console.log(`[AI服务] 调用generateRaw，模式: ${this.config.mode}, usageType: ${options.usageType || '默认'}`);
+
+    // 检查是否需要使用特定功能的 API 配置
+    if (options.usageType && this.config.mode === 'custom') {
+      const apiConfig = this.getAPIConfigForUsageType(options.usageType);
+      if (apiConfig) {
+        console.log(`[AI服务] 使用功能[${options.usageType}]分配的API: ${apiConfig.name}`);
+        return this.generateRawWithAPIConfig(options, {
+          provider: apiConfig.provider,
+          url: apiConfig.url,
+          apiKey: apiConfig.apiKey,
+          model: apiConfig.model,
+          temperature: apiConfig.temperature,
+          maxTokens: apiConfig.maxTokens
+        });
+      }
+    }
 
     if (this.config.mode === 'tavern') {
       return this.generateRawWithTavern(options);
     } else {
       return this.generateRawWithCustomAPI(options);
+    }
+  }
+
+  /**
+   * 使用指定的API配置进行生成
+   * 适用于多API配置场景，可以为不同功能使用不同的API
+   */
+  async generateWithAPIConfig(
+    options: GenerateOptions,
+    apiConfig: {
+      provider: APIProvider;
+      url: string;
+      apiKey: string;
+      model: string;
+      temperature?: number;
+      maxTokens?: number;
+    }
+  ): Promise<string> {
+    console.log(`[AI服务] 使用指定API配置生成，provider: ${apiConfig.provider}, model: ${apiConfig.model}`);
+
+    // 临时保存当前配置（深拷贝以避免引用问题）
+    const originalConfig = this.config.customAPI ? { ...this.config.customAPI } : null;
+
+    try {
+      // 使用指定的API配置
+      this.config.customAPI = {
+        provider: apiConfig.provider,
+        url: apiConfig.url,
+        apiKey: apiConfig.apiKey,
+        model: apiConfig.model,
+        temperature: apiConfig.temperature ?? 0.7,
+        maxTokens: apiConfig.maxTokens ?? 16000
+      };
+
+      // 强制使用custom模式
+      const result = await this.generateWithCustomAPI(options);
+
+      return result;
+    } finally {
+      // 恢复原配置
+      if (originalConfig) {
+        this.config.customAPI = originalConfig;
+      }
+    }
+  }
+
+  /**
+   * 使用指定的API配置进行纯净生成（不带角色卡）
+   */
+  async generateRawWithAPIConfig(
+    options: GenerateOptions,
+    apiConfig: {
+      provider: APIProvider;
+      url: string;
+      apiKey: string;
+      model: string;
+      temperature?: number;
+      maxTokens?: number;
+    }
+  ): Promise<string> {
+    console.log(`[AI服务] 使用指定API配置进行纯净生成，provider: ${apiConfig.provider}, model: ${apiConfig.model}`);
+
+    // 临时保存当前配置（深拷贝以避免引用问题）
+    const originalConfig = this.config.customAPI ? { ...this.config.customAPI } : null;
+
+    try {
+      // 使用指定的API配置
+      this.config.customAPI = {
+        provider: apiConfig.provider,
+        url: apiConfig.url,
+        apiKey: apiConfig.apiKey,
+        model: apiConfig.model,
+        temperature: apiConfig.temperature ?? 0.7,
+        maxTokens: apiConfig.maxTokens ?? 16000
+      };
+
+      // 强制使用custom模式
+      const result = await this.generateRawWithCustomAPI(options);
+
+      return result;
+    } finally {
+      // 恢复原配置
+      if (originalConfig) {
+        this.config.customAPI = originalConfig;
+      }
     }
   }
 

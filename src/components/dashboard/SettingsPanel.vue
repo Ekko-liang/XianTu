@@ -97,15 +97,7 @@
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- 游戏设置 -->
-      <div class="settings-section">
-        <div class="section-header">
-          <h4 class="section-title">🎮 {{ t('游戏设置') }}</h4>
-        </div>
-        <div class="settings-list">
           <div class="setting-item">
             <div class="setting-info">
               <label class="setting-name">{{ t('快速动画') }}</label>
@@ -127,6 +119,30 @@
           <h4 class="section-title">🎮 {{ t('游戏功能') }}</h4>
         </div>
         <div class="settings-list">
+          <!-- 道号修改 -->
+          <div class="setting-item setting-item-full" v-if="currentPlayerName">
+            <div class="setting-info">
+              <label class="setting-name">{{ t('修改道号') }}</label>
+              <span class="setting-desc">{{ t('修改当前角色的名字') }}</span>
+            </div>
+            <div class="setting-control-full" style="display: flex; gap: 0.5rem">
+              <input
+                v-model="newPlayerName"
+                class="form-input-inline"
+                :placeholder="currentPlayerName"
+                style="flex: 1"
+              />
+              <button
+                class="utility-btn primary"
+                @click="updatePlayerName"
+                :disabled="!newPlayerName || newPlayerName === currentPlayerName"
+              >
+                <Save :size="16" />
+                {{ t('确认') }}
+              </button>
+            </div>
+          </div>
+
           <!-- 任务系统配置 -->
           <div class="setting-item">
             <div class="setting-info">
@@ -200,30 +216,6 @@
           <h4 class="section-title">🤖 {{ t('AI服务配置') }}</h4>
         </div>
         <div class="settings-list">
-          <!-- 道号修改 -->
-          <div class="setting-item setting-item-full" v-if="currentPlayerName">
-            <div class="setting-info">
-              <label class="setting-name">{{ t('修改道号') }}</label>
-              <span class="setting-desc">{{ t('修改当前角色的名字') }}</span>
-            </div>
-            <div class="setting-control-full" style="display: flex; gap: 0.5rem">
-              <input
-                v-model="newPlayerName"
-                class="form-input-inline"
-                :placeholder="currentPlayerName"
-                style="flex: 1"
-              />
-              <button
-                class="utility-btn primary"
-                @click="updatePlayerName"
-                :disabled="!newPlayerName || newPlayerName === currentPlayerName"
-              >
-                <Save :size="16" />
-                {{ t('确认') }}
-              </button>
-            </div>
-          </div>
-
           <div v-if="isTavernEnvFlag" class="setting-item">
             <div class="setting-info">
               <label class="setting-name">{{ t('AI模式') }}</label>
@@ -267,139 +259,14 @@
           <template v-if="!isTavernEnvFlag">
             <div class="setting-item">
               <div class="setting-info">
-                <label class="setting-name">{{ t('API提供商') }}</label>
-                <span class="setting-desc">{{ t('选择AI服务提供商') }}</span>
+                <label class="setting-name">{{ t('API配置管理') }}</label>
+                <span class="setting-desc">{{ t('配置多个API和功能分配') }}</span>
               </div>
               <div class="setting-control">
-                <select
-                  v-model="aiConfig.customAPI.provider"
-                  class="setting-select"
-                  @change="onProviderChange"
-                >
-                  <option value="openai">OpenAI</option>
-                  <option value="claude">Claude</option>
-                  <option value="gemini">Gemini</option>
-                  <option value="deepseek">DeepSeek</option>
-                  <option value="custom">{{ t('自定义(OpenAI兼容)') }}</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="setting-item setting-item-full">
-              <div class="setting-info">
-                <label class="setting-name">{{ t('API地址') }}</label>
-                <span class="setting-desc">{{
-                  aiConfig.customAPI.provider === 'custom'
-                    ? t('OpenAI兼容的API端点')
-                    : t('可使用默认地址或自定义代理')
-                }}</span>
-              </div>
-              <div class="setting-control-full">
-                <input
-                  v-model="aiConfig.customAPI.url"
-                  class="form-input-inline"
-                  :placeholder="
-                    API_PROVIDER_PRESETS[aiConfig.customAPI.provider]?.url ||
-                    'https://api.openai.com'
-                  "
-                />
-              </div>
-            </div>
-
-            <div class="setting-item setting-item-full">
-              <div class="setting-info">
-                <label class="setting-name">{{ t('API密钥') }}</label>
-                <span class="setting-desc">{{ t('您的API Key') }}</span>
-              </div>
-              <div class="setting-control-full">
-                <input
-                  v-model="aiConfig.customAPI.apiKey"
-                  type="password"
-                  class="form-input-inline"
-                  placeholder="sk-..."
-                />
-              </div>
-            </div>
-
-            <div class="setting-item">
-              <div class="setting-info">
-                <label class="setting-name">{{ t('模型名称') }}</label>
-                <span class="setting-desc">{{ t('使用的AI模型') }}</span>
-              </div>
-              <div class="setting-control model-control">
-                <input
-                  v-model="modelSearchQuery"
-                  type="search"
-                  class="form-input-inline model-search"
-                  :placeholder="t('搜索模型...')"
-                />
-                <div class="model-select-row">
-                  <select v-model="aiConfig.customAPI.model" class="setting-select">
-                    <option v-for="model in filteredModels" :key="model" :value="model">
-                      {{ model }}
-                    </option>
-                  </select>
-                  <button class="utility-btn" @click="fetchModels" :disabled="isFetchingModels">
-                    <RefreshCw :size="16" :class="{ 'loading-pulse': isFetchingModels }" />
-                    {{ isFetchingModels ? t('获取中...') : t('获取') }}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div class="setting-item">
-              <div class="setting-info">
-                <label class="setting-name">{{ t('AI API测试') }}</label>
-                <span class="setting-desc">{{ t('让AI仅返回“仙途本-连通测试-OK”，检测到即成功') }}</span>
-              </div>
-              <div class="setting-control" style="display: flex; gap: 0.5rem; align-items: center">
-                <button class="utility-btn" @click="testAIApi" :disabled="aiApiTestState === 'testing'">
-                  <FlaskConical :size="16" :class="{ 'loading-pulse': aiApiTestState === 'testing' }" />
-                  {{ aiApiTestState === 'testing' ? t('测试中...') : t('测试') }}
+                <button class="utility-btn primary" @click="openAPIManagement">
+                  <Plug :size="16" />
+                  {{ t('打开API管理') }}
                 </button>
-                <span v-if="aiApiTestState === 'success'" class="auth-status verified">{{ t('成功') }}</span>
-                <span v-else-if="aiApiTestState === 'fail'" class="auth-status unverified">{{ t('失败') }}</span>
-                <button v-if="aiApiTestState !== 'idle'" class="utility-btn" @click="openAIApiTestDetails">
-                  <FileText :size="16" />
-                  {{ t('详情') }}
-                </button>
-              </div>
-            </div>
-
-            <div class="setting-item">
-              <div class="setting-info">
-                <label class="setting-name">{{ t('温度参数') }}</label>
-                <span class="setting-desc">{{ t('控制输出随机性（0-2）') }}</span>
-              </div>
-              <div class="setting-control">
-                <div class="range-container">
-                  <input
-                    type="range"
-                    v-model.number="aiConfig.customAPI.temperature"
-                    min="0"
-                    max="2"
-                    step="0.1"
-                    class="setting-range"
-                  />
-                  <span class="range-value">{{ aiConfig.customAPI.temperature }}</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="setting-item">
-              <div class="setting-info">
-                <label class="setting-name">{{ t('最大Token数') }}</label>
-                <span class="setting-desc">{{ t('单次生成的最大长度') }}</span>
-              </div>
-              <div class="setting-control">
-                <input
-                  v-model.number="aiConfig.customAPI.maxTokens"
-                  type="number"
-                  class="setting-select"
-                  placeholder="2000"
-                  min="100"
-                  max="8000"
-                />
               </div>
             </div>
           </template>
@@ -484,6 +351,21 @@
               </select>
             </div>
           </div>
+
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-name">{{ t('使用系统CoT') }}</label>
+              <span class="setting-desc">{{
+                t('启用内置思维链提示词（关闭后使用预设中的CoT）')
+              }}</span>
+            </div>
+            <div class="setting-control">
+              <label class="setting-switch">
+                <input type="checkbox" v-model="uiStore.useSystemCot" />
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -538,21 +420,6 @@
 
           <div class="setting-item">
             <div class="setting-info">
-              <label class="setting-name">{{ t('使用系统CoT') }}</label>
-              <span class="setting-desc">{{
-                t('启用内置思维链提示词（关闭后使用预设中的CoT）')
-              }}</span>
-            </div>
-            <div class="setting-control">
-              <label class="setting-switch">
-                <input type="checkbox" v-model="uiStore.useSystemCot" />
-                <span class="switch-slider"></span>
-              </label>
-            </div>
-          </div>
-
-          <div class="setting-item">
-            <div class="setting-info">
               <label class="setting-name">{{ t('正则替换规则') }}</label>
               <span class="setting-desc">{{ t('对AI输出进行替换：正则 / 纯文本（用于格式修正、屏蔽词替换等）') }}</span>
             </div>
@@ -570,18 +437,20 @@
             @save="handleSaveReplaceRules"
           />
 
-          <div class="setting-item">
-            <div class="setting-info">
-              <label class="setting-name">{{ t('提示词管理') }}</label>
-              <span class="setting-desc">{{ t('自定义AI提示词和规则') }}</span>
+          <!-- API管理弹窗 -->
+          <Teleport to="body">
+            <div v-if="showAPIManagementModal" class="api-modal-overlay" @click="showAPIManagementModal = false">
+              <div class="api-modal-container" @click.stop>
+                <div class="api-modal-header">
+                  <h3>{{ t('API管理') }}</h3>
+                  <button class="close-btn" @click="showAPIManagementModal = false">✕</button>
+                </div>
+                <div class="api-modal-content">
+                  <APIManagementPanel />
+                </div>
+              </div>
             </div>
-            <div class="setting-control">
-              <button class="utility-btn" @click="openPromptManagement">
-                <FileText :size="16" />
-                {{ t('管理') }}
-              </button>
-            </div>
-          </div>
+          </Teleport>
 
           <div class="setting-item">
             <div class="setting-info">
@@ -629,13 +498,14 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, watch, computed } from 'vue';
-import { Save, RotateCcw, Trash2, Download, Upload, FileText, RefreshCw, FlaskConical } from 'lucide-vue-next';
+import { Save, RotateCcw, Trash2, Download, Upload, Plug } from 'lucide-vue-next';
 import { toast } from '@/utils/toast';
 import { debug } from '@/utils/debug';
 import { useI18n } from '@/i18n';
 import { aiService } from '@/services/aiService';
 import { vectorMemoryService } from '@/services/vectorMemoryService';
 import TextReplaceRulesModal from '@/components/common/TextReplaceRulesModal.vue';
+import APIManagementPanel from '@/components/dashboard/APIManagementPanel.vue';
 import type { TextReplaceRule } from '@/types/textRules';
 import { useCharacterStore } from '@/stores/characterStore';
 import { useGameStateStore } from '@/stores/gameStateStore';
@@ -874,7 +744,6 @@ const settings = reactive({
 
   // 游戏设置
   fastAnimations: false,
-  showHints: false,
   splitResponseGeneration: false,
 
   // 🔞 成人内容（仅酒馆环境可用；非酒馆环境将被忽略/隐藏）
@@ -891,20 +760,12 @@ const settings = reactive({
   // 任务系统相关设置
   questSystemType: '修仙辅助系统', // 系统任务类型
   questSystemPrompt: '', // 自定义任务提示词
-
-  // 游戏体验
-  enableSoundEffects: true,
-  backgroundMusic: true,
-  notificationSounds: true,
-
-  // 数据同步
-  validateData: true,
-  backupBeforeSave: true,
 });
 
 const loading = ref(false);
 const hasUnsavedChanges = ref(false);
 const showReplaceRulesModal = ref(false);
+const showAPIManagementModal = ref(false);
 
 const enabledReplaceRulesCount = computed(() => {
   const rules = (settings as any).replaceRules as TextReplaceRule[] | undefined;
@@ -1201,18 +1062,12 @@ const resetSettings = () => {
         uiScale: 100,
         fontSize: 16,
         fastAnimations: false,
-        showHints: false,
         splitResponseGeneration: false,
         debugMode: false,
         consoleDebug: false,
         performanceMonitor: false,
         questSystemType: '修仙辅助系统',
-        questSystemPrompt: '',
-        enableSoundEffects: true,
-        backgroundMusic: true,
-        notificationSounds: true,
-        validateData: true,
-        backupBeforeSave: true
+        questSystemPrompt: ''
       });
       saveSettings();
       toast.info('设置已重置为默认值');
@@ -1336,6 +1191,10 @@ const openPromptManagement = () => {
     // 不在游戏中（如首页），跳转到独立的提示词管理页面
     router.push('/prompts');
   }
+};
+
+const openAPIManagement = () => {
+  showAPIManagementModal.value = true;
 };
 
 import { useRouter } from 'vue-router';
@@ -1860,14 +1719,14 @@ input:checked + .switch-slider:before {
 }
 
 .utility-btn.primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--color-primary);
   color: white;
-  border-color: transparent;
+  border-color: var(--color-primary);
 }
 
 .utility-btn.primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  background: var(--color-primary-dark, #2563eb);
+  border-color: var(--color-primary-dark, #2563eb);
 }
 
 [data-theme='dark'] .form-input-inline {
@@ -1901,5 +1760,95 @@ input:checked + .switch-slider:before {
   50% {
     opacity: 0.4;
   }
+}
+
+/* API管理弹窗样式 */
+.api-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.api-modal-container {
+  background: var(--color-surface, #fff);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 900px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.api-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+  background: var(--color-surface-light, #f8fafc);
+}
+
+.api-modal-header h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-text, #1e293b);
+}
+
+.api-modal-header .close-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 1.25rem;
+  color: var(--color-text-secondary, #64748b);
+  transition: all 0.2s ease;
+}
+
+.api-modal-header .close-btn:hover {
+  background: var(--color-border, #e2e8f0);
+  color: var(--color-text, #1e293b);
+}
+
+.api-modal-content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.api-modal-content :deep(.api-management-panel) {
+  height: 100%;
+  max-height: 70vh;
+}
+
+[data-theme='dark'] .api-modal-container {
+  background: #1e293b;
+}
+
+[data-theme='dark'] .api-modal-header {
+  background: #334155;
+  border-bottom-color: #475569;
+}
+
+[data-theme='dark'] .api-modal-header h3 {
+  color: #f1f5f9;
+}
+
+[data-theme='dark'] .api-modal-header .close-btn {
+  color: #94a3b8;
+}
+
+[data-theme='dark'] .api-modal-header .close-btn:hover {
+  background: #475569;
+  color: #f1f5f9;
 }
 </style>

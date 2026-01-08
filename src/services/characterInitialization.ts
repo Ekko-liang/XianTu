@@ -335,16 +335,29 @@ async function generateWorld(baseInfo: CharacterBaseInfo, world: World): Promise
     主要势力: userWorldConfig.majorFactionsCount,
     地点总数: userWorldConfig.totalLocations,
     秘境数量: userWorldConfig.secretRealmsCount,
-    大陆数量: userWorldConfig.continentCount
+    大陆数量: userWorldConfig.continentCount,
+    仅生成大陆: userWorldConfig.generateOnlyContinents
   });
+
+  // 🔥 根据"仅生成大陆"配置决定是否生成势力和地点
+  const shouldGenerateFactions = !userWorldConfig.generateOnlyContinents;
+  const factionCount = shouldGenerateFactions ? (userWorldConfig.majorFactionsCount || 5) : 0;
+  const locationCount = shouldGenerateFactions ? (userWorldConfig.totalLocations || 12) : 0;
+  const secretRealmsCount = shouldGenerateFactions ? (userWorldConfig.secretRealmsCount || 5) : 0;
+
+  if (userWorldConfig.generateOnlyContinents) {
+    console.log('[世界生成] ✅ 开启"仅生成大陆"模式，势力、地点和秘境将在局内动态生成');
+  } else {
+    console.log('[世界生成] 📋 完整世界生成模式，将生成势力、地点和秘境');
+  }
 
   const enhancedConfig = {
     worldName: selectedWorld?.name || world.name,
     worldBackground: (selectedWorld?.description ?? world.description) ?? undefined,
     worldEra: (selectedWorld?.era ?? world.era) ?? undefined,
-    factionCount: userWorldConfig.majorFactionsCount || 5,      // 默认5个主要势力
-    locationCount: userWorldConfig.totalLocations || 12,        // 默认12个地点
-    secretRealmsCount: userWorldConfig.secretRealmsCount || 5,  // 默认5个秘境
+    factionCount: factionCount,
+    locationCount: locationCount,
+    secretRealmsCount: secretRealmsCount,
     continentCount: userWorldConfig.continentCount || 4,        // 默认4片大陆
     maxRetries: 3,
     retryDelay: 2000,
@@ -390,6 +403,7 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
   uiStore.updateLoadingText('天道正在为你书写命运之章...');
 
   // 🔥 现在baseInfo中的字段已经是完整对象了
+  const characterCreationStore = useCharacterCreationStore();
   const userSelections = {
     name: baseInfo.名字,
     gender: baseInfo.性别,
@@ -401,7 +415,8 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
     origin: baseInfo.出生,     // 现在是完整对象或"随机出身"
     spiritRoot: baseInfo.灵根, // 现在是完整对象或"随机灵根"
     talents: baseInfo.天赋 || [], // 现在是完整对象数组
-    attributes: (baseInfo.先天六司 || {}) as unknown as Record<string, number>
+    attributes: (baseInfo.先天六司 || {}) as unknown as Record<string, number>,
+    difficultyPrompt: characterCreationStore.currentDifficultyPrompt // 🔥 添加难度提示词
   };
 
   console.log('[初始化] 🔥 用户选择数据检查:');
@@ -410,6 +425,7 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
   console.log('  - 出身:', userSelections.origin);
   console.log('  - 灵根:', userSelections.spiritRoot);
   console.log('  - 天赋数量:', userSelections.talents?.length);
+  console.log('  - 难度:', characterCreationStore.gameDifficulty);
 
   // 🔥 准备世界上下文信息
   const tavernEnv = isTavernEnv();

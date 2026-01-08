@@ -104,7 +104,7 @@ import { X } from 'lucide-vue-next';
 import type { TechniqueItem } from '@/types/game';
 import { useI18n } from '@/i18n';
 
-const { t } = useI18n();
+const { t: _t } = useI18n();
 
 interface Props {
   visible: boolean;

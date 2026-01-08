@@ -27,14 +27,14 @@
             <line x1="12" y1="15" x2="12" y2="3"></line>
           </svg>
         </button>
-        <button class="action-btn-compact" @click="importPrompts" title="导入">
+        <button class="action-btn-compact" @click="importPrompts" title="导入" :disabled="isOnlineMode">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
             <polyline points="17 8 12 3 7 8"></polyline>
             <line x1="12" y1="3" x2="12" y2="15"></line>
           </svg>
         </button>
-        <button class="action-btn-compact primary" @click="saveAll" title="保存全部">
+        <button class="action-btn-compact primary" @click="saveAll" title="保存全部" :disabled="isOnlineMode">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
             <polyline points="17 21 17 13 7 13 7 21"></polyline>
@@ -42,6 +42,12 @@
           </svg>
         </button>
       </div>
+    </div>
+
+    <!-- 联机模式警告 -->
+    <div v-if="isOnlineMode" class="online-mode-warning">
+      <span class="warning-icon">🔒</span>
+      <span class="warning-text">联机模式下提示词仅供查看，无法编辑</span>
     </div>
 
     <div class="prompt-list">
@@ -87,9 +93,20 @@
                 <span class="prompt-title" :class="{ disabled: !prompt.enabled }">{{ prompt.name }}</span>
               </div>
               <div class="prompt-meta">
-                <span v-if="prompt.weight" class="prompt-weight" :class="getWeightClass(prompt.weight)">
-                  W{{ prompt.weight }}
-                </span>
+                <div v-if="prompt.weight !== undefined" class="weight-editor" @click.stop>
+                  <label class="weight-label">W</label>
+                  <input
+                    type="number"
+                    class="weight-input"
+                    :class="getWeightClass(prompt.weight)"
+                    :value="prompt.weight"
+                    min="1"
+                    max="10"
+                    :disabled="isOnlineMode"
+                    @change="updateWeight(prompt.key, Number(($event.target as HTMLInputElement).value))"
+                    @click.stop
+                  />
+                </div>
                 <span v-if="prompt.description" class="prompt-desc" :title="prompt.description">
                   {{ truncateText(prompt.description, 30) }}
                 </span>
@@ -107,11 +124,13 @@
                 @input="markModified(prompt.key)"
                 rows="20"
                 class="prompt-textarea"
+                :disabled="isOnlineMode"
+                :class="{ 'readonly-mode': isOnlineMode }"
               ></textarea>
               <div class="prompt-actions">
-                <button class="btn-small" @click="resetPrompt(prompt.key)">重置为默认</button>
+                <button class="btn-small" @click="resetPrompt(prompt.key)" :disabled="isOnlineMode">重置为默认</button>
                 <button class="btn-small" @click="exportSingle(prompt.key)">导出此项</button>
-                <button class="btn-small btn-primary" @click="saveSingle(prompt.key)">保存修改</button>
+                <button class="btn-small btn-primary" @click="saveSingle(prompt.key)" :disabled="isOnlineMode">保存修改</button>
               </div>
             </div>
           </div>
@@ -122,13 +141,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { promptStorage, type PromptItem, type PromptsByCategory } from '@/services/promptStorage';
 import { toast } from '@/utils/toast';
 import { createDadBundle, unwrapDadBundle } from '@/utils/dadBundle';
+import { useCharacterStore } from '@/stores/characterStore';
 
 const router = useRouter();
+const characterStore = useCharacterStore();
+
+// 检测是否为联机模式
+const isOnlineMode = computed(() => {
+  return characterStore.activeCharacterProfile?.模式 === '联机';
+});
 
 const promptsByCategory = ref<PromptsByCategory>({});
 const expandedPrompts = ref<Record<string, boolean>>({});
@@ -217,11 +243,30 @@ function markModified(key: string) {
   }
 }
 
+/**
+ * 更新提示词权重
+ */
+async function updateWeight(key: string, weight: number) {
+  // 验证权重范围
+  const clampedWeight = Math.min(10, Math.max(1, Math.round(weight)));
+
+  for (const categoryKey in promptsByCategory.value) {
+    const prompt = promptsByCategory.value[categoryKey].prompts.find(p => p.key === key);
+    if (prompt) {
+      prompt.weight = clampedWeight;
+      // 保存到存储（保留当前内容和启用状态）
+      await promptStorage.save(key, prompt.content, prompt.enabled, clampedWeight);
+      toast.success(`权重已更新为 ${clampedWeight}`);
+      break;
+    }
+  }
+}
+
 async function saveSingle(key: string) {
   for (const categoryKey in promptsByCategory.value) {
     const prompt = promptsByCategory.value[categoryKey].prompts.find(p => p.key === key);
     if (prompt) {
-      await promptStorage.save(key, prompt.content);
+      await promptStorage.save(key, prompt.content, prompt.enabled, prompt.weight);
       toast.success(`已保存: ${prompt.name}`);
       break;
     }
@@ -233,7 +278,7 @@ async function saveAll() {
   for (const categoryKey in promptsByCategory.value) {
     for (const prompt of promptsByCategory.value[categoryKey].prompts) {
       if (prompt.modified) {
-        await promptStorage.save(prompt.key, prompt.content);
+        await promptStorage.save(prompt.key, prompt.content, prompt.enabled, prompt.weight);
         savedCount++;
       }
     }
@@ -317,6 +362,39 @@ function downloadJSON(data: any, filename: string) {
   flex-direction: column;
   height: 100%;
   background: var(--color-background);
+}
+
+/* 联机模式警告样式 */
+.online-mode-warning {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: rgba(251, 191, 36, 0.15);
+  border-bottom: 1px solid rgba(251, 191, 36, 0.3);
+  color: #fbbf24;
+}
+
+.online-mode-warning .warning-icon {
+  font-size: 1rem;
+}
+
+.online-mode-warning .warning-text {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+/* 只读模式样式 */
+.prompt-textarea.readonly-mode {
+  opacity: 0.7;
+  cursor: not-allowed;
+  background: var(--color-surface-disabled, rgba(100, 100, 100, 0.1));
+}
+
+.btn-small:disabled,
+.action-btn-compact:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .panel-header.compact {
@@ -610,24 +688,66 @@ function downloadJSON(data: any, filename: string) {
   color: var(--color-warning);
 }
 
-.prompt-weight {
-  font-size: 0.7rem;
-  padding: 0.2rem 0.4rem;
-  border-radius: 4px;
-  font-weight: 600;
+/* 权重编辑器 */
+.weight-editor {
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
 
-.prompt-weight.weight-high {
+.weight-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.weight-input {
+  width: 36px;
+  height: 22px;
+  padding: 0 4px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-align: center;
+  background: transparent;
+  transition: all 0.2s;
+  -moz-appearance: textfield;
+}
+
+.weight-input::-webkit-outer-spin-button,
+.weight-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.weight-input:hover {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+}
+
+.weight-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  background: var(--color-surface);
+}
+
+.weight-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.weight-input.weight-high {
   background: rgba(239, 68, 68, 0.2);
   color: #ef4444;
 }
 
-.prompt-weight.weight-medium {
+.weight-input.weight-medium {
   background: rgba(234, 179, 8, 0.2);
   color: #eab308;
 }
 
-.prompt-weight.weight-low {
+.weight-input.weight-low {
   background: rgba(34, 197, 94, 0.2);
   color: #22c55e;
 }

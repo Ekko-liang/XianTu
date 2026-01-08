@@ -12,6 +12,7 @@ interface PromptsDB extends DBSchema {
       content: string;
       modified: boolean;
       enabled: boolean;
+      weight?: number; // 添加权重字段
       updatedAt: string;
     };
   };
@@ -68,6 +69,8 @@ class PromptStorage {
       const currentContent = saved?.content || defaults[key].content;
       // enabled 默认为 true，只有明确设置为 false 时才禁用
       const isEnabled = saved?.enabled !== false;
+      // 权重：优先使用用户保存的，否则使用默认值
+      const currentWeight = saved?.weight !== undefined ? saved.weight : defaults[key].weight;
       result[key] = {
         key,
         name: defaults[key].name,
@@ -78,7 +81,7 @@ class PromptStorage {
         category: defaults[key].category,
         description: defaults[key].description,
         order: defaults[key].order,
-        weight: defaults[key].weight
+        weight: currentWeight
       };
     }
 
@@ -124,13 +127,14 @@ class PromptStorage {
     return result;
   }
 
-  async save(key: string, content: string, enabled: boolean = true) {
+  async save(key: string, content: string, enabled: boolean = true, weight?: number) {
     await this.init();
     await this.db!.put('prompts', {
       key,
       content,
       modified: true,
       enabled,
+      weight,
       updatedAt: new Date().toISOString()
     });
   }

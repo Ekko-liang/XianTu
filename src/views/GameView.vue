@@ -144,7 +144,7 @@ import { useCharacterStore } from '@/stores/characterStore';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useRouter, useRoute } from 'vue-router';
-import { X, Package, User, Brain, Users, BookOpen, Zap, Settings, Save, Map, Scroll, Home, Box, Users2, Database, RefreshCw, FlaskConical, Trash2, BarChart3, Coins } from 'lucide-vue-next';
+import { X, Package, User, Brain, Users, BookOpen, Zap, Settings, Save, Map, Scroll, Home, Box, Users2, Database, RefreshCw, FlaskConical, Trash2, BarChart3, Coins, FileText, Plug } from 'lucide-vue-next';
 import { panelBus, type PanelAction } from '@/utils/panelBus';
 import { detectSectMigration } from '@/utils/sectMigration';
 import TopBar from '@/components/dashboard/TopBar.vue'
@@ -218,7 +218,13 @@ const maybePromptSectMigration = () => {
 const panelRoutes = new Set([
   'Inventory', 'CharacterDetails', 'Memory', 'Relationships',
   'Cultivation', 'Techniques', 'ThousandDao', 'Settings', 'Save', 'WorldMap',
-  'Quests', 'Sect', 'SectOverview', 'SectMembers', 'SectMissions', 'SectLibrary', 'SectContribution', 'GameVariables'
+  'Quests', 'Sect', 'SectOverview', 'SectMembers', 'SectMissions', 'SectLibrary', 'SectContribution', 'GameVariables',
+  'Prompts', 'APIManagement'
+]);
+
+// 不需要角色数据就能访问的面板（设置类）
+const noDataRequiredRoutes = new Set([
+  'Settings', 'Prompts', 'APIManagement'
 ]);
 
 // 右侧相关面板（应该影响右侧收缩按钮）
@@ -247,7 +253,9 @@ const panelTitles: Record<string, { title: string; icon: IconComponent }> = {
   SectMissions: { title: '宗门任务', icon: Scroll },
   SectLibrary: { title: '宗门藏经', icon: BookOpen },
   SectContribution: { title: '贡献兑换', icon: Coins },
-  GameVariables: { title: '游戏变量', icon: Database }
+  GameVariables: { title: '游戏变量', icon: Database },
+  Prompts: { title: '提示词管理', icon: FileText },
+  APIManagement: { title: 'API管理', icon: Plug }
 };
 
 const isPanelOpen = computed(() => {
@@ -308,7 +316,12 @@ const currentPanelActions = computed(() => {
 });
 
 const isDataReady = computed(() => {
-  // 放宽条件：只要有角色档案就显示界面，存档数据可以为空（新建存档时）
+  // 设置类面板（Settings、APIManagement、Prompts）不需要角色数据即可访问
+  const currentRouteName = String(route.name);
+  if (noDataRequiredRoutes.has(currentRouteName)) {
+    return true;
+  }
+  // 其他面板需要有角色档案才能显示界面
   return !!characterStore.activeCharacterProfile;
 });
 
@@ -880,6 +893,7 @@ watch(isPanelOpen, (isOpen) => {
   /* 移动端面板全屏优化 */
   .panel-overlay {
     position: fixed;
+    top: 0;
     left: 0;
     right: 0;
     bottom: 0;
@@ -892,6 +906,8 @@ watch(isPanelOpen, (isOpen) => {
     padding: 4px 8px;
     min-height: 36px;
     flex-wrap: nowrap;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
 
   .panel-header.compact {
@@ -903,6 +919,15 @@ watch(isPanelOpen, (isOpen) => {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  /* 头部按钮触摸优化 */
+  .back-btn,
+  .action-btn-compact {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    min-width: 32px;
+    min-height: 32px;
   }
 
   /* 面板内容移动端优化 - 确保文本区域能够收缩 */

@@ -60,17 +60,21 @@
 
         <!-- 快捷操作 -->
         <div class="quest-actions">
-          <button v-if="!quest.任务状态 || quest.任务状态 === '未接取'" class="act-btn accept" @click.stop="acceptQuest(quest)" title="接取">
+          <button v-if="!quest.任务状态 || quest.任务状态 === '未接取'" class="act-btn accept" @click.stop="acceptQuest(quest)">
             <CheckCircle :size="14" />
+            <span class="act-text">接取</span>
           </button>
-          <button v-if="quest.任务状态 === '进行中'" class="act-btn track" :class="{ active: questStore.trackedQuestId === quest.任务ID }" @click.stop="trackQuest(quest)" title="追踪">
+          <button v-if="quest.任务状态 === '进行中'" class="act-btn track" :class="{ active: questStore.trackedQuestId === quest.任务ID }" @click.stop="trackQuest(quest)">
             <Target :size="14" />
+            <span class="act-text">{{ questStore.trackedQuestId === quest.任务ID ? '取消追踪' : '追踪' }}</span>
           </button>
-          <button v-if="quest.任务状态 === '进行中'" class="act-btn abandon" @click.stop="abandonQuest(quest.任务ID)" title="放弃">
+          <button v-if="quest.任务状态 === '进行中'" class="act-btn abandon" @click.stop="abandonQuest(quest.任务ID)">
             <XCircle :size="14" />
+            <span class="act-text">放弃</span>
           </button>
-          <button class="act-btn delete" @click.stop="deleteQuest(quest.任务ID)" title="删除">
+          <button class="act-btn delete" @click.stop="deleteQuest(quest.任务ID)">
             <Trash2 :size="14" />
+            <span class="act-text">删除</span>
           </button>
         </div>
 
@@ -190,8 +194,14 @@ const acceptQuest = async (quest: Quest) => {
 };
 
 const trackQuest = (quest: Quest) => {
-  questStore.setTrackedQuest(quest.任务ID);
-  uiStore.showToast(`追踪: ${quest.任务名称}`, { type: 'info' });
+  // 如果已经在追踪这个任务，则取消追踪
+  if (questStore.trackedQuestId === quest.任务ID) {
+    questStore.setTrackedQuest(null);
+    uiStore.showToast(`已取消追踪: ${quest.任务名称}`, { type: 'info' });
+  } else {
+    questStore.setTrackedQuest(quest.任务ID);
+    uiStore.showToast(`追踪: ${quest.任务名称}`, { type: 'info' });
+  }
 };
 
 const abandonQuest = (questId: string) => {
@@ -412,17 +422,23 @@ const saveConfig = async () => {
 }
 
 .act-btn {
-  width: 28px;
-  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 4px;
+  padding: 4px 10px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 6px;
   color: var(--color-text-secondary);
   cursor: pointer;
   transition: all 0.2s;
+  font-size: 0.75rem;
+}
+
+.act-text {
+  font-size: 0.75rem;
+  white-space: nowrap;
 }
 
 .act-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }

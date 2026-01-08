@@ -155,7 +155,6 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useCharacterCreationStore } from '../../stores/characterCreationStore'
-import { getTavernHelper } from '@/utils/tavern'
 
 const store = useCharacterCreationStore()
 

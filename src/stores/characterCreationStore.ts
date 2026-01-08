@@ -123,8 +123,45 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
     majorFactionsCount: 5, // 默认5个主要势力
     totalLocations: 12, // 默认12个地点
     secretRealmsCount: 5, // 默认5个秘境
-    continentCount: 4 // 默认4片大陆
+    continentCount: 4, // 默认4片大陆
+    generateOnlyContinents: true // 默认只生成大陆（开局优化）
   });
+
+  // 修仙难度配置
+  type DifficultyLevel = '简单' | '普通' | '困难' | '噩梦';
+  const gameDifficulty = ref<DifficultyLevel>('普通');
+
+  // 难度提示词配置（切换式，非叠加）
+  const difficultyPrompts: Record<DifficultyLevel, string> = {
+    简单: `【难度模式：简单】
+- 世界对主角较为友善，机缘频繁出现
+- 敌人实力普遍较弱，战斗容易获胜
+- 资源获取容易，修炼进度较快
+- 突破瓶颈的难度降低
+- NPC对主角态度友好，容易获得帮助`,
+    普通: `【难度模式：普通】
+- 世界遵循正常修仙规则，机缘与危险并存
+- 敌人实力与主角相当，战斗需要策略
+- 资源获取需要努力，修炼进度正常
+- 突破瓶颈需要积累和机缘
+- NPC态度中立，需要建立关系`,
+    困难: `【难度模式：困难】
+- 世界充满危险，机缘稀少且竞争激烈
+- 敌人实力普遍较强，战斗需要谨慎
+- 资源稀缺，修炼进度缓慢
+- 突破瓶颈困难重重，需要特殊机缘
+- NPC对主角态度冷淡，需要付出代价获得帮助`,
+    噩梦: `【难度模式：噩梦】
+- 世界极度危险，处处是陷阱和敌人
+- 敌人实力远超主角，战斗九死一生
+- 资源极度稀缺，修炼举步维艰
+- 突破瓶颈几乎不可能，需要逆天机缘
+- NPC对主角充满敌意，信任难以建立
+- 死亡风险极高，每一步都需谨慎`
+  };
+
+  // 获取当前难度的提示词
+  const currentDifficultyPrompt = computed(() => difficultyPrompts[gameDifficulty.value]);
 
   // 同步“开局流式/生成模式”与 AI 配置，并做本地持久化（网页版/酒馆版本都适用）
   try {
@@ -881,6 +918,7 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
 
   return {
     mode, isLoading, error, creationData, characterPayload, currentStep, isLocalCreation, initialGameMessage, worldGenerationConfig, useStreamingStart, generateMode,
+    gameDifficulty, currentDifficultyPrompt, // 难度配置
     totalSteps, attributes, selectedWorld, selectedTalentTier, selectedOrigin, selectedSpiritRoot, selectedTalents, remainingTalentPoints, totalTalentCost, bonusTalentPoints,
     initializeStore, fetchCloudWorlds, fetchAllCloudData, addWorld, addTalentTier, addOrigin, addSpiritRoot, addTalent, addGeneratedData,
     removeWorld, removeTalentTier, removeOrigin, removeSpiritRoot, removeTalent, // 导出删除函数

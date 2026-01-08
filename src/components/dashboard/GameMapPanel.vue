@@ -10,18 +10,34 @@
     <div class="map-container" ref="mapContainerRef">
       <canvas ref="canvasRef"></canvas>
 
-      <!-- 地图控制按钮 -->
-      <div class="map-controls">
-        <button @click="centerToPlayer" title="定位到玩家位置" class="control-btn">
-          <Target :size="16" />
-        </button>
-        <button @click="toggleFullscreen" title="全屏显示" class="control-btn">
-          <Maximize2 :size="16" />
-        </button>
-        <button @click="reloadMap" title="重新加载地图" class="control-btn">
-          <RefreshCw :size="16" />
-        </button>
-        <div class="map-status-mini">{{ mapStatus }}</div>
+      <!-- 初始化地图按钮 (仅在地图为空时显示) -->
+      <div v-if="!hasMapContent && !isInitializing" class="initialize-map-overlay">
+        <div class="initialize-prompt">
+          <div class="prompt-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="map-icon">
+              <path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3V6z" />
+              <path d="M9 3v15M15 6v15" />
+            </svg>
+          </div>
+          <h3>地图尚未初始化</h3>
+          <p>当前世界还没有生成势力和地点，点击下方按钮开始生成地图内容</p>
+          <button @click="initializeMap" class="initialize-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M8 12h8M12 8v8" />
+            </svg>
+            初始化地图
+          </button>
+        </div>
+      </div>
+
+      <!-- 初始化进行中 -->
+      <div v-if="isInitializing" class="initialize-map-overlay">
+        <div class="initialize-prompt">
+          <div class="loading-spinner"></div>
+          <h3>正在生成地图内容...</h3>
+          <p class="status-text">{{ mapStatus }}</p>
+        </div>
       </div>
     </div>
 
@@ -181,12 +197,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
-import { Target, Maximize2, RefreshCw } from 'lucide-vue-next';
 import { GameMapManager } from '@/utils/gameMapManager';
 import { normalizeLocationsData, normalizeContinentBounds } from '@/utils/coordinateConverter';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { toast } from '@/utils/toast';
-import { getFullscreenElement, requestFullscreen, exitFullscreen, explainFullscreenError } from '@/utils/fullscreen';
+import { EnhancedWorldGenerator } from '@/utils/worldGeneration/enhancedWorldGenerator';
 import type { WorldLocation } from '@/types/location';
 import type { GameCoordinates } from '@/types/gameMap';
 
@@ -198,9 +213,19 @@ const selectedLocation = ref<WorldLocation | null>(null);
 const selectedContinent = ref<any | null>(null);
 const mapStatus = ref('初始化中...');
 const popupPosition = ref({ x: 0, y: 0 });
+const isInitializing = ref(false);
 
 const worldName = computed(() => gameStateStore.worldInfo?.世界名称 || '修仙界');
 const worldBackground = computed(() => gameStateStore.worldInfo?.世界背景 || '');
+
+// 检查地图是否有内容 (地点或势力)
+const hasMapContent = computed(() => {
+  const worldInfo = gameStateStore.worldInfo;
+  if (!worldInfo) return false;
+  const hasLocations = worldInfo.地点信息?.length > 0;
+  const hasFactions = worldInfo.势力信息?.length > 0;
+  return hasLocations || hasFactions;
+});
 
 // 地点类型中文名称映射
 const locationTypeNames: Record<string, string> = {
@@ -354,6 +379,72 @@ watch(
 );
 
 /**
+ * 初始化地图 - 生成势力和地点
+ */
+const initializeMap = async () => {
+  const worldInfo = gameStateStore.worldInfo;
+  if (!worldInfo) {
+    toast.error('未找到世界信息');
+    return;
+  }
+
+  isInitializing.value = true;
+  mapStatus.value = '开始生成地图内容...';
+
+  try {
+    // 创建世界生成器
+    const generator = new EnhancedWorldGenerator({
+      worldName: worldInfo.世界名称,
+      worldBackground: worldInfo.世界背景,
+      worldEra: worldInfo.世界时代 || '修真盛世',
+      factionCount: 5,           // 生成5个势力
+      locationCount: 12,         // 生成12个地点
+      secretRealmsCount: 3,      // 生成3个秘境
+      continentCount: worldInfo.大陆信息?.length || 3,  // 保持现有大陆数量
+      maxRetries: 3,
+      retryDelay: 1000,
+      onStreamChunk: (chunk: string) => {
+        // 更新生成状态显示
+        mapStatus.value = chunk;
+      }
+    });
+
+    console.log('[地图] 开始生成地图内容...');
+    const result = await generator.generateValidatedWorld();
+
+    if (result.success && result.worldInfo) {
+      console.log('[地图] 地图生成成功，正在更新游戏状态...');
+
+      // 保留现有的大陆信息，只更新势力和地点
+      const updatedWorldInfo = {
+        ...worldInfo,
+        势力信息: result.worldInfo.势力信息 || [],
+        地点信息: result.worldInfo.地点信息 || [],
+      };
+
+      // 更新游戏状态
+      gameStateStore.updateState('worldInfo', updatedWorldInfo);
+
+      // 重新加载地图数据
+      await loadMapData();
+
+      toast.success('地图初始化完成！');
+      console.log('[地图] 地图初始化完成');
+    } else {
+      const errorMsg = result.errors?.join(', ') || '生成失败';
+      toast.error(`地图生成失败: ${errorMsg}`);
+      console.error('[地图] 生成失败:', result.errors);
+    }
+  } catch (error) {
+    console.error('[地图] 初始化失败:', error);
+    toast.error('地图初始化失败: ' + (error as Error).message);
+  } finally {
+    isInitializing.value = false;
+    mapStatus.value = '初始化完成';
+  }
+};
+
+/**
  * 加载地图数据
  */
 const loadMapData = async () => {
@@ -504,88 +595,6 @@ const closePopup = () => {
 };
 
 /**
- * 定位到玩家
- */
-const centerToPlayer = () => {
-  const playerPos = gameStateStore.location;
-  console.log('[地图] 玩家位置数据:', playerPos);
-
-  if (!playerPos) {
-    toast.warning('无法定位玩家位置：位置数据为空');
-    return;
-  }
-
-  // 检查坐标是否有效
-  const x = Number(playerPos.x);
-  const y = Number(playerPos.y);
-
-  if (isNaN(x) || isNaN(y)) {
-    console.error('[地图] 玩家坐标无效:', { x: playerPos.x, y: playerPos.y });
-    toast.warning('无法定位玩家位置：坐标数据无效');
-    return;
-  }
-
-  console.log('[地图] 定位到玩家:', { x, y });
-  mapManager.value?.centerTo(x, y, true);
-  mapManager.value?.setZoom(1.5, true);
-  toast.success('已定位到当前位置');
-};
-
-/**
- * 切换全屏
- */
-const toggleFullscreen = () => {
-  if (mapContainerRef.value) {
-    if (getFullscreenElement()) {
-      exitFullscreen().catch((err) => {
-        console.error('[地图] 无法退出全屏模式:', err);
-        toast.error(explainFullscreenError(err));
-      });
-    } else {
-      requestFullscreen(mapContainerRef.value as any).catch((err) => {
-        console.error('[地图] 无法进入全屏模式:', err);
-        toast.error(explainFullscreenError(err));
-      });
-    }
-  }
-};
-
-/**
- * 处理全屏变化
- */
-const handleFullscreenChange = () => {
-  // 延迟调整大小，等待全屏动画完成
-  setTimeout(() => {
-    handleResize();
-  }, 100);
-};
-
-/**
- * 重新加载地图
- */
-const reloadMap = async () => {
-  if (!mapManager.value) return;
-  
-  toast.info('正在重新加载地图...');
-  
-  try {
-    // 简单地清空并重新加载，不销毁整个应用
-    mapManager.value.clear();
-    
-    // 等待清理完成
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    // 重新加载数据
-    await loadMapData();
-    
-    toast.success('地图重新加载完成');
-  } catch (error) {
-    console.error('[地图] 重新加载失败:', error);
-    toast.error('地图重新加载失败');
-  }
-};
-
-/**
  * 处理窗口大小变化
  */
 const handleResize = () => {
@@ -656,54 +665,6 @@ canvas {
 
 canvas:active {
   cursor: grabbing;
-}
-
-/* 地图控制按钮 */
-.map-controls {
-  position: absolute;
-  top: 16px;
-  left: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  z-index: 1000;
-}
-
-.control-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  background: rgba(255, 255, 255, 0.98);
-  border: 2px solid #e2e8f0;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  color: #64748b;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.control-btn:hover {
-  background: white;
-  border-color: #3b82f6;
-  color: #3b82f6;
-  transform: translateX(3px) scale(1.05);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-}
-
-.map-status-mini {
-  padding: 8px 10px;
-  background: rgba(255, 255, 255, 0.98);
-  border: 2px solid #e2e8f0;
-  border-radius: 8px;
-  font-size: 0.8rem;
-  color: #374151;
-  font-weight: 600;
-  white-space: nowrap;
-  writing-mode: vertical-rl;
-  text-align: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 /* 地点信息弹窗 */
@@ -795,6 +756,123 @@ canvas:active {
 .relation-neutral {
   color: #6b7280;
   font-weight: 600;
+}
+
+/* 初始化地图覆盖层 */
+.initialize-map-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  z-index: 2000;
+}
+
+.initialize-prompt {
+  text-align: center;
+  padding: 3rem 2rem;
+  max-width: 500px;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.prompt-icon {
+  margin: 0 auto 1.5rem;
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #3b82f6, #60a5fa);
+  border-radius: 50%;
+  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.3);
+}
+
+.map-icon {
+  width: 48px;
+  height: 48px;
+  color: white;
+}
+
+.initialize-prompt h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1e40af;
+}
+
+.initialize-prompt p {
+  margin: 0 0 2rem 0;
+  font-size: 1rem;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.initialize-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 2rem;
+  background: linear-gradient(135deg, #3b82f6, #60a5fa);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
+}
+
+.initialize-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.4);
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+}
+
+.initialize-btn:active {
+  transform: translateY(0);
+}
+
+.btn-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.loading-spinner {
+  width: 60px;
+  height: 60px;
+  margin: 0 auto 1.5rem;
+  border: 4px solid rgba(59, 130, 246, 0.2);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.status-text {
+  font-size: 0.9rem;
+  color: #3b82f6;
+  margin-top: 1rem;
+  min-height: 1.5rem;
 }
 
 /* 地图图例 */
@@ -900,17 +978,6 @@ canvas:active {
     right: 10px;
     padding: 8px;
     min-width: 120px;
-  }
-
-  .map-controls {
-    top: 8px;
-    left: 8px;
-    gap: 4px;
-  }
-
-  .control-btn {
-    width: 32px;
-    height: 32px;
   }
 
   .location-popup {

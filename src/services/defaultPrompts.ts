@@ -76,6 +76,11 @@ export const PROMPT_CATEGORIES = {
     name: '动态生成提示词',
     description: '游戏中动态生成NPC/任务/物品的提示词',
     icon: '🎨'
+  },
+  online: {
+    name: '联机模式提示词',
+    description: '联机模式专用的规则和限制提示词',
+    icon: '🌐'
   }
 };
 
@@ -175,10 +180,34 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
 - 禁止修改世界设定/重要NPC
 - 禁止跨区域瞬移
 - 穿越消耗穿越点，受目标世界约束`,
-      category: 'coreRequest',
+      category: 'online',
       description: '联机模式限制',
-      order: 6,
-      weight: 4
+      order: 1,
+      weight: 8
+    },
+    onlineWorldSync: {
+      name: '联机世界同步',
+      content: `# 联机世界同步规则
+- 世界状态由服务器权威管理
+- 玩家对世界的影响需通过事件广播
+- NPC状态变更需同步到所有在场玩家
+- 大型事件需全服公告`,
+      category: 'online',
+      description: '世界同步机制',
+      order: 2,
+      weight: 7
+    },
+    onlineInteraction: {
+      name: '联机交互',
+      content: `# 联机玩家交互
+- 同区域玩家可见可交互
+- 交易需双方确认
+- PVP需双方同意或特定区域
+- 组队共享部分奖励`,
+      category: 'online',
+      description: '玩家交互规则',
+      order: 3,
+      weight: 6
     },
     cotCore: {
       name: '6. 自检协议',

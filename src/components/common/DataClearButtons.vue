@@ -32,7 +32,6 @@
 import { computed } from 'vue';
 import { useUIStore } from '@/stores/uiStore';
 import { useCharacterCreationStore } from '../../stores/characterCreationStore';
-import { cloudDataSync } from '../../utils/cloudDataSync';
 import { toast } from '../../utils/toast';
 import { getTavernHelper } from '../../utils/tavern';
 import { LOCAL_WORLDS, LOCAL_TALENT_TIERS, LOCAL_ORIGINS, LOCAL_SPIRIT_ROOTS, LOCAL_TALENTS } from '../../data/creationData';

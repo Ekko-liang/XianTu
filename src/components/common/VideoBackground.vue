@@ -78,7 +78,7 @@ const loadVideo = async (originalUrl: string) => {
     try {
       await videoRef.value!.play()
       console.log(`[VideoBackground] 视频播放成功`)
-    } catch (error) {
+    } catch {
       console.log('[VideoBackground] 自动播放失败，等待用户交互')
       // 监听用户交互来启动播放
       const handleUserInteraction = async () => {

@@ -23,7 +23,7 @@ export interface CalculatedSectData {
 /**
  * 境界实力映射表 - 用于计算战力
  */
-const REALM_POWER_MAP: Record<string, number> = {
+const _REALM_POWER_MAP: Record<string, number> = {
   '练气初期': 5, '练气中期': 8, '练气后期': 12, '练气圆满': 15, '练气极境': 18,
   '筑基初期': 20, '筑基中期': 25, '筑基后期': 30, '筑基圆满': 35, '筑基极境': 40,
   '金丹初期': 45, '金丹中期': 52, '金丹后期': 60, '金丹圆满': 68, '金丹极境': 75,
@@ -39,7 +39,7 @@ const REALM_POWER_MAP: Record<string, number> = {
 /**
  * 宗门等级基础倍数
  */
-const SECT_LEVEL_MULTIPLIER: Record<string, number> = {
+const _SECT_LEVEL_MULTIPLIER: Record<string, number> = {
   '超级': 1.2,
   '超级宗门': 1.2,
   '一流': 1.0,

@@ -194,7 +194,7 @@ const ruleError = computed(() => {
     `${rule.multiline ? 'm' : ''}` +
     `${rule.dotAll ? 's' : ''}`;
   try {
-    // eslint-disable-next-line no-new
+     
     new RegExp(rule.pattern, flags);
     return null;
   } catch (e) {

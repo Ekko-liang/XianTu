@@ -69,6 +69,43 @@
           <div class="map-options" v-show="showMapOptions">
             <div class="map-options-header">{{ $t('世界规模配置') }}</div>
 
+            <!-- 修仙难度选择 -->
+            <div class="difficulty-section">
+              <div class="difficulty-label">{{ $t('修仙难度') }}</div>
+              <div class="difficulty-options">
+                <label
+                  v-for="diff in difficultyOptions"
+                  :key="diff.value"
+                  class="difficulty-option"
+                  :class="{ selected: store.gameDifficulty === diff.value }"
+                >
+                  <input
+                    type="radio"
+                    :value="diff.value"
+                    v-model="store.gameDifficulty"
+                    class="difficulty-radio"
+                  />
+                  <span class="difficulty-name">{{ diff.label }}</span>
+                  <span class="difficulty-desc">{{ diff.desc }}</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- 仅生成大陆开关 -->
+            <div class="continents-only-section">
+              <label class="continents-only-toggle">
+                <input
+                  type="checkbox"
+                  v-model="worldConfig.generateOnlyContinents"
+                  class="toggle-checkbox"
+                />
+                <span class="toggle-label">{{ $t('仅生成大陆（开局优化）') }}</span>
+              </label>
+              <div class="toggle-hint">
+                {{ worldConfig.generateOnlyContinents ? $t('开局只生成大陆，势力和地点可在游戏中动态生成，减少token消耗') : $t('开局生成完整世界（包括势力、地点和秘境）') }}
+              </div>
+            </div>
+
             <!-- 配置警告提示 -->
             <div class="config-warning" v-if="isConfigRisky">
               <div class="warning-icon">⚠️</div>
@@ -89,6 +126,7 @@
                   step="1"
                   v-model.number="worldConfig.majorFactionsCount"
                   :class="{ 'config-risky': worldConfig.majorFactionsCount > 8 }"
+                  :disabled="worldConfig.generateOnlyContinents"
                 />
                 <span class="config-hint">{{ $t('推荐: 3-8') }}</span>
               </label>
@@ -101,6 +139,7 @@
                   step="1"
                   v-model.number="worldConfig.totalLocations"
                   :class="{ 'config-risky': worldConfig.totalLocations > 15 }"
+                  :disabled="worldConfig.generateOnlyContinents"
                 />
                 <span class="config-hint">{{ $t('推荐: 8-15') }}</span>
               </label>
@@ -113,6 +152,7 @@
                   step="1"
                   v-model.number="worldConfig.secretRealmsCount"
                   :class="{ 'config-risky': worldConfig.secretRealmsCount > 10 }"
+                  :disabled="worldConfig.generateOnlyContinents"
                 />
                 <span class="config-hint">{{ $t('推荐: 3-10') }}</span>
               </label>
@@ -196,6 +236,14 @@ const isEditModalVisible = ref(false);
 const isAIPromptModalVisible = ref(false);
 const editingWorld = ref<World | null>(null);
 
+// 难度选项配置
+const difficultyOptions = [
+  { value: '简单', label: '简单', desc: '机缘频繁，敌人较弱' },
+  { value: '普通', label: '普通', desc: '机缘与危险并存' },
+  { value: '困难', label: '困难', desc: '机缘稀少，敌人较强' },
+  { value: '噩梦', label: '噩梦', desc: '九死一生，举步维艰' }
+];
+
 // --- 世界生成配置 ---
 
 // 创建一个稳定的默认配置
@@ -203,7 +251,8 @@ const createDefaultWorldConfig = () => ({
   majorFactionsCount: 5,
   totalLocations: 12,
   secretRealmsCount: 5,
-  continentCount: 4
+  continentCount: 4,
+  generateOnlyContinents: true // 默认开启仅生成大陆
 });
 
 // 从 store 读取已保存的配置，如果没有则使用默认配置
@@ -215,7 +264,8 @@ const getInitialConfig = () => {
       majorFactionsCount: savedConfig.majorFactionsCount,
       totalLocations: savedConfig.totalLocations,
       secretRealmsCount: savedConfig.secretRealmsCount,
-      continentCount: savedConfig.continentCount
+      continentCount: savedConfig.continentCount,
+      generateOnlyContinents: savedConfig.generateOnlyContinents !== undefined ? savedConfig.generateOnlyContinents : true
     };
   }
   // 如果没有保存的配置，使用默认值（不是随机值）
@@ -379,7 +429,8 @@ function randomizeConfig() {
     majorFactionsCount: factionOptions[Math.floor(Math.random() * factionOptions.length)],
     totalLocations: locationOptions[Math.floor(Math.random() * locationOptions.length)],
     secretRealmsCount: realmOptions[Math.floor(Math.random() * realmOptions.length)],
-    continentCount: continentOptions[Math.floor(Math.random() * continentOptions.length)]
+    continentCount: continentOptions[Math.floor(Math.random() * continentOptions.length)],
+    generateOnlyContinents: worldConfig.value.generateOnlyContinents
   };
 
   store.setWorldGenerationConfig(worldConfig.value);
@@ -418,7 +469,7 @@ async function handleDeleteWorld(id: number) {
 
 async function handleEditSubmit(data: any) {
   if (!editingWorld.value) return;
-  
+
   // 创建更新数据对象
   const updateData: Partial<World> = {
     name: data.name,
@@ -444,7 +495,7 @@ async function handleEditSubmit(data: any) {
 // 编辑模态框的初始数据
 const editInitialData = computed(() => {
   if (!editingWorld.value) return {};
-  
+
   return {
     name: editingWorld.value.name,
     era: editingWorld.value.era,
@@ -734,6 +785,107 @@ const editInitialData = computed(() => {
   overflow: auto;
 }
 
+/* 仅生成大陆开关 */
+.continents-only-section {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: rgba(147, 197, 253, 0.05);
+  border: 1px solid rgba(147, 197, 253, 0.15);
+  border-radius: 8px;
+}
+
+/* 修仙难度选择样式 */
+.difficulty-section {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: rgba(251, 191, 36, 0.05);
+  border: 1px solid rgba(251, 191, 36, 0.15);
+  border-radius: 8px;
+}
+
+.difficulty-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #fbbf24;
+  margin-bottom: 0.5rem;
+}
+
+.difficulty-options {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+
+.difficulty-option {
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(30, 41, 59, 0.4);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.difficulty-option:hover {
+  background: rgba(51, 65, 85, 0.6);
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
+.difficulty-option.selected {
+  background: rgba(251, 191, 36, 0.15);
+  border-color: rgba(251, 191, 36, 0.5);
+}
+
+.difficulty-radio {
+  display: none;
+}
+
+.difficulty-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.difficulty-option.selected .difficulty-name {
+  color: #fbbf24;
+}
+
+.difficulty-desc {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  margin-top: 0.2rem;
+}
+
+.continents-only-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--color-primary, #93c5fd);
+}
+
+.toggle-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #93c5fd;
+}
+
+.toggle-hint {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  line-height: 1.4;
+  padding-left: 1.625rem; /* 对齐checkbox后的文本 */
+}
+
 .config-warning {
   display: flex;
   align-items: flex-start;
@@ -1017,6 +1169,21 @@ const editInitialData = computed(() => {
     text-align: center;
     min-width: 120px;
   }
+
+  /* 移动端优化：开关和提示在小屏上更紧凑 */
+  .continents-only-section {
+    padding: 0.5rem;
+  }
+
+  .toggle-label {
+    font-size: 0.85rem;
+  }
+
+  .toggle-hint {
+    font-size: 0.7rem;
+    padding-left: 1.4rem;
+  }
+
   .world-layout {
     /* 改为垂直堆叠布局 */
     display: flex;
@@ -1165,52 +1332,52 @@ const editInitialData = computed(() => {
   .world-selection-container {
     padding: 0.3rem;
   }
-  
+
   .world-layout {
     gap: 0.4rem;
     padding: 0;
   }
-  
+
   .left-panel {
     max-height: 28vh;
   }
-  
+
   .list-container {
     max-height: 24vh;
     padding: 0.3rem;
   }
-  
+
   .list-item {
     padding: 0.5rem 0.6rem;
     font-size: 0.85rem;
     margin-bottom: 0.2rem;
   }
-  
+
   .details-container {
     padding: 0.8rem;
     min-height: 120px;
   }
-  
+
   .world-details h2 {
     font-size: 1.1rem;
     margin-bottom: 0.4rem;
   }
-  
+
   .world-details .era {
     font-size: 0.8rem;
     margin-bottom: 0.6rem;
   }
-  
+
   .description-scroll {
     font-size: 0.85rem;
     line-height: 1.4;
   }
-  
+
   .action-item {
     padding: 0.5rem;
     font-size: 0.8rem;
   }
-  
+
   .placeholder {
     font-size: 0.9rem;
     padding: 0.8rem;

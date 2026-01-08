@@ -53,6 +53,7 @@ import SectContributionContent from '../components/dashboard/components/SectCont
 import GameVariablePanel from '../components/dashboard/GameVariablePanel.vue';
 import PromptManagementPanel from '../components/dashboard/PromptManagementPanel.vue';
 import OnlineTravelPanel from '../components/dashboard/OnlineTravelPanel.vue';
+import APIManagementPanel from '../components/dashboard/APIManagementPanel.vue';
 
 const routes = [
   {
@@ -196,6 +197,11 @@ const routes = [
         path: 'travel',
         name: 'Travel',
         component: OnlineTravelPanel,
+      },
+      {
+        path: 'api-management',
+        name: 'APIManagement',
+        component: APIManagementPanel,
       },
     ],
   },

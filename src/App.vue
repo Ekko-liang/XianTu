@@ -269,9 +269,9 @@ import { useUIStore } from './stores/uiStore';
 import { toast } from './utils/toast';
 import { getTavernHelper } from './utils/tavern'; // 添加导入
 import { fetchBackendVersion, isBackendConfigured } from '@/services/backendConfig';
-import { getFullscreenElement, isFullscreenEnabled, requestFullscreen, exitFullscreen, explainFullscreenError } from './utils/fullscreen';
+import { getFullscreenElement, requestFullscreen, exitFullscreen, explainFullscreenError } from './utils/fullscreen';
 import type { CharacterBaseInfo } from '@/types/game';
-import type { CharacterCreationPayload, Talent, World, TalentTier } from '@/types';
+import type { CharacterCreationPayload, Talent } from '@/types';
 
 const backendVersion = ref<string | null>(null);
 
@@ -796,7 +796,7 @@ watch(route, (newRoute, oldRoute) => {
 .game-info-header {
   position: relative;
   padding: 1.5rem 1.5rem 1.25rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #2e8b57 0%, #267349 100%);
   overflow: hidden;
 }
 
@@ -1062,7 +1062,7 @@ watch(route, (newRoute, oldRoute) => {
 
 /* 深色主题适配 */
 [data-theme='dark'] .game-info-header {
-  background: linear-gradient(135deg, #4c1d95 0%, #7c3aed 100%);
+  background: linear-gradient(135deg, #1e4a9a 0%, #163d82 100%);
 }
 
 [data-theme='dark'] .warning-banner {

@@ -38,47 +38,138 @@
       <div class="tab-content">
         <!-- 穿越标签 -->
         <div v-if="activeTab === 'travel'" class="travel-tab">
-          <div class="two-column">
-            <div class="left-col">
-              <!-- 穿越点 -->
-              <div class="stat-card">
-                <div class="stat-icon"><Coins :size="20" /></div>
-                <div class="stat-info">
-                  <div class="stat-value">{{ travelPoints }}</div>
-                  <div class="stat-label">{{ t('穿越点') }}</div>
+          <div class="travel-layout">
+            <!-- 左侧: 世界列表 -->
+            <div class="worlds-list-panel">
+              <!-- 搜索和筛选 -->
+              <div class="filter-bar">
+                <div class="search-box">
+                  <input
+                    v-model="searchQuery"
+                    :placeholder="t('搜索用户名...')"
+                    class="search-input"
+                    :disabled="isLoadingWorlds"
+                  />
                 </div>
+                <select v-model="visibilityFilter" class="filter-select" :disabled="isLoadingWorlds">
+                  <option value="">{{ t('全部') }}</option>
+                  <option value="public">{{ t('公开') }}</option>
+                  <option value="hidden">{{ t('隐藏') }}</option>
+                </select>
               </div>
-              <!-- 我的世界 -->
-              <div class="info-card" v-if="myWorld">
-                <div class="info-title"><Shield :size="16" />{{ t('我的世界') }}</div>
-                <div class="info-row"><span class="muted">ID</span><span>#{{ myWorld.world_instance_id }}</span></div>
-                <div class="info-row"><span class="muted">{{ t('隐私') }}</span><span class="badge">{{ myWorld.visibility_mode }}</span></div>
-                <button class="action-btn sm" @click="toggleVisibility" :disabled="isLoading">
-                  <Lock :size="14" />{{ t('切换隐私') }}
-                </button>
+
+              <!-- 穿越点显示 -->
+              <div class="travel-points-bar">
+                <Coins :size="16" class="points-icon" />
+                <span class="points-label">{{ t('穿越点') }}:</span>
+                <span class="points-value">{{ travelPoints }}</span>
+              </div>
+
+              <!-- 世界列表 -->
+              <div class="worlds-list">
+                <div v-if="isLoadingWorlds && worldsList.length === 0" class="loading-state">
+                  {{ t('加载中...') }}
+                </div>
+                <div v-else-if="worldsList.length === 0" class="empty-state">
+                  <Globe :size="48" class="empty-icon" />
+                  <p>{{ t('暂无可穿越的世界') }}</p>
+                </div>
+                <div v-else>
+                  <div
+                    v-for="world in worldsList"
+                    :key="world.world_instance_id"
+                    class="world-card"
+                    :class="{ selected: selectedWorld?.world_instance_id === world.world_instance_id }"
+                    @click="selectWorld(world)"
+                  >
+                    <div class="world-info">
+                      <div class="owner-name">{{ world.owner_username }}</div>
+                      <div class="world-meta">
+                        <span class="badge" :class="`badge-${world.visibility_mode}`">
+                          {{ world.visibility_mode }}
+                        </span>
+                        <span class="world-id">#{{ world.world_instance_id }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 加载更多 -->
+                  <button
+                    v-if="hasMore"
+                    class="load-more-btn"
+                    @click="loadMore"
+                    :disabled="isLoadingWorlds"
+                  >
+                    {{ isLoadingWorlds ? t('加载中...') : t('加载更多') }}
+                  </button>
+                </div>
               </div>
             </div>
-            <div class="right-col">
-              <!-- 发起穿越 -->
-              <div class="form-card">
-                <div class="form-title"><Globe :size="16" />{{ t('发起穿越') }}</div>
-                <div class="form-row">
-                  <label>{{ t('目标用户名') }}</label>
-                  <input v-model="targetUsername" :placeholder="t('输入要穿越的玩家用户名')" :disabled="isLoading" />
+
+            <!-- 右侧: 穿越操作 -->
+            <div class="travel-action-panel">
+              <div v-if="selectedWorld" class="selected-world-detail">
+                <h3>{{ selectedWorld.owner_username }} {{ t('的世界') }}</h3>
+
+                <div class="detail-info">
+                  <div class="info-row">
+                    <span class="info-label">{{ t('世界ID') }}</span>
+                    <span class="info-value">#{{ selectedWorld.world_instance_id }}</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="info-label">{{ t('可见性') }}</span>
+                    <span class="badge" :class="`badge-${selectedWorld.visibility_mode}`">
+                      {{ selectedWorld.visibility_mode }}
+                    </span>
+                  </div>
                 </div>
-                <div class="form-row">
-                  <label>{{ t('邀请码(可选)') }}</label>
-                  <input v-model="inviteCode" :placeholder="t('用于 hidden/locked 世界')" :disabled="isLoading" />
+
+                <!-- 邀请码输入(仅hidden/locked) -->
+                <div v-if="selectedWorld.visibility_mode !== 'public'" class="invite-code-section">
+                  <label>{{ t('邀请码') }}</label>
+                  <input
+                    v-model="inviteCode"
+                    :placeholder="t('输入邀请码...')"
+                    class="invite-code-input"
+                    :disabled="isLoading"
+                  />
                 </div>
-                <div class="form-actions">
-                  <button class="action-btn primary" @click="handleStartTravel" :disabled="!canStart || isLoading">
-                    <ArrowRight :size="16" />{{ t('穿越') }}
+
+                <!-- 穿越按钮 -->
+                <div class="action-buttons">
+                  <button
+                    class="action-btn primary"
+                    @click="handleStartTravelToSelected"
+                    :disabled="!canTravelToSelected || isLoading"
+                  >
+                    <ArrowRight :size="16" />
+                    {{ t('穿越到此世界') }}
                   </button>
-                  <button class="action-btn" v-if="session" @click="handleEndTravel" :disabled="isLoading">
-                    <CornerUpLeft :size="16" />{{ t('返回') }}
+
+                  <!-- 当前会话信息 -->
+                  <div v-if="session" class="session-info-box">
+                    <div class="session-label">{{ t('当前会话') }} #{{ session.session_id }}</div>
+                    <button class="action-btn" @click="handleEndTravel" :disabled="isLoading">
+                      <CornerUpLeft :size="16" />
+                      {{ t('返回') }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div v-else class="empty-selection">
+                <Globe :size="64" class="empty-icon" />
+                <p>{{ t('请从左侧选择一个世界') }}</p>
+
+                <!-- 我的世界信息 -->
+                <div v-if="myWorld" class="my-world-info">
+                  <div class="info-title"><Shield :size="16" />{{ t('我的世界') }}</div>
+                  <div class="info-row"><span class="muted">ID</span><span>#{{ myWorld.world_instance_id }}</span></div>
+                  <div class="info-row"><span class="muted">{{ t('隐私') }}</span><span class="badge" :class="`badge-${myWorld.visibility_mode}`">{{ myWorld.visibility_mode }}</span></div>
+                  <button class="action-btn sm" @click="toggleVisibility" :disabled="isLoading">
+                    <Lock :size="14" />{{ t('切换隐私') }}
                   </button>
                 </div>
-                <div v-if="session" class="session-info">session #{{ session.session_id }}</div>
               </div>
             </div>
           </div>
@@ -148,7 +239,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { toast } from '@/utils/toast';
 import { useI18n } from '@/i18n';
 import { useUIStore } from '@/stores/uiStore';
@@ -163,16 +254,19 @@ const tabs = [
 const activeTab = ref('travel');
 import {
   endTravel,
+  getActiveTravelSession,
   getMapGraph,
   getMyInvasionReports,
   getMyWorldInstance,
   getTravelProfile,
+  getTravelableWorlds,
   moveInWorld,
   signinTravel,
   startTravel,
   updateMyWorldVisibility,
   type MapGraphResponse,
   type TravelStartResponse,
+  type TravelableWorld,
   type WorldInstanceSummary,
   type InvasionReportOut,
 } from '@/services/onlineTravel';
@@ -192,12 +286,35 @@ const session = ref<TravelStartResponse | null>(null);
 const graph = ref<MapGraphResponse | null>(null);
 const reports = ref<InvasionReportOut[]>([]);
 
+// 新增: 世界列表相关
+const worldsList = ref<TravelableWorld[]>([]);
+const selectedWorld = ref<TravelableWorld | null>(null);
+const searchQuery = ref('');
+const visibilityFilter = ref('');
+const isLoadingWorlds = ref(false);
+const currentPage = ref(0);
+const pageSize = 20;
+const hasMore = ref(true);
+const searchDebounceTimer = ref<number | null>(null);
+
 // 使用 uiStore 的统一后端状态
 const backendReady = computed(() => uiStore.isBackendConfiguredComputed);
 const isOnlineMode = computed(() => characterStore.activeCharacterProfile?.模式 === '联机');
 const canStart = computed(
   () => travelPoints.value > 0 && targetUsername.value.trim().length > 0 && backendReady.value && isOnlineMode.value
 );
+
+// 新增: 是否可以穿越到选中的世界
+const canTravelToSelected = computed(() => {
+  return (
+    selectedWorld.value !== null &&
+    !session.value &&
+    travelPoints.value > 0 &&
+    backendReady.value &&
+    isOnlineMode.value &&
+    (selectedWorld.value.visibility_mode === 'public' || inviteCode.value.trim().length > 0)
+  );
+});
 
 const poiById = computed(() => {
   const pois = graph.value?.pois ?? [];
@@ -263,6 +380,21 @@ const refreshGraph = async () => {
   graph.value = await getMapGraph(session.value.target_world_instance_id, session.value.entry_map_id, session.value.session_id);
 };
 
+const restoreActiveSession = async () => {
+  try {
+    const activeSession = await getActiveTravelSession();
+    if (activeSession) {
+      session.value = activeSession;
+      await refreshGraph();
+    } else {
+      session.value = null;
+      graph.value = null;
+    }
+  } catch {
+    // keep existing session state if the probe fails
+  }
+};
+
 const refreshAll = async () => {
   if (!backendReady.value) return;
   isLoading.value = true;
@@ -270,7 +402,7 @@ const refreshAll = async () => {
     await refreshProfile();
     await refreshMyWorld();
     await refreshReports();
-    await refreshGraph();
+    await restoreActiveSession();
   } finally {
     isLoading.value = false;
   }
@@ -306,6 +438,10 @@ const toggleVisibility = async () => {
 };
 
 const handleStartTravel = async () => {
+  if (session.value) {
+    toast.info(t('已有进行中的穿越，会话结束后才能继续'));
+    return;
+  }
   if (isLoading.value) return;
   isLoading.value = true;
   try {
@@ -359,12 +495,98 @@ const handleMove = async (poiId: number) => {
   }
 };
 
+// 新增: 加载可穿越世界列表
+const loadWorlds = async (reset: boolean = false) => {
+  if (!backendReady.value) return;
+
+  if (reset) {
+    currentPage.value = 0;
+    worldsList.value = [];
+    hasMore.value = true;
+  }
+
+  isLoadingWorlds.value = true;
+  try {
+    const worlds = await getTravelableWorlds(
+      currentPage.value * pageSize,
+      pageSize,
+      visibilityFilter.value || undefined,
+      searchQuery.value.trim() || undefined
+    );
+
+    if (worlds.length < pageSize) {
+      hasMore.value = false;
+    }
+
+    if (reset) {
+      worldsList.value = worlds;
+    } else {
+      worldsList.value = [...worldsList.value, ...worlds];
+    }
+  } catch (e: any) {
+    toast.error(e?.message || t('加载世界列表失败'));
+  } finally {
+    isLoadingWorlds.value = false;
+  }
+};
+
+// 新增: 加载更多
+const loadMore = () => {
+  if (isLoadingWorlds.value || !hasMore.value) return;
+  currentPage.value++;
+  loadWorlds(false);
+};
+
+// 新增: 选择世界
+const selectWorld = (world: TravelableWorld) => {
+  selectedWorld.value = world;
+  inviteCode.value = ''; // 清空邀请码
+};
+
+// 新增: 穿越到选中的世界
+const handleStartTravelToSelected = async () => {
+  if (!selectedWorld.value) return;
+  if (session.value) {
+    toast.info(t('已有进行中的穿越，会话结束后才能继续'));
+    return;
+  }
+  if (isLoading.value) return;
+
+  isLoading.value = true;
+  try {
+    session.value = await startTravel(
+      selectedWorld.value.owner_username,
+      inviteCode.value.trim() || undefined
+    );
+    travelPoints.value = session.value.travel_points_left;
+    await refreshGraph();
+    toast.success(t('穿越成功'));
+  } catch (e: any) {
+    toast.error(e?.message || t('穿越失败'));
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+// 监听搜索和筛选变化 - 防抖处理
+watch([searchQuery, visibilityFilter], () => {
+  if (searchDebounceTimer.value) {
+    clearTimeout(searchDebounceTimer.value);
+  }
+
+  searchDebounceTimer.value = window.setTimeout(() => {
+    loadWorlds(true);
+  }, 500);
+});
+
 onMounted(async () => {
   try {
     if (!backendReady.value) return;
     await refreshProfile();
     await refreshMyWorld();
     await refreshReports();
+    await restoreActiveSession();
+    await loadWorlds(true); // 新增: 加载可穿越世界列表
   } catch (e: any) {
     console.warn('[OnlineTravelPanel] init failed', e);
   }
@@ -436,29 +658,310 @@ onMounted(async () => {
 .tab-content { flex: 1; overflow-y: auto; padding: 1rem; }
 
 /* Travel Tab */
-.two-column { display: grid; grid-template-columns: 1fr 1.5fr; gap: 1rem; }
-.left-col, .right-col { display: flex; flex-direction: column; gap: 1rem; }
+.travel-layout {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 1rem;
+  height: 100%;
+}
 
-.stat-card {
+/* 左侧世界列表面板 */
+.worlds-list-panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  overflow: hidden;
+  max-height: 600px;
+}
+
+.filter-bar {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(var(--color-primary-rgb), 0.05);
+}
+
+.search-box {
+  flex: 1;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-background);
+  color: var(--color-text);
+  font-size: 0.875rem;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.filter-select {
+  padding: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-background);
+  color: var(--color-text);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.travel-points-bar {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 1rem;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(var(--color-primary-rgb), 0.05);
 }
-.stat-icon { color: var(--color-primary); }
-.stat-value { font-size: 1.75rem; font-weight: 700; color: var(--color-primary); }
-.stat-label { font-size: 0.8rem; color: var(--color-text-secondary); }
 
-.info-card, .form-card {
-  padding: 1rem;
+.points-icon {
+  color: var(--color-primary);
+}
+
+.points-label {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.points-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.worlds-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+
+.loading-state,
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: var(--color-text-secondary);
+}
+
+.empty-icon {
+  opacity: 0.4;
+  margin-bottom: 1rem;
+}
+
+.world-card {
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-background);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.world-card:hover {
+  border-color: var(--color-primary);
+  background: rgba(var(--color-primary-rgb), 0.05);
+}
+
+.world-card.selected {
+  border-color: var(--color-primary);
+  background: rgba(var(--color-primary-rgb), 0.1);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+.world-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.owner-name {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--color-text);
+}
+
+.world-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.badge {
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.badge-public {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.badge-hidden {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.badge-locked {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.world-id {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+.load-more-btn {
+  width: 100%;
+  padding: 0.75rem;
+  margin-top: 0.5rem;
+  border: 1px dashed var(--color-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.load-more-btn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: rgba(var(--color-primary-rgb), 0.05);
+}
+
+.load-more-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 右侧穿越操作面板 */
+.travel-action-panel {
+  display: flex;
+  flex-direction: column;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 10px;
+  padding: 1.5rem;
 }
-.info-title, .form-title {
+
+.selected-world-detail h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  color: var(--color-text);
+}
+
+.detail-info {
+  margin-bottom: 1.5rem;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.info-value {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.invite-code-section {
+  margin-bottom: 1.5rem;
+}
+
+.invite-code-section label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.invite-code-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-background);
+  color: var(--color-text);
+  font-size: 0.875rem;
+}
+
+.invite-code-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.session-info-box {
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: rgba(var(--color-primary-rgb), 0.05);
+}
+
+.session-label {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.empty-selection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.empty-selection .empty-icon {
+  opacity: 0.3;
+  margin-bottom: 1rem;
+}
+
+.my-world-info {
+  margin-top: 2rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-background);
+  width: 100%;
+  max-width: 300px;
+}
+
+.info-title {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -466,29 +969,11 @@ onMounted(async () => {
   margin-bottom: 0.75rem;
   color: var(--color-text);
 }
-.info-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 0.4rem 0;
-  border-bottom: 1px solid var(--color-border);
-  font-size: 0.875rem;
-}
-.info-row:last-of-type { border-bottom: none; }
 
-.form-row { margin-bottom: 0.75rem; }
-.form-row label { display: block; font-size: 0.8rem; color: var(--color-text-secondary); margin-bottom: 0.25rem; }
-.form-row input {
-  width: 100%;
-  padding: 0.6rem 0.75rem;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  background: var(--color-background);
-  color: var(--color-text);
-  font-size: 0.875rem;
+.muted {
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
 }
-.form-row input:focus { outline: none; border-color: var(--color-primary); }
-.form-actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
-.session-info { margin-top: 0.5rem; font-size: 0.75rem; color: var(--color-text-secondary); }
 
 /* Map Tab */
 .empty-state {
@@ -564,7 +1049,30 @@ onMounted(async () => {
 .muted { color: var(--color-text-secondary); font-size: 0.8rem; }
 
 @media (max-width: 768px) {
-  .two-column, .map-layout { grid-template-columns: 1fr; }
-  .poi-map { height: 250px; }
+  .travel-layout {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .worlds-list-panel {
+    max-height: 40vh;
+  }
+
+  .filter-bar {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .travel-action-panel {
+    padding: 1rem;
+  }
+
+  .map-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .poi-map {
+    height: 250px;
+  }
 }
 </style>

@@ -354,8 +354,14 @@
                 <button @click="handleLogin" class="btn-login">{{ $t('登入道籍') }}</button>
               </div>
 
-              <div v-else-if="selectedCharacter.存档" class="online-save-card">
-                <div v-if="selectedCharacter.存档.存档数据" class="save-data">
+              <!-- 加载中状态 -->
+              <div v-else-if="isLoadingSaves" class="loading-saves">
+                <div class="loading-spinner">⏳</div>
+                <span>{{ $t('正在加载云端存档...') }}</span>
+              </div>
+
+              <div v-else-if="selectedCharacter.存档?.存档数据" class="online-save-card">
+                <div class="save-data">
                   <div class="save-header">
                     <h4 class="save-name">{{ $t('云端存档') }}</h4>
                     <div class="save-badges">
@@ -427,15 +433,19 @@
                     <button @click="handleSelect(selectedCharId!, '存档', true)" class="btn-play">
                       {{ $t('进入游戏') }}
                     </button>
-                    <button v-if="selectedCharacter.存档.云端同步信息?.需要同步" class="btn-sync">
+                    <button v-if="selectedCharacter.存档?.云端同步信息?.需要同步" class="btn-sync">
                       {{ $t('同步云端') }}
                     </button>
                   </div>
                 </div>
+              </div>
 
-                <div v-else class="save-empty">
+              <!-- 没有存档数据：显示开始游戏 -->
+              <div v-else class="online-save-card">
+                <div class="save-empty">
                   <div class="empty-slot-icon">☁️</div>
                   <span class="empty-text">{{ $t('尚未开始修行') }}</span>
+                  <p class="empty-hint">{{ $t('开始您的联机修仙之旅，存档将自动同步到云端') }}</p>
                   <button @click="handleSelect(selectedCharId!, '存档', false)" class="btn-start">
                     {{ $t('开始游戏') }}
                   </button>
@@ -1189,7 +1199,7 @@ const exportSingleSave = async (charId: string, slotKey: string, slot: SaveSlot)
 };
 
 // 导出存档 - 统一格式: { type: 'saves', saves: [...] } (批量导出，保留但不在UI显示)
-const exportSaves = async () => {
+const _exportSaves = async () => {
   if (!selectedCharacter.value || !selectedCharId.value) {
     toast.error('请先选择一个角色');
     return;
@@ -2563,6 +2573,34 @@ const handleImportFile = async (event: Event) => {
   text-align: center;
   color: var(--color-text-secondary);
   min-height: 100px;
+  padding: 1.5rem;
+}
+
+.save-empty .empty-hint {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  margin: 0.5rem 0 1rem 0;
+  opacity: 0.8;
+}
+
+.loading-saves {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: var(--color-text-secondary);
+  gap: 0.75rem;
+}
+
+.loading-saves .loading-spinner {
+  font-size: 1.5rem;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .empty-slot-icon {

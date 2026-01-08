@@ -162,7 +162,7 @@
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
 
-          <button class="function-btn system" @click="handleGameVariables">
+          <button class="function-btn system" v-if="!isOnlineMode" @click="handleGameVariables">
             <div class="btn-icon">
               <Database :size="18" />
             </div>
@@ -180,6 +180,17 @@
             <div class="btn-content">
               <span class="btn-text">{{ t('提示词管理') }}</span>
               <span class="btn-desc">{{ t('自定义AI提示词') }}</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" />
+          </button>
+
+          <button class="function-btn system" @click="handleAPIManagement">
+            <div class="btn-icon">
+              <Plug :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">{{ t('API管理') }}</span>
+              <span class="btn-desc">{{ t('多API配置与分配') }}</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
@@ -213,7 +224,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { Package, User, Users, BookOpen, Zap, Brain, Map, Globe, Save, Settings, LogOut, Compass, Home, Scroll, ChevronRight, Database, Clock, FileText } from 'lucide-vue-next';
+import { Package, User, Users, BookOpen, Zap, Brain, Map, Globe, Save, Settings, LogOut, Compass, Home, Scroll, ChevronRight, Database, Clock, FileText, Plug } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import { toast } from '@/utils/toast';
 import { useUIStore } from '@/stores/uiStore';
@@ -304,6 +315,10 @@ const handlePrompts = () => {
 
 const handleSettings = () => {
   router.push('/game/settings');
+};
+
+const handleAPIManagement = () => {
+  router.push('/game/api-management');
 };
 
 const handleGameVariables = () => {

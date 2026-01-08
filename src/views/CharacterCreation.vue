@@ -462,7 +462,7 @@ async function createCharacter() {
 
     // 3. 构造 CharacterBaseInfo
     // 3. 构造 CharacterBaseInfo，确保所有选择都使用完整的对象结构
-    const baseInfo = {
+    const _baseInfo = {
       名字: store.characterPayload.character_name,
       性别: store.characterPayload.gender,
       种族: store.characterPayload.race,

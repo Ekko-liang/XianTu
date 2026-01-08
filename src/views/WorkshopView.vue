@@ -266,7 +266,7 @@ const refreshAuth = async () => {
   try {
     const ok = await verifyStoredToken();
     authState.value = ok ? 'authed' : 'unauthed';
-  } catch (_e) {
+  } catch {
     authState.value = 'unauthed';
   }
 };
@@ -324,7 +324,7 @@ const refreshList = async () => {
       : await listWorkshopItems({ type: filterType.value, q: query.value, page: page.value, pageSize: pageSize.value });
     items.value = res.items || [];
     total.value = res.total || 0;
-  } catch (_e) {
+  } catch {
     items.value = [];
     total.value = 0;
   } finally {
@@ -403,7 +403,7 @@ const openDownload = async (itemId: number) => {
     const res = await downloadWorkshopItem(itemId);
     downloadModal.value.item = res.item;
     downloadModal.value.payload = res.payload;
-  } catch (_e) {
+  } catch {
     closeDownloadModal();
   } finally {
     downloadModal.value.loading = false;
@@ -421,7 +421,7 @@ const deleteItem = async (item: WorkshopItemOut) => {
     await deleteWorkshopItem(item.id);
     toast.success('已删除');
     await refreshList();
-  } catch (_e) {
+  } catch {
     // request.ts 已 toast
   }
 };
@@ -534,7 +534,7 @@ const handleUploadFile = async (e: Event) => {
     uploadPayload.value = JSON.parse(text);
     payloadHint.value = `已读取：${file.name}`;
     if (!uploadTitle.value) uploadTitle.value = file.name.replace(/\.json$/i, '');
-  } catch (_err) {
+  } catch {
     uploadPayload.value = null;
     payloadHint.value = '';
     toast.error('读取文件失败，请确认是有效的 JSON');
@@ -557,7 +557,7 @@ const loadLocalSettings = () => {
     };
     payloadHint.value = '已从本地读取 dad_game_settings';
     if (!uploadTitle.value) uploadTitle.value = `设置-${versionLabel.value}`;
-  } catch (_e) {
+  } catch {
     toast.error('读取本地设置失败');
   }
 };
@@ -568,7 +568,7 @@ const loadLocalPrompts = async () => {
     uploadPayload.value = data;
     payloadHint.value = '已从本地导出提示词';
     if (!uploadTitle.value) uploadTitle.value = `提示词-${versionLabel.value}`;
-  } catch (_e) {
+  } catch {
     toast.error('导出本地提示词失败');
   }
 };
@@ -678,7 +678,7 @@ const submitUpload = async () => {
     activeTab.value = 'browse';
     page.value = 1;
     await refreshList();
-  } catch (_e) {
+  } catch {
     // request.ts 已 toast
   } finally {
     uploading.value = false;

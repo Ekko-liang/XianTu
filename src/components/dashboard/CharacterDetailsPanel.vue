@@ -852,7 +852,7 @@ import {
 } from '@/utils/statusEffectManager';
 import {
   AlertCircle, Heart, Sparkles, Star, BarChart3, BookOpen,
-  Zap, Users, Backpack, Mountain, Bird, Sprout, Handshake, ChevronDown, X, MapPin, Rocket
+  Zap, Users, Backpack, Mountain, Sprout, Handshake, ChevronDown, X, MapPin, Rocket
 } from 'lucide-vue-next';
 
 // 使用 gameStateStore 获取数据
@@ -860,7 +860,7 @@ const { t } = useI18n();
 const uiStore = useUIStore();
 const characterStore = useCharacterStore();
 const gameStateStore = useGameStateStore();
-const isTavernEnvFlag = isTavernEnv();
+const _isTavernEnvFlag = isTavernEnv();
 const isLoading = ref(false);
 
 // 从 gameStateStore 获取数据的计算属性
@@ -1312,7 +1312,7 @@ return saveData.value?.角色?.背包?.灵石?.[t(grade) as '下品' | '中品' 
 };
 
 // 清理状态效果描述，去除重复的时间信息
-const getCleanEffectDescription = (effect: StatusEffect): string => {
+const _getCleanEffectDescription = (effect: StatusEffect): string => {
   if (!effect || !effect.状态描述) return '';
 
   let description = effect.状态描述;
@@ -1334,21 +1334,21 @@ const getCleanEffectDescription = (effect: StatusEffect): string => {
 };
 
 // 格式化状态效果生成时间
-const formatEffectCreatedTime = (effect: StatusEffect): string => {
+const _formatEffectCreatedTime = (effect: StatusEffect): string => {
   if (!effect.生成时间) return t('未知');
   const { 年, 月, 日, 小时, 分钟 } = effect.生成时间;
   return t('{0}年{1}月{2}日 {3}:{4}').replace('{0}', String(年)).replace('{1}', String(月)).replace('{2}', String(日)).replace('{3}', String(小时 || 0)).replace('{4}', String(分钟 ?? 0).padStart(2, '0'));
 };
 
 // 格式化状态效果剩余时间
-const formatEffectRemainingTime = (effect: StatusEffect): string => {
+const _formatEffectRemainingTime = (effect: StatusEffect): string => {
   if (!saveData.value?.元数据?.时间) return t('未知');
   const remainingMinutes = calculateRemainingMinutes(effect, saveData.value.元数据.时间);
   return formatMinutesToDuration(remainingMinutes);
 };
 
 // 移除状态效果
-const handleRemoveEffect = async (effectName: string) => {
+const _handleRemoveEffect = async (effectName: string) => {
   const confirmed = confirm(t('确定要移除状态效果"{0}"吗？').replace('{0}', effectName));
   if (!confirmed) return;
 

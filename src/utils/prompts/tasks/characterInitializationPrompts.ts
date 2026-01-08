@@ -148,6 +148,7 @@ export function buildCharacterSelectionsSummary(
     spiritRoot: SpiritRoot | string;
     talents: Talent[];
     attributes: Record<string, number>;
+    difficultyPrompt?: string; // 难度提示词
   },
   worldContext?: {
     worldInfo?: WorldInfo;
@@ -158,7 +159,7 @@ export function buildCharacterSelectionsSummary(
   }
 ): string {
   // 提取数据
-  const { name, gender, race, age, world, talentTier, origin, spiritRoot, talents, attributes } = userSelections;
+  const { name, gender, race, age, world, talentTier, origin, spiritRoot, talents, attributes, difficultyPrompt } = userSelections;
 
   const originIsObj = typeof origin === 'object' && origin !== null;
   const spiritRootIsObj = typeof spiritRoot === 'object' && spiritRoot !== null;
@@ -216,6 +217,11 @@ ${continents}
 ${locations}
 
 ⚠️ 位置必须从上述地点选择，坐标范围: x:0-10000, y:0-10000
+
+---
+
+## 难度设置
+${difficultyPrompt || '【难度模式：普通】\n- 世界遵循正常修仙规则，机缘与危险并存'}
 
 ---
 

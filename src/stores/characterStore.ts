@@ -2336,27 +2336,80 @@ const loadSaveData = async (characterId: string, saveSlot: string): Promise<Save
       return;
     }
 
-    // 只处理单机模式
-    if (profile.模式 !== '单机' || !profile.存档列表) {
-      debug.log('角色商店', `[loadCharacterSaves] 角色 ${charId} 非单机模式或无存档列表，无需加载。`);
-      return;
-    }
-
     debug.log('角色商店', `[loadCharacterSaves] 开始为角色 ${charId} 加载存档数据...`);
 
     try {
-      const slotKeys = Object.keys(profile.存档列表);
       let loadedCount = 0;
 
-      for (const slotKey of slotKeys) {
-        const slot = profile.存档列表[slotKey];
-        // 只加载没有存档数据的槽位（包括"上次对话"）
-        if (slot && !slot.存档数据) {
-          const saveData = await storage.loadSaveData(charId, slotKey);
-          if (saveData) {
-            slot.存档数据 = saveData;
-            loadedCount++;
-            debug.log('角色商店', `  > 成功加载存档: ${slotKey}`);
+      // 🔥 联机模式：加载单个存档
+      if (profile.模式 === '联机') {
+        // 确保存档对象存在
+        if (!profile.存档) {
+          profile.存档 = {
+            保存时间: '',
+            游戏内时间: '',
+          };
+        }
+
+        // 如果存档数据不在内存中，尝试从云端或本地加载
+        if (!profile.存档.存档数据) {
+          // 首先尝试从云端获取（如果已登录）
+          if (isBackendConfigured()) {
+            const tokenValid = await verifyStoredToken();
+            if (tokenValid) {
+              try {
+                const cloudProfile = await fetchCharacterProfile(charId) as any;
+                const cloudSave = cloudProfile?.game_save;
+                const cloudSaveData = cloudSave?.save_data;
+
+                if (cloudSaveData) {
+                  profile.存档.存档数据 = cloudSaveData as SaveData;
+                  if (cloudSave?.game_time && typeof cloudSave.game_time === 'string') {
+                    profile.存档.游戏内时间 = cloudSave.game_time;
+                  }
+                  profile.存档.云端同步信息 = {
+                    最后同步: cloudSave?.last_sync ? String(cloudSave.last_sync) : new Date().toISOString(),
+                    版本: typeof cloudSave?.version === 'number' ? cloudSave.version : 1,
+                    需要同步: false,
+                  };
+                  loadedCount++;
+                  debug.log('角色商店', `  > 成功从云端加载联机存档`);
+                }
+              } catch (error) {
+                debug.warn('角色商店', '从云端加载联机存档失败，尝试本地缓存', error);
+              }
+            }
+          }
+
+          // 如果云端没有或加载失败，尝试从本地 IndexedDB 加载
+          if (!profile.存档.存档数据) {
+            const saveData = await storage.loadSaveData(charId, '存档');
+            if (saveData) {
+              profile.存档.存档数据 = saveData;
+              loadedCount++;
+              debug.log('角色商店', `  > 成功从本地加载联机存档缓存`);
+            }
+          }
+        }
+      } else {
+        // 单机模式：加载所有存档槽位
+        if (!profile.存档列表) {
+          debug.log('角色商店', `[loadCharacterSaves] 角色 ${charId} 无存档列表，无需加载。`);
+          return;
+        }
+
+        const slotKeys = Object.keys(profile.存档列表);
+
+        for (const slotKey of slotKeys) {
+          const slot = profile.存档列表[slotKey];
+          // 只加载没有存档数据的槽位（包括"上次对话"）
+          if (slot && !slot.存档数据) {
+            const saveData = await storage.loadSaveData(charId, slotKey);
+            if (saveData) {
+              slot.存档数据 = saveData;
+              loadedCount++;
+              debug.log('角色商店', `  > 成功加载存档: ${slotKey}`);
+            }
           }
         }
       }

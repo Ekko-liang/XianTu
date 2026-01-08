@@ -14,9 +14,9 @@
   --color-primary-active: #0f2f6a;
   /* Lighten variant used by some components */
   --color-primary-light: rgba(30, 74, 154, 0.15);
-  --color-accent: #6a3de0; /* 更深的强调色 */
-  --color-accent-hover: #5a2fd0;
-  --color-accent-light: rgba(106, 61, 224, 0.18);
+  --color-accent: #2e8b57; /* 翠玉绿 - 修仙风格 */
+  --color-accent-hover: #267349;
+  --color-accent-light: rgba(46, 139, 87, 0.18);
   --color-text: #1a1a1a;
   --color-text-secondary: #4a4a4a; /* 更深，提高对比度 */
   --color-text-muted: #5a5a5a; /* 更深，提高对比度 */
@@ -52,7 +52,7 @@
   /* Derived RGB triplets for rgba() usage (light) */
   --color-background-rgb: 225, 221, 212;
   --color-surface-rgb: 241, 238, 231;
-  --color-accent-rgb: 106, 61, 224;
+  --color-accent-rgb: 46, 139, 87;
   --color-border-rgb: 0, 0, 0;
   --color-success-rgb: 46, 139, 50;
   --color-warning-rgb: 230, 138, 0;
@@ -84,9 +84,9 @@
   --color-primary-hover: #6f93f2;
   --color-primary-active: #597ee6;
   --color-primary-light: rgba(130, 163, 245, 0.18);
-  --color-accent: #c0caf5;
-  --color-accent-hover: #a9b8f2;
-  --color-accent-light: rgba(192, 202, 245, 0.15);
+  --color-accent: #7dd3a0; /* 翠玉绿 - 暗色主题 */
+  --color-accent-hover: #6bc48e;
+  --color-accent-light: rgba(125, 211, 160, 0.15);
   --color-text: #f7f7f5; /* 柔和的暖白色，不那么刺眼 */
   --color-text-secondary: #d0d0d0;
   --color-text-muted: #b9b9b9; /* 增强对比度 */
@@ -119,7 +119,7 @@
   /* Derived RGB triplets for rgba() usage (dark) */
   --color-background-rgb: 26, 27, 38;
   --color-surface-rgb: 41, 51, 72;
-  --color-accent-rgb: 192, 202, 245;
+  --color-accent-rgb: 125, 211, 160;
   --color-border-rgb: 173, 216, 230;
   --color-success-rgb: 158, 206, 106;
   --color-warning-rgb: 255, 213, 0;

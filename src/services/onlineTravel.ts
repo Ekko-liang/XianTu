@@ -48,6 +48,16 @@ export type WorldInstanceSummary = {
   maps: Array<{ map_id: number; map_key: string; revision: number }>;
 };
 
+export type TravelableWorld = {
+  world_instance_id: number;
+  owner_player_id: number;
+  owner_username: string;
+  owner_char_id: string | null;
+  visibility_mode: string;
+  revision: number;
+  created_at: string;
+};
+
 export type InvasionReportOut = {
   id: number;
   world_instance_id: number;
@@ -62,6 +72,10 @@ export async function getTravelProfile(): Promise<TravelProfile> {
 
 export async function signinTravel(): Promise<TravelProfile> {
   return request.post<TravelProfile>('/api/v1/travel/signin', {});
+}
+
+export async function getActiveTravelSession(): Promise<TravelStartResponse | null> {
+  return request.get<TravelStartResponse | null>('/api/v1/travel/active');
 }
 
 export async function startTravel(target_username: string, invite_code?: string): Promise<TravelStartResponse> {
@@ -105,3 +119,17 @@ export async function getMyInvasionReports(): Promise<InvasionReportOut[]> {
   return request.get<InvasionReportOut[]>('/api/v1/invasion/reports/me');
 }
 
+export async function getTravelableWorlds(
+  skip: number = 0,
+  limit: number = 20,
+  visibility?: string,
+  search?: string
+): Promise<TravelableWorld[]> {
+  const params = new URLSearchParams();
+  params.append('skip', skip.toString());
+  params.append('limit', limit.toString());
+  if (visibility) params.append('visibility', visibility);
+  if (search) params.append('search', search);
+
+  return request.get<TravelableWorld[]>(`/api/v1/worlds/instance/list?${params.toString()}`);
+}

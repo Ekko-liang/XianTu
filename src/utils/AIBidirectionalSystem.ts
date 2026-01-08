@@ -78,8 +78,14 @@ class AIBidirectionalSystemClass {
 
   private extractNarrativeText(raw: string): string {
     // 🔥 移除思维链标签（兜底保护）
+    // 支持多种变体：<thinking>, <antThinking>, <ant-thinking>, <reasoning>, <thought> 等
     const cleaned = String(raw || '')
-      .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
+      .replace(/<(?:ant[-_]?)?thinking>[\s\S]*?<\/(?:ant[-_]?)?thinking>/gi, '')
+      .replace(/<\/?(?:ant[-_]?)?thinking>/gi, '')
+      .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, '')
+      .replace(/<\/?reasoning>/gi, '')
+      .replace(/<thought>[\s\S]*?<\/thought>/gi, '')
+      .replace(/<\/?thought>/gi, '')
       .trim();
 
     if (!cleaned) return '';
@@ -1772,7 +1778,15 @@ ${saveDataJson}`;
     console.log('[parseAIResponse] 原始响应前500字符:', rawText.substring(0, 500));
 
     // 🔥 移除思维链（兜底保护）
-    const cleanedText = rawText.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim();
+    // 支持多种变体：<thinking>, <antThinking>, <ant-thinking>, <reasoning>, <thought> 等
+    const cleanedText = rawText
+      .replace(/<(?:ant[-_]?)?thinking>[\s\S]*?<\/(?:ant[-_]?)?thinking>/gi, '')
+      .replace(/<\/?(?:ant[-_]?)?thinking>/gi, '')
+      .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, '')
+      .replace(/<\/?reasoning>/gi, '')
+      .replace(/<thought>[\s\S]*?<\/thought>/gi, '')
+      .replace(/<\/?thought>/gi, '')
+      .trim();
 
     const tryParse = (text: string): Record<string, unknown> | null => {
       try {

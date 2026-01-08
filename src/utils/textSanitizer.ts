@@ -91,11 +91,18 @@ function sanitizeWithRules(
   let result = text;
 
   // Built-in: remove thinking/analysis blocks and leftover tags.
+  // 支持多种变体：<thinking>, <Thinking>, <antThinking>, <ant-thinking> 等
   result = result
-    .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
-    .replace(/<\/?thinking>/gi, '')
+    .replace(/<(?:ant[-_]?)?thinking>[\s\S]*?<\/(?:ant[-_]?)?thinking>/gi, '')
+    .replace(/<\/?(?:ant[-_]?)?thinking>/gi, '')
     .replace(/<analysis>[\s\S]*?<\/analysis>/gi, '')
-    .replace(/<\/?analysis>/gi, '');
+    .replace(/<\/?analysis>/gi, '')
+    // 移除可能的reasoning标签
+    .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, '')
+    .replace(/<\/?reasoning>/gi, '')
+    // 移除可能的thought标签
+    .replace(/<thought>[\s\S]*?<\/thought>/gi, '')
+    .replace(/<\/?thought>/gi, '');
 
   for (const rule of replaceRules) {
     result = result.replace(rule.re, rule.replacement);

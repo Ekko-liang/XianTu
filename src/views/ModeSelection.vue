@@ -111,7 +111,7 @@ const emit = defineEmits<{
 const uiStore = useUIStore();
 
 // 检查是否已登录
-const isLoggedIn = () => {
+const _isLoggedIn = () => {
   const token = localStorage.getItem('access_token');
   return !!token;
 };

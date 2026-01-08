@@ -1235,13 +1235,13 @@ watch(cultivationSkills, () => {
 }
 
 .action-btn.accent {
-  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
-  border-color: #8b5cf6;
+  background: linear-gradient(135deg, #2e8b57, #267349);
+  border-color: #2e8b57;
   color: white;
 }
 
 .action-btn.accent:hover {
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(46, 139, 87, 0.3);
 }
 
 .action-btn.warning {
@@ -1256,6 +1256,16 @@ watch(cultivationSkills, () => {
 
 .btn-icon {
   flex-shrink: 0;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 确保 lucide 图标 SVG 继承颜色 */
+.action-btn :deep(svg) {
+  color: inherit;
+  stroke: currentColor;
 }
 
 .btn-text {

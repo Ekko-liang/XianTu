@@ -2422,7 +2422,7 @@ const syncGameState = async () => {
 
 .action-option-btn {
   padding: 8px 16px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
   color: white;
   border: none;
   border-radius: 8px;
@@ -2439,7 +2439,7 @@ const syncGameState = async () => {
 
 .action-option-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.4);
 }
 
 .narrative-meta {
@@ -3238,13 +3238,13 @@ const syncGameState = async () => {
 }
 
 .quick-action-btn.social {
-  border-color: rgba(168, 85, 247, 0.2);
-  background: rgba(168, 85, 247, 0.03);
+  border-color: rgba(20, 184, 166, 0.2);
+  background: rgba(20, 184, 166, 0.03);
 }
 
 .quick-action-btn.social:hover {
-  border-color: #a855f7;
-  background: rgba(168, 85, 247, 0.08);
+  border-color: #14b8a6;
+  background: rgba(20, 184, 166, 0.08);
 }
 
 .quick-action-btn.other {

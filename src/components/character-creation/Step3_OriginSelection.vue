@@ -151,7 +151,7 @@ const filteredOrigins = computed(() => {
 });
 
 // 先天属性选项 - 出身影响的是先天属性
-const attributeOptions = [
+const _attributeOptions = [
   { value: 'root_bone', label: '先天根骨' },
   { value: 'spirit', label: '先天灵性' },
   { value: 'comprehension', label: '先天悟性' },
@@ -161,7 +161,7 @@ const attributeOptions = [
 ] as const
 
 // 调整数值选项
-const modifierOptions = [
+const _modifierOptions = [
   { value: '-3', label: '-3' },
   { value: '-2', label: '-2' },
   { value: '-1', label: '-1' },
@@ -477,18 +477,18 @@ function handleSelectRandom() {
 
 const isRandomSelected = computed(() => store.characterPayload.origin_id === null);
 
-const selectedDisplayName = computed(() => {
+const _selectedDisplayName = computed(() => {
  if (isRandomSelected.value) return '随机出身'
  return store.selectedOrigin?.name || ''
 });
 
-const selectedDescription = computed(() => {
+const _selectedDescription = computed(() => {
  if (isRandomSelected.value)
    return '天道无常，造化弄人。选择此项，你的出身将完全随机生成。是生于帝王之家，或为山野遗孤，皆在天道一念之间。'
  return store.selectedOrigin?.description || '身世如谜，过往一片空白。'
 });
 
-const selectedCost = computed(() => {
+const _selectedCost = computed(() => {
  if (isRandomSelected.value) return 0
  return store.selectedOrigin?.talent_cost || 0
 });

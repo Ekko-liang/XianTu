@@ -195,7 +195,7 @@ const submitCode = async () => {
     
     // 验证通过，进入提示词输入步骤
     currentStep.value = 'prompt';
-  } catch (err) {
+  } catch {
     error.value = '兑换码验证失败，请检查后重试。';
   } finally {
     isValidating.value = false;

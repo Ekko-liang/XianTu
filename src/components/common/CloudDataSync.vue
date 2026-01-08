@@ -15,7 +15,6 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { cloudDataSync } from '../../utils/cloudDataSync';
 import { toast } from '../../utils/toast';
 import { useCharacterCreationStore } from '../../stores/characterCreationStore';
 import { useUIStore } from '../../stores/uiStore';

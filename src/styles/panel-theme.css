@@ -144,6 +144,9 @@
 
 .btn-icon {
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn-text {
@@ -442,7 +445,7 @@
   .game-panel {
     gap: 0.5rem;
   }
-  
+
   .panel-header {
     padding: 0.5rem 0.75rem;
     margin: 0.25rem;
@@ -465,7 +468,7 @@
     min-width: 0;
     flex: 1 1 auto;
   }
-  
+
   .header-actions .btn-text {
     display: none;
   }
@@ -481,13 +484,18 @@
     /* 移动端更紧凑的按钮尺寸 */
     padding: 0.4rem 0.6rem;
     font-size: 0.8125rem;
+    /* 移动端触摸优化 */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    min-height: 36px;
+    min-width: 36px; /* 确保按钮有足够宽度显示图标 */
   }
-  
+
   .items-grid {
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
     gap: 0.5rem;
   }
-  
+
   .info-grid {
     grid-template-columns: 1fr;
   }
@@ -505,6 +513,48 @@
   .details-actions .card-btn {
     flex: 1 1 100%;
     max-width: 100%;
+  }
+
+  /* 移动端列表项触摸优化 */
+  .list-item,
+  .item-card,
+  .currency-item,
+  .filter-tab {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* 移动端文本自动换行 */
+  .panel-title,
+  .list-item-title,
+  .detail-title {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+}
+
+/* === 中等屏幕适配 (平板) === */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .game-panel {
+    gap: 0.65rem;
+  }
+
+  .panel-header {
+    padding: 0.625rem 0.875rem;
+  }
+
+  .action-btn {
+    padding: 0.45rem 0.7rem;
+    font-size: 0.85rem;
+  }
+
+  .items-grid {
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  }
+
+  .info-grid {
+    grid-template-columns: 1fr 1fr;
   }
 }
 
