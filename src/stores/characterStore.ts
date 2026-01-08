@@ -2346,13 +2346,15 @@ const loadSaveData = async (characterId: string, saveSlot: string): Promise<Save
         // 确保存档对象存在
         if (!profile.存档) {
           profile.存档 = {
+            存档名: '存档',
             保存时间: '',
             游戏内时间: '',
           };
         }
+        const 存档 = profile.存档;
 
         // 如果存档数据不在内存中，尝试从云端或本地加载
-        if (!profile.存档.存档数据) {
+        if (!存档.存档数据) {
           // 首先尝试从云端获取（如果已登录）
           if (isBackendConfigured()) {
             const tokenValid = await verifyStoredToken();
@@ -2363,11 +2365,11 @@ const loadSaveData = async (characterId: string, saveSlot: string): Promise<Save
                 const cloudSaveData = cloudSave?.save_data;
 
                 if (cloudSaveData) {
-                  profile.存档.存档数据 = cloudSaveData as SaveData;
+                  存档.存档数据 = cloudSaveData as SaveData;
                   if (cloudSave?.game_time && typeof cloudSave.game_time === 'string') {
-                    profile.存档.游戏内时间 = cloudSave.game_time;
+                    存档.游戏内时间 = cloudSave.game_time;
                   }
-                  profile.存档.云端同步信息 = {
+                  存档.云端同步信息 = {
                     最后同步: cloudSave?.last_sync ? String(cloudSave.last_sync) : new Date().toISOString(),
                     版本: typeof cloudSave?.version === 'number' ? cloudSave.version : 1,
                     需要同步: false,
@@ -2382,10 +2384,10 @@ const loadSaveData = async (characterId: string, saveSlot: string): Promise<Save
           }
 
           // 如果云端没有或加载失败，尝试从本地 IndexedDB 加载
-          if (!profile.存档.存档数据) {
+          if (!存档.存档数据) {
             const saveData = await storage.loadSaveData(charId, '存档');
             if (saveData) {
-              profile.存档.存档数据 = saveData;
+              存档.存档数据 = saveData;
               loadedCount++;
               debug.log('角色商店', `  > 成功从本地加载联机存档缓存`);
             }
