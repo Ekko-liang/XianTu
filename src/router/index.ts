@@ -1,3 +1,8 @@
+/**
+ * 仙途 (XianTu) - 路由配置
+ * @author 千夜 | GitHub: qianye60 | Bilibili: 477576651
+ * @license CC BY-NC-SA 4.0 - 商业使用需授权
+ */
 import { createRouter, createMemoryHistory } from 'vue-router';
 import ModeSelection from '../views/ModeSelection.vue';
 import CharacterCreation from '../views/CharacterCreation.vue';
@@ -5,7 +10,6 @@ import LoginView from '../views/LoginView.vue';
 import WorkshopView from '../views/WorkshopView.vue';
 import GameView from '../views/GameView.vue';
 import AccountCenter from '../views/AccountCenter.vue';
-import BackendAdminView from '../views/BackendAdminView.vue';
 
 // 创建一个包装组件来传递fullscreen属性
 import { h } from 'vue';
@@ -58,7 +62,6 @@ import GameVariablePanel from '../components/dashboard/GameVariablePanel.vue';
 import PromptManagementPanel from '../components/dashboard/PromptManagementPanel.vue';
 import OnlineTravelPanel from '../components/dashboard/OnlineTravelPanel.vue';
 import APIManagementPanel from '../components/dashboard/APIManagementPanel.vue';
-import BackendAdminPanel from '../components/dashboard/BackendAdminPanel.vue';
 
 const routes = [
   {
@@ -85,11 +88,6 @@ const routes = [
     path: '/account',
     name: 'AccountCenter',
     component: AccountCenter,
-  },
-  {
-    path: '/backend-admin',
-    name: 'BackendAdmin',
-    component: BackendAdminView,
   },
   {
     // 提示词管理 - 独立顶级路由，不需要加载游戏数据
@@ -227,11 +225,6 @@ const routes = [
         path: 'api-management',
         name: 'APIManagement',
         component: APIManagementPanel,
-      },
-      {
-        path: 'backend-admin',
-        name: 'BackendAdminPanel',
-        component: BackendAdminPanel,
       },
     ],
   },

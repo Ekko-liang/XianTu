@@ -1,3 +1,12 @@
+<!--
+  仙途 (XianTu) - AI驱动的沉浸式修仙文字冒险游戏
+  @author 千夜 (qianye60)
+  @license CC BY-NC-SA 4.0
+  @copyright Copyright (c) 2024-2026 千夜
+  GitHub: https://github.com/qianye60
+  Bilibili: https://space.bilibili.com/477576651
+  商业使用需经作者授权 | Commercial use requires permission
+-->
 <template>
   <div id="app-container">
     <ToastContainer />
@@ -73,10 +82,6 @@
         <button class="action-menu-item" :class="{ 'is-disabled': !backendReady }" @click="openAccountCenter(close)">
           <UserCircle :size="18" />
           <span>账号中心</span>
-        </button>
-        <button v-if="isAdmin" class="action-menu-item" :class="{ 'is-disabled': !backendReady }" @click="openBackendAdmin(close)">
-          <Shield :size="18" />
-          <span>后端管理</span>
         </button>
         <button class="action-menu-item" @click="toggleTheme(); close()">
           <component :is="themeMode === 'dark' ? Sun : Moon" :size="18" />
@@ -225,7 +230,7 @@
 import { ref, onMounted, onUnmounted, computed, watchEffect, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import $ from 'jquery'; // 导入 jQuery
-import { BookOpen, X, Scroll, Maximize2, Minimize2, Moon, Sun, Settings, Store, Globe, UserCircle, Heart, ArrowRight, Plug, Shield, FileText } from 'lucide-vue-next'; // 导入图标
+import { BookOpen, X, Maximize2, Minimize2, Moon, Sun, Settings, Store, Globe, UserCircle, Heart, ArrowRight, Plug, FileText } from 'lucide-vue-next'; // 导入图标
 import ToastContainer from './components/common/ToastContainer.vue';
 import GlobalLoadingOverlay from './components/common/GlobalLoadingOverlay.vue';
 import RetryConfirmDialog from './components/common/RetryConfirmDialog.vue';
@@ -267,7 +272,6 @@ const showAPIModal = ref(false);
 const showSponsorModal = ref(false);
 const showPromptModal = ref(false);
 const backendReady = ref(isBackendConfigured());
-const isAdmin = computed(() => localStorage.getItem('is_admin') === 'true');
 const displayVersion = computed(() => (
   backendReady.value ? (backendVersion.value ?? '同步中') : APP_VERSION
 ));
@@ -396,23 +400,6 @@ const openAccountCenter = (close: () => void) => {
     return;
   }
   router.push('/account');
-  close();
-};
-
-const openBackendAdmin = (close: () => void) => {
-  if (!backendReady.value) {
-    toast.info('未配置后端服务器，后端管理不可用');
-    return;
-  }
-
-  // 检查是否是管理员
-  const isAdmin = localStorage.getItem('is_admin') === 'true';
-  if (!isAdmin) {
-    toast.error('需要管理员权限才能访问后端管理');
-    return;
-  }
-
-  router.push('/game/backend-admin');
   close();
 };
 

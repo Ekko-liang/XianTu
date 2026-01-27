@@ -1,3 +1,8 @@
+/**
+ * 仙途 (XianTu) - 游戏状态管理
+ * @author 千夜 | GitHub: qianye60 | Bilibili: 477576651
+ * @license CC BY-NC-SA 4.0 - 商业使用需授权
+ */
 import { defineStore } from 'pinia';
 import { set, get, cloneDeep } from 'lodash';
 import type {

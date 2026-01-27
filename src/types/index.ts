@@ -1,4 +1,5 @@
 // src/types/index.ts
+// 仙途 by 千夜 | github.com/qianye60 | CC BY-NC-SA 4.0
 
 // 从 game.d.ts 导出 TechniqueItem 类型以修复编译错误
 export type { TechniqueItem } from './game.d';

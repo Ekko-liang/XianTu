@@ -1,3 +1,4 @@
+// XianTu by qianye60 | github.com/qianye60 | bilibili.com/477576651
 import { toast } from '../utils/toast';
 import type { World, TalentTier, Origin, SpiritRoot, Talent } from '@/types';
 import { buildBackendUrl, isBackendConfigured } from './backendConfig';

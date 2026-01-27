@@ -5,8 +5,10 @@ import type { LocalStorageRoot, SaveData } from '@/types/game';
  * @fileoverview
  * 乾坤宝库 (V4 - IndexedDB版本)
  * 使用 IndexedDB 存储大容量存档数据，解决 localStorage 5-10MB 限制问题
+ * @author 千夜 (qianye60) | CC BY-NC-SA 4.0
  */
 
+// XianTu by qianye60 - https://github.com/qianye60
 const DB_NAME = 'DAD_SAVES_DB';
 const DB_VERSION = 1;
 const STORE_NAME = 'saves';

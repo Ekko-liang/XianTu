@@ -1,3 +1,4 @@
+// 仙途 by 千夜 | github.com/qianye60 | CC BY-NC-SA 4.0
 import { aiService } from '@/services/aiService';
 import type { TavernHelper } from '@/types';
 
