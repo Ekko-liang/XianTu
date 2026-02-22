@@ -334,6 +334,14 @@ async function generateShopContent() {
       宗门成员: (sectSystem as any)?.宗门成员?.[sectName],
     };
 
+    const playerRealm = (() => {
+      const attrs = gameStateStore.attributes;
+      if (!attrs?.境界) return '未知';
+      if (typeof attrs.境界 === 'string') return attrs.境界;
+      const realm = attrs.境界 as any;
+      return `${realm.名称 || ''}${realm.阶段 || ''}`.trim() || '未知';
+    })();
+
     const prompt = `
 # 任务：生成【宗门贡献商店】可兑换物品
 你将为宗门「${sectName}」生成贡献点兑换商店的物品条目。
@@ -362,12 +370,18 @@ async function generateShopContent() {
 - 生成 12-24 件物品，type 至少覆盖 4 类
 - cost 需拉开梯度，高品阶更贵
 - 物品风格必须与宗门特色和世界背景匹配
+- 【境界匹配约束（重要）】：商店主体物品应与玩家当前境界相匹配
+  - 玩家当前境界：${playerRealm}
+  - 绝大多数物品应适合该境界使用（如练气期玩家，主要上架聚气丹、练气期功法等）
+  - 可有少量高一个层次的物品供玩家努力追求，但禁止大量上架远超当前境界的物品
+  - 丹药的适用境界、功法的修炼要求，都应和玩家境界匹配
 
 ## 世界背景
 ${JSON.stringify(worldContext).slice(0, 600)}
 
 ## 宗门信息
 - 玩家职位：${playerPosition.value}
+- 玩家境界：${playerRealm}
 - 玩家贡献点：${playerContribution.value}
 - 宗门详情：${JSON.stringify(sectContext).slice(0, 1200)}
 

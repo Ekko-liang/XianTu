@@ -551,7 +551,7 @@ const isLoading = computed(() => isRefreshing.value || !gameStateStore.isGameLoa
 const extractRealmName = (realm?: string) => {
   if (!realm) return 'mortal';
   // 默认境界体系
-  if (realm.includes('炼气')) return 'qi-refining';
+  if (realm.includes('练气')) return 'qi-refining';
   if (realm.includes('筑基')) return 'foundation';
   if (realm.includes('金丹')) return 'golden-core';
   if (realm.includes('元婴')) return 'nascent-soul';

@@ -125,7 +125,17 @@ const positionLevels: Record<string, number> = {
 const playerSectInfo = computed(() => gameStateStore.sectMemberInfo);
 const playerPosition = computed(() => playerSectInfo.value?.职位 || '散修');
 const playerContribution = computed(() => playerSectInfo.value?.贡献 || 0);
-const playerPositionLevel = computed(() => positionLevels[playerPosition.value] ?? -1);
+const playerPositionLevel = computed(() => {
+  const pos = playerPosition.value;
+  // 先精确匹配
+  if (positionLevels[pos] !== undefined) return positionLevels[pos];
+  // 再按层级从高到低模糊匹配（避免"外门"被"内门"的判断误伤）
+  const sortedEntries = Object.entries(positionLevels).sort((a, b) => b[1] - a[1]);
+  for (const [key, level] of sortedEntries) {
+    if (pos.includes(key)) return level;
+  }
+  return -1;
+});
 const canGenerate = computed(() => !!playerSectInfo.value?.宗门名称 && !!gameStateStore.sectSystem);
 const hasTechniques = computed(() => getAvailableTechniques().length > 0);
 

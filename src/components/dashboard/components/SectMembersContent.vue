@@ -70,7 +70,12 @@
           <button class="link" @click="sendPrompt(`我想拜见${playerSectName}太上长老「${sectLeadership.太上长老}」`)">拜见</button>
         </div>
         <div class="leader-item" v-if="sectLeadership.长老数量">
-          <span class="role">长老数量</span>
+          <span class="role">
+            长老数量
+            <span class="hint-wrapper" title="此为宗门宏观设定的全宗规模上限，下方列表仅展示当前活跃或与你有交集的成员">
+              <Info :size="10" class="hint-icon" />
+            </span>
+          </span>
           <span class="name">{{ sectLeadership.长老数量 }}位</span>
         </div>
         <div class="leader-item" v-if="sectLeadership.最强修为">
@@ -100,6 +105,11 @@
         <component :is="tab.icon" :size="14" />
         <span>{{ tab.label }}</span>
         <span v-if="getMemberCount(tab.key) > 0" class="count-badge">{{ getMemberCount(tab.key) }}</span>
+      </button>
+      <!-- 常驻的重新生成按钮，有无数据均可用 -->
+      <button class="tab-regen-btn" @click="generateMembers" :disabled="isGeneratingMembers || !playerSectName || playerSectName === '未加入宗门'">
+        <RefreshCw :size="13" :class="{ spin: isGeneratingMembers }" />
+        <span>{{ isGeneratingMembers ? '生成中...' : '新增宗门其他角色' }}</span>
       </button>
     </div>
 
@@ -149,7 +159,18 @@
             </div>
           </div>
 
-          <ChevronRight :size="16" class="arrow-icon" />
+          <div class="member-actions">
+            <button
+              class="evolve-btn"
+              title="根据当前宗门发展演化该成员（更新境界与职位）"
+              @click.stop="evolveMember(member)"
+              :disabled="evolvingMembers.has(member.id)"
+            >
+              <RefreshCw v-if="evolvingMembers.has(member.id)" :size="14" class="spin" />
+              <span>更新职位与境界</span>
+            </button>
+            <ChevronRight :size="16" class="arrow-icon" />
+          </div>
         </div>
       </div>
     </div>
@@ -184,6 +205,7 @@ const characterStore = useCharacterStore();
 const activeTab = ref<string>('all');
 const isGeneratingLeadership = ref(false);
 const isGeneratingMembers = ref(false);
+const evolvingMembers = ref<Set<string>>(new Set());
 
 // 获取玩家名字
 const playerName = computed(() => gameStateStore.character?.名字 || '');
@@ -207,9 +229,10 @@ const leaderInfo = computed(() => {
 // 成员分类
 const memberTabs = [
   { key: 'all', label: '全部', icon: Users },
-  { key: '长老', label: '长老', icon: Crown },
+  { key: '高层', label: '高层', icon: Crown },
   { key: '真传', label: '真传', icon: UserCircle },
-  { key: '同辈', label: '同辈', icon: User }
+  { key: '内门', label: '内门', icon: User },
+  { key: '外门', label: '外门', icon: User }
 ];
 
 // 玩家宗门信息
@@ -319,20 +342,31 @@ function getRelationText(favorability: number | undefined): string {
 
 // 获取成员分类
 function getCategory(position: string | undefined): string {
-  if (!position) return '同辈';
-  if (position.includes('宗主') || position.includes('掌门')) return '长老';
-  if (position.includes('副宗主') || position.includes('副掌门')) return '长老';
-  if (position.includes('长老') || position.includes('太上')) return '长老';
+  if (!position) return '外门';
+  if (position.includes('宗主') || position.includes('掌门')) return '高层';
+  if (position.includes('副宗主') || position.includes('副掌门')) return '高层';
+  if (position.includes('长老') || position.includes('太上')) return '高层';
+  // 常见高层头衔（堂主、峰主、殿主、执事、护法等）
+  if (position.includes('堂主') || position.includes('峰主') || position.includes('殿主')) return '高层';
+  if (position.includes('执事') || position.includes('职事') || position.includes('护法')) return '高层';
+  if (position.includes('执法') || position.includes('上人') || position.includes('尊者')) return '高层';
+  if (position.includes('使者') || position.includes('督统') || position.includes('统领')) return '高层';
   if (position.includes('真传') || position.includes('核心')) return '真传';
-  return '同辈';
+  if (position.includes('内门')) return '内门';
+  return '外门';
 }
 
 // 职位样式
 function getPositionClass(position: string): string {
   if (position.includes('宗主') || position.includes('掌门')) return 'position-leader';
   if (position.includes('副宗主') || position.includes('副掌门')) return 'position-leader';
-  if (position.includes('长老')) return 'position-elder';
-  if (position.includes('真传')) return 'position-true';
+  if (position.includes('长老') || position.includes('太上')) return 'position-elder';
+  // 常见高层头衔
+  if (position.includes('堂主') || position.includes('峰主') || position.includes('殿主')) return 'position-elder';
+  if (position.includes('执事') || position.includes('职事') || position.includes('护法')) return 'position-elder';
+  if (position.includes('执法') || position.includes('上人') || position.includes('尊者')) return 'position-elder';
+  if (position.includes('使者') || position.includes('督统') || position.includes('统领')) return 'position-elder';
+  if (position.includes('真传') || position.includes('核心')) return 'position-true';
   if (position.includes('内门')) return 'position-inner';
   return 'position-outer';
 }
@@ -458,6 +492,7 @@ async function generateMembers() {
       世界背景: worldInfo.世界背景,
     } : null;
 
+
     const prompt = `
 # 任务：生成【宗门同门】信息
 为宗门「${sectName}」生成同门弟子信息。
@@ -470,21 +505,25 @@ async function generateMembers() {
 {
   "名字": "string",
   "性别": "男|女",
-  "职位": "外门弟子|内门弟子|真传弟子|核心弟子|长老",
-  "境界": "string",
+  "职位": "外门弟子|内门弟子|真传弟子|核心弟子|长老|堂主|峰主|执事|护法|副宗主|宗主（视宗门规模选用）",
+  "境界": "string（写具体阶段，如：练气初期、筑基中期、金丹后期）",
   "势力归属": "${sectName}",
   "好感度": number（30-70）
 }
 
 ## 约束
 - 生成 5-10 个同门
-- 职位分布合理
+- 职位分布合理（外门>内门>真传>长老级）
+- 【境界层级约束（严格遵守）】：
+  - 宗门整体实力上限由宗门档案中的强度/最强修为决定，以此为天花板
+  - 层级规则：太上长老境界 > 宗主境界 > 副宗主境界 > 长老/堂主/峰主境界 > 真传/核心境界 > 内门弟子境界 > 外门弟子境界
+  - 禁止低职位境界高于高职位，禁止随意使用超出宗门上限的境界
 
 ## 世界背景
 ${JSON.stringify(worldContext).slice(0, 400)}
 
-## 宗门档案
-${JSON.stringify(sectProfile).slice(0, 600)}
+## 宗门档案（含宗门强度/最强修为，据此判断境界上限）
+${JSON.stringify(sectProfile).slice(0, 800)}
     `.trim();
 
     const raw = await generateWithRawPrompt('生成同门信息', prompt, false, 'sect_generation');
@@ -506,17 +545,34 @@ ${JSON.stringify(sectProfile).slice(0, 600)}
       // 正确路径：社交.关系（与 gameStateStore.loadFromSaveData 一致）
       const socialRoot = ((updated as any).社交 ??= {});
       const relRoot = (socialRoot.关系 ??= {});
+      let skippedCount = 0;
+      let addedCount = 0;
+
       for (const m of parsed.members) {
         const name = m.名字;
         if (!name) continue;
+
+        // 关键修复：如果存在同名NPC，则跳过（保留已有剧情和好感关系，防止被覆盖）
+        if (relRoot[name]) {
+          skippedCount++;
+          continue;
+        }
+
         relRoot[name] = {
           ...m,
           宗门: sectName,
         };
+        addedCount++;
       }
 
       gameStateStore.loadFromSaveData(updated);
       await characterStore.saveCurrentGame();
+
+      if (skippedCount > 0) {
+        toast.success(`新增了 ${addedCount} 位同门 (跳过 ${skippedCount} 位已有同门)`);
+      } else {
+        toast.success('同门信息已生成');
+      }
     }
     toast.success('同门信息已生成');
   } catch (e) {
@@ -524,6 +580,109 @@ ${JSON.stringify(sectProfile).slice(0, 600)}
     toast.error('生成失败');
   } finally {
     isGeneratingMembers.value = false;
+  }
+}
+
+// 独立演化成员
+async function evolveMember(member: any) {
+  if (!playerSectName.value || playerSectName.value === '未加入宗门') return;
+
+  evolvingMembers.value.add(member.id);
+  try {
+    const sectName = playerSectName.value;
+    const sectContext = currentSectFaction.value;
+    const worldInfo = gameStateStore.worldInfo;
+    const worldContext = worldInfo ? {
+      世界名称: worldInfo.世界名称,
+      世界背景: worldInfo.世界背景,
+    } : null;
+
+    const sectProfile = {
+      宗门名称: sectName,
+      宗门描述: sectContext?.描述 || '',
+      境界分布: sectContext?.境界分布 || '',
+      宗主修为: sectLeadership.value?.宗主修为 || '',
+      太上长老修为: sectLeadership.value?.太上长老修为 || '',
+      最强修为: sectLeadership.value?.最强修为 || '',
+    };
+
+    // 获取玩家当前境界（影响基准线）
+    const playerRealm = (() => {
+      const attrs = gameStateStore.attributes;
+      if (!attrs?.境界) return '未知';
+      if (typeof attrs.境界 === 'string') return attrs.境界;
+      const realm = attrs.境界 as any;
+      return `${realm.名称 || ''}${realm.阶段 || ''}`.trim() || '未知';
+    })();
+
+    const prompt = `
+# 任务：演化【宗门同门】实力
+你将为宗门「${sectName}」的已有同门「${member.name}」进行实力演化。
+
+## 输出格式
+只输出 1 个 JSON 对象：
+{"名字":"${member.name}","职位":"...","境界":"..."}
+
+## 角色基本信息
+- 姓名：${member.name}
+- 性别：${member.gender}
+- 当前职位：${member.position}
+- 当前境界：${member.realm}
+
+## 约束
+- 根据时间推移和玩家的境界提升，合理演化该角色的职位和境界。如果该角色原本比玩家弱，现在可以适当精进；如果本就远强于玩家（如长老），可能进步较小。
+- 【必选职位】：外门弟子|内门弟子|真传弟子|核心弟子|长老|堂主|峰主|执事|护法|副宗主
+- 【境界层级约束（严格遵守）】：
+  - 宗门整体实力上限由下方的宗门档案中最强修为决定，以此为天花板。
+  - 太上长老境界 > 宗主境界 > 副宗主境界 > 长老/堂主/峰主境界 > 真传/核心境界 > 内门弟子境界 > 外门弟子境界，必须随职位匹配。
+- 玩家当前境界：${playerRealm}
+- "境界"字段只需写具体阶段（如：炼气初期、筑基中期）
+
+## 世界背景
+${JSON.stringify(worldContext).slice(0, 400)}
+
+## 宗门档案
+${JSON.stringify(sectProfile).slice(0, 600)}
+    `.trim();
+
+    const raw = await generateWithRawPrompt('演化同门实力', prompt, false, 'sect_generation');
+    const parsed = parseJsonSmart(raw, aiService.isForceJsonEnabled('sect_generation')) as {
+      名字?: string;
+      职位?: string;
+      境界?: string;
+    };
+
+    if (!parsed.职位 && !parsed.境界) {
+      throw new Error('演化数据缺失');
+    }
+
+    // 更新到存档
+    const saveData = gameStateStore.getCurrentSaveData();
+    if (saveData) {
+      const updated = typeof structuredClone === 'function'
+        ? structuredClone(saveData)
+        : JSON.parse(JSON.stringify(saveData));
+
+      const socialRoot = ((updated as any).社交 ??= {});
+      const relRoot = (socialRoot.关系 ??= {});
+
+      const targetNPC = relRoot[member.id];
+      if (targetNPC) {
+        if (parsed.职位) targetNPC.职位 = parsed.职位;
+        if (parsed.境界) targetNPC.境界 = parsed.境界;
+
+        gameStateStore.loadFromSaveData(updated);
+        await characterStore.saveCurrentGame();
+        toast.success(`「${member.name}」演化完毕`);
+      } else {
+        throw new Error('找不到目标角色存档');
+      }
+    }
+  } catch (e) {
+    console.error('[SectMembers] evolve member failed', e);
+    toast.error(`「${member.name}」演化失败`);
+  } finally {
+    evolvingMembers.value.delete(member.id);
   }
 }
 </script>
@@ -770,7 +929,34 @@ ${JSON.stringify(sectProfile).slice(0, 600)}
   gap: 4px;
   flex-wrap: wrap;
   flex-shrink: 0;
+  align-items: center;
 }
+
+.tab-regen-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 4px;
+  color: #3b82f6;
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: auto;
+}
+
+.tab-regen-btn:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.tab-regen-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 
 .tab-btn {
   display: flex;
@@ -876,6 +1062,48 @@ ${JSON.stringify(sectProfile).slice(0, 600)}
 .member-card:hover {
   border-color: rgba(59, 130, 246, 0.3);
   background: var(--color-surface);
+}
+
+.member-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.evolve-btn {
+  background: transparent;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #3b82f6;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: center;
+  transition: all 0.2s ease;
+  opacity: 0;
+}
+
+.member-card:hover .evolve-btn {
+  opacity: 0.6;
+}
+
+.evolve-btn:hover:not(:disabled) {
+  opacity: 1 !important;
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.evolve-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4 !important;
+}
+
+.member-card:hover .arrow-icon {
+  transform: translateX(2px);
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .member-card.is-self {
@@ -1024,6 +1252,31 @@ ${JSON.stringify(sectProfile).slice(0, 600)}
   border-color: rgba(59, 130, 246, 0.3);
   background: rgba(59, 130, 246, 0.05);
   color: #3b82f6;
+}
+
+a.leader-item .realm {
+  font-size: 0.72rem;
+  color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.hint-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
+  color: var(--color-text-secondary);
+  margin-left: 2px;
+  vertical-align: middle;
+}
+.hint-icon {
+  opacity: 0.7;
+}
+.hint-wrapper:hover .hint-icon {
+  opacity: 1;
+  color: var(--color-text);
 }
 
 .members-notice {

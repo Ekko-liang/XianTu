@@ -288,6 +288,14 @@ async function generateSectTasks() {
       宗门关系: (sectSystem as any)?.宗门关系?.[sectName],
     };
 
+    const playerRealm = (() => {
+      const attrs = gameStateStore.attributes;
+      if (!attrs?.境界) return '未知';
+      if (typeof attrs.境界 === 'string') return attrs.境界;
+      const realm = attrs.境界 as any;
+      return `${realm.名称 || ''}${realm.阶段 || ''}`.trim() || '未知';
+    })();
+
     const prompt = `
 # 任务：生成【宗门任务】列表（单次功能请求）
 你将为宗门「${sectName}」生成任务条目。
@@ -319,6 +327,10 @@ async function generateSectTasks() {
 - 生成 6-12 个任务，至少 4 个可接取
 - 奖励梯度：低(10-80) 中(80-200) 高(200-400) 极(400-800)
 - 任务内容必须与宗门特色和世界背景匹配
+- 【境界匹配约束（重要）】：任务难度和敌人/目标强度必须与玩家当前境界相适应
+  - 玩家当前境界：${playerRealm}
+  - 低难度任务应是该境界能轻松完成的，高难度任务需努力才能完成，极难度是极限挑战
+  - 禁止生成远超玩家当前境界能力范围的任务（如练气期玩家不应承接元婴级任务）
 - text 字段写简短提示即可
 
 ## 世界背景
@@ -326,6 +338,7 @@ ${JSON.stringify(worldContext).slice(0, 800)}
 
 ## 宗门信息
 - 玩家职位：${playerPosition.value}
+- 玩家境界：${playerRealm}
 - 玩家贡献点：${playerContribution.value}
 - 宗门详情：${JSON.stringify(sectContext).slice(0, 1500)}
 

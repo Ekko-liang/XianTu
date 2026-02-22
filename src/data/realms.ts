@@ -3,7 +3,7 @@ import type { RealmDefinition, RealmStageDefinition, RealmStage } from '../types
 // 通用子阶段定义函数
 function createStandardStages(realmLevel: number): RealmStageDefinition[] {
   const baseMultiplier = 1 + realmLevel * 0.2;
-  
+
   return [
     {
       stage: '初期' as RealmStage,
@@ -55,7 +55,7 @@ function createStandardStages(realmLevel: number): RealmStageDefinition[] {
 }
 
 function getRealmName(level: number): string {
-  const names = ['凡人', '炼气', '筑基', '金丹', '元婴', '化神', '炼虚', '合体', '渡劫'];
+  const names = ['凡人', '练气', '筑基', '金丹', '元婴', '化神', '炼虚', '合体', '渡劫'];
   return names[level] || '未知境界';
 }
 
@@ -74,7 +74,7 @@ export const REALM_DEFINITIONS: RealmDefinition[] = [
   },
   {
     level: 1,
-    name: '炼气',
+    name: '练气',
     title: '问道童子',
     coreFeature: '引气入体，洗涤凡躯',
     lifespan: '约120载',
@@ -167,7 +167,7 @@ export function getRealmDefinition(level: number): RealmDefinition | undefined {
 export function getRealmStageInfo(realmLevel: number, stage: RealmStage) {
   const realm = getRealmDefinition(realmLevel);
   const stageInfo = realm?.stages?.find(s => s.stage === stage);
-  
+
   return {
     realmName: realm?.name || '未知境界',
     stageInfo,

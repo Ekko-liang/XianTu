@@ -988,5 +988,32 @@ export const useGameStateStore = defineStore('gameState', {
       this.location = loc;
       console.log('[gameStateStore] ✅ 已离开区域，返回世界地图');
     },
+
+    /**
+     * 将新地点添加到世界地图（未收录地点手动添加）
+     */
+    addWorldLocation(location: {
+      名称: string;
+      类型: string;
+      描述: string;
+      坐标: { x: number; y: number };
+      所属大陆?: string;
+    }) {
+      if (!this.worldInfo) return;
+      const worldInfo = this.worldInfo as any;
+      if (!Array.isArray(worldInfo.地点信息)) {
+        worldInfo.地点信息 = [];
+      }
+      // 避免重复添加同名地点
+      const exists = (worldInfo.地点信息 as any[]).some(
+        (loc: any) => loc.名称 === location.名称 || loc.name === location.名称
+      );
+      if (exists) {
+        console.warn(`[gameStateStore] 地点 "${location.名称}" 已存在，跳过添加`);
+        return;
+      }
+      worldInfo.地点信息.push(location);
+      console.log(`[gameStateStore] ✅ 已添加新地点: ${location.名称} (${location.坐标.x}, ${location.坐标.y})`);
+    },
   },
 });

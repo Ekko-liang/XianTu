@@ -7,6 +7,25 @@
       @close="activeRegionMap = null"
     />
 
+    <!-- 未收录地点：右上角 Badge 按钮 -->
+    <button
+      v-if="unmappedNpcs.length > 0 && !activeRegionMap"
+      class="unmapped-badge-btn"
+      :class="{ active: showUnmappedPanel }"
+      @click="showUnmappedPanel = !showUnmappedPanel"
+      :title="`${unmappedNpcs.length} 个 NPC 在未收录地点`"
+    >
+      ⚠️ {{ unmappedNpcs.length }}
+    </button>
+
+    <!-- 未收录地点面板 -->
+    <UnmappedLocationsPanel
+      :show="showUnmappedPanel"
+      :npcs="unmappedNpcs"
+      @close="showUnmappedPanel = false"
+      @location-added="handleLocationAdded"
+    />
+
     <!-- 世界信息头部 -->
     <div v-if="worldBackground" class="world-info-header">
       <div class="world-name">{{ worldName }}</div>
@@ -319,6 +338,8 @@ import type { NpcProfile, GameTime } from '@/types/game';
 import type { RegionMap } from '@/types/gameMap';
 import RegionMapPanel from './RegionMapPanel.vue';
 import { generateRegionMap } from '@/utils/worldGeneration/regionMapGenerator';
+import UnmappedLocationsPanel from './UnmappedLocationsPanel.vue';
+import type { UnmappedNpc } from './UnmappedLocationsPanel.vue';
 
 // Props
 const props = defineProps<{
@@ -359,6 +380,78 @@ const mapDensity = ref<MapDensity>('normal');
 // ─── 区域地图状态 ─────────────────────────────────────────────────────────────
 const activeRegionMap = ref<RegionMap | null>(null);
 const isLoadingRegion = ref(false);
+
+// ─── 未收录地点状态 ────────────────────────────────────────────────────────────
+const showUnmappedPanel = ref(false);
+
+/**
+ * 计算所有位于「地图未收录地点」的 NPC。
+ * 条件：NPC 有位置描述，但描述中的地点（及其上级）都无法精确匹配 worldInfo.地点信息，
+ * 只能 fallback 到大陆层级。
+ */
+const unmappedNpcs = computed((): UnmappedNpc[] => {
+  const relationships = gameStateStore.relationships;
+  if (!relationships) return [];
+
+  const worldInfo = gameStateStore.worldInfo as any;
+  const locations: any[] = worldInfo?.地点信息 ?? [];
+  const continents: any[] = worldInfo?.大陆信息 ?? [];
+
+  const result: UnmappedNpc[] = [];
+
+  for (const [npcName, npcData] of Object.entries(relationships)) {
+    const raw = (npcData as any)?.['当前位置'] || (npcData as any)?.['位置'];
+    if (!raw || typeof raw !== 'object') continue;
+
+    const desc: string = (raw as any)['描述'] || (raw as any).description || '';
+    if (!desc) continue;
+
+    const parts = desc.split('·').map((s: string) => s.trim()).filter(Boolean);
+    // 必须至少有 字段1(大陆)·字段2(地点) 两段
+    if (parts.length < 2) continue;
+
+    // 字段2 = parts[1]（世界地图地点，如七玄山脉、青云门）
+    const field2 = parts[1];
+    // 字段3 = parts[2]（区域内建筑，如青石村、沧浪集），可能不存在
+    const field3 = parts.length >= 3 ? parts[2] : undefined;
+
+    // 检查字段2是否已精确匹配到地点信息（已收录则跳过）
+    const hasExactMatch = !!locations.find(
+      (loc: any) => loc.名称 === field2 || loc.name === field2
+    );
+    if (hasExactMatch) continue; // 字段2已在地图上，不需要添加
+
+    // 匹配大陆（字段1 = parts[0]）
+    const field1 = parts[0];
+    const matchedContinent = continents.find(
+      (c: any) => c.名称 === field1 || c.name === field1
+    );
+    if (!matchedContinent) continue; // 大陆都找不到，跳过
+
+    const continentName: string = matchedContinent.名称 || matchedContinent.name || '';
+    const bounds: { x: number; y: number }[] =
+      matchedContinent.大洲边界 ?? matchedContinent.continent_bounds ?? [];
+
+    result.push({
+      npcName,
+      locationDesc: desc,
+      locationHint: field2,   // 世界地图要添加的是字段2
+      buildingHint: field3,   // 字段3 仅用于面板展示（区域内建筑）
+      continentName,
+      continentBounds: bounds,
+      npcData: npcData as any,
+    });
+  }
+
+  return result;
+});
+
+/** 添加地点成功后，触发 NPC 位置重渲染 */
+function handleLocationAdded(_locationName: string) {
+  // worldInfo 响应式变化会自动触发 NPC watch 重新渲染
+  toast.success(`已将「${_locationName}」添加到世界地图`);
+}
+
 
 /**
  * 点击地点弹窗"进入区域地图"按钮
@@ -1396,6 +1489,36 @@ const handleFullscreenChange = () => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ─── 未收录地点 Badge 按钮 ──────────────────────────────────────────────────── */
+.unmapped-badge-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 200;
+  padding: 5px 12px;
+  background: rgba(255, 160, 40, 0.15);
+  border: 1px solid rgba(255, 160, 40, 0.45);
+  border-radius: 20px;
+  color: rgba(255, 200, 80, 0.95);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, transform 0.1s;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+}
+.unmapped-badge-btn:hover {
+  background: rgba(255, 160, 40, 0.28);
+  border-color: rgba(255, 160, 40, 0.7);
+  transform: scale(1.03);
+}
+.unmapped-badge-btn.active {
+  background: rgba(255, 160, 40, 0.25);
+  border-color: rgba(255, 200, 80, 0.7);
+  box-shadow: 0 0 14px rgba(255, 160, 40, 0.3);
 }
 
 /* 地图容器 */

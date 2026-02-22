@@ -1164,7 +1164,7 @@ const actionQueue = useActionQueueStore();
       const stage = normalizeNonEmptyString((npc as any)?.境界?.阶段) ?? '';
       const realmOrder: Record<string, number> = {
         凡人: 0,
-        炼气: 1,
+        练气: 1,
         筑基: 2,
         金丹: 3,
         元婴: 4,

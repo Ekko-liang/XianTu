@@ -1,0 +1,190 @@
+/**
+ * 地点坐标 AI 定位器
+ * 当 NPC 位置描述中出现世界地图未收录的地点时，
+ * 调用 AI 根据世界上下文推断该地点应在地图上的坐标。
+ */
+
+import { getTavernHelper } from '../tavern';
+import { parseJsonSmart } from '../jsonExtract';
+import { promptStorage } from '@/services/promptStorage';
+
+// ─── 类型 ─────────────────────────────────────────────────────────────────
+
+export interface LocationPlacementParams {
+  /** 新地点的候选名称（从 NPC 描述提取的最深未匹配段） */
+  locationName: string;
+  /** NPC 所在描述的完整路径，如"苍冥灵境·七玄山脉·青石村" */
+  locationDesc: string;
+  /** 所属大陆名 */
+  continentName: string;
+  /** 大陆边界点（用于约束坐标范围） */
+  continentBounds?: { x: number; y: number }[];
+  /** 相关 NPC 的名字 */
+  npcName: string;
+  /** NPC 境界 */
+  npcRealm?: string;
+  /** NPC 所属势力 */
+  npcFaction?: string;
+  /** 世界现有地点列表（防止坐标重叠） */
+  existingLocations: Array<{ 名称?: string; name?: string; 坐标?: { x: number; y: number }; x?: number; y?: number }>;
+  /** 地图宽高（用于坐标约束） */
+  mapSize: { width: number; height: number };
+}
+
+export interface LocationPlacementResult {
+  success: boolean;
+  location?: {
+    名称: string;
+    类型: string;
+    描述: string;
+    坐标: { x: number; y: number };
+    所属大陆?: string;
+  };
+  error?: string;
+}
+
+// ─── 默认提示词模板 ─────────────────────────────────────────────────────────
+
+const DEFAULT_PROMPT = `你是一个修仙世界地图规划师。请根据以下信息，为新出现的地点确定在世界地图上的坐标位置。
+
+【坐标系规则】
+- 坐标中心为 (5000, 5000)，向东 x 增大，向西 x 减小，向南 y 增大，向北 y 减小
+- 坐标范围约 1000-9000
+
+【境界与活动范围约束】
+- 凡人/练气期：只活动在本大陆较小范围内，距离宗门/城镇不超过大陆范围的 1/4
+- 筑基期：可活动于整个所属大陆
+- 金丹期及以上：可跨大陆活动
+
+【地点类型】
+- 名山大川：自然地标（山脉、河流、湖泊、洞天）
+- 城镇坊市：人类聚居地（城市、镇、村落、坊市）
+- 宗门势力：修仙宗门、门派、世家
+- 洞天福地：高灵气的特殊地点
+- 凶险之地：危险区域（妖兽领地、魔道势力、危险秘境）
+- 奇珍异地：特殊资源地点
+
+【严格输出】只输出纯 JSON：
+{"名称":"地点名称","类型":"地点类型","描述":"一句话描述","坐标":{"x":数字,"y":数字}}`;
+
+// ─── 主函数 ─────────────────────────────────────────────────────────────────
+
+export async function generateLocationPlacement(
+  params: LocationPlacementParams
+): Promise<LocationPlacementResult> {
+  const tavern = getTavernHelper();
+  if (!tavern) {
+    return { success: false, error: 'AI 服务未初始化，请在设置中配置 AI 服务' };
+  }
+
+  const {
+    locationName,
+    locationDesc,
+    continentName,
+    continentBounds,
+    npcName,
+    npcRealm,
+    npcFaction,
+    existingLocations,
+    mapSize,
+  } = params;
+
+  // 读取用户自定义提示词基础部分
+  const customBase = await promptStorage.get('locationPlacement');
+  const baseRule = customBase?.trim() || DEFAULT_PROMPT;
+
+  // 计算大陆边界范围（用于提示 AI）
+  let boundsHint = '';
+  if (continentBounds && continentBounds.length > 0) {
+    const xs = continentBounds.map((p) => p.x);
+    const ys = continentBounds.map((p) => p.y);
+    const minX = Math.min(...xs).toFixed(0);
+    const maxX = Math.max(...xs).toFixed(0);
+    const minY = Math.min(...ys).toFixed(0);
+    const maxY = Math.max(...ys).toFixed(0);
+    boundsHint = `大陆坐标范围：x ∈ [${minX}, ${maxX}]，y ∈ [${minY}, ${maxY}]`;
+  } else {
+    boundsHint = `地图总范围：x ∈ [1000, ${mapSize.width - 1000}]，y ∈ [1000, ${mapSize.height - 1000}]`;
+  }
+
+  // 已有地点列表（防止重叠）
+  const existingList = existingLocations
+    .slice(0, 30) // 最多 30 个，避免 token 过多
+    .map((loc) => {
+      const name = loc.名称 || loc.name || '?';
+      const x = loc.坐标?.x ?? loc.x ?? '?';
+      const y = loc.坐标?.y ?? loc.y ?? '?';
+      return `${name}(${x},${y})`;
+    })
+    .join('、');
+
+  const contextPrompt = `
+【待确定地点】
+地点名称：${locationName}
+位置描述路径：${locationDesc}
+所属大陆：${continentName}
+${boundsHint}
+
+【相关 NPC 信息】
+NPC：${npcName}
+境界：${npcRealm || '未知'}
+所属势力：${npcFaction || '无'}
+
+【已有地点（坐标不要与这些重叠，最小距离 200）】
+${existingList || '暂无'}
+
+请根据以上信息，结合 NPC 境界判断该地点的合理范围，输出地点的坐标和基本信息。`;
+
+  try {
+    const response = await tavern.generateRaw({
+      ordered_prompts: [
+        { role: 'user', content: `${baseRule}\n${contextPrompt}` },
+        { role: 'user', content: '请直接输出 JSON，不要有任何其他文字。' },
+      ],
+      should_stream: false,
+      usageType: 'world_generation',
+      overrides: { world_info_before: '', world_info_after: '' },
+    });
+
+    let responseText: string;
+    if (response && typeof response === 'object' && 'text' in response) {
+      responseText = (response as { text: string }).text;
+    } else if (typeof response === 'string') {
+      responseText = response;
+    } else {
+      responseText = String(response);
+    }
+
+    // 移除 thinking 标签
+    const cleaned = responseText
+      .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
+      .replace(/<thinking>[\s\S]*/gi, '')
+      .trim();
+
+    const raw = parseJsonSmart<{
+      名称?: string;
+      类型?: string;
+      描述?: string;
+      坐标?: { x: number; y: number };
+    }>(cleaned);
+
+    if (!raw.坐标 || !Number.isFinite(raw.坐标.x) || !Number.isFinite(raw.坐标.y)) {
+      return { success: false, error: 'AI 返回数据格式错误，缺少坐标' };
+    }
+
+    return {
+      success: true,
+      location: {
+        名称: locationName,
+        类型: raw.类型 || '城镇坊市',
+        描述: raw.描述 || '',
+        坐标: { x: Math.round(raw.坐标.x), y: Math.round(raw.坐标.y) },
+        所属大陆: continentName,
+      },
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('[地点定位] 失败:', message);
+    return { success: false, error: message };
+  }
+}
