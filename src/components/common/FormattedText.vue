@@ -109,9 +109,9 @@
               <strong>{{ $t('最终判定值') }}</strong> = {{ $t('基础值') }} + {{ $t('幸运点') }} + {{ $t('环境修正') }} + {{ $t('状态修正') }}
             </div>
             <ol>
-              <li><strong>{{ $t('基础值') }}</strong>：{{ $t('先天属性加权 + 境界加成 + 技艺加成') }}</li>
-              <li><strong>{{ $t('幸运点') }}</strong>：{{ $t('基于气运的随机波动（约-10到+15）') }} <span class="note">({{ $t('气运越高，期望值和上限越高') }})</span></li>
-              <li><strong>{{ $t('环境修正') }}</strong>：{{ $t('灵气浓度影响（修炼/炼丹/战斗），探索社交不受影响') }}</li>
+              <li><strong>{{ $t('基础值') }}</strong>：{{ $t('基础六维加权 + 评级加成 + 技能加成') }}</li>
+              <li><strong>{{ $t('幸运点') }}</strong>：{{ $t('基于幸运(LUK)的随机波动（约-10到+15）') }} <span class="note">({{ $t('幸运越高，期望值和上限越高') }})</span></li>
+              <li><strong>{{ $t('环境修正') }}</strong>：{{ $t('环境威胁、地形限制与时间压力带来的修正') }}</li>
               <li><strong>{{ $t('状态修正') }}</strong>：{{ $t('生命状态（重伤/虚弱）及 Buff/Debuff 影响') }}</li>
             </ol>
           </div>
@@ -119,7 +119,7 @@
           <div class="help-section">
             <h4>🎯 {{ $t('判定结果') }}</h4>
             <div class="formula-note">
-              <strong>{{ $t('判定规则') }}</strong>: {{ $t('判定值与难度对比，完全基于属性、境界和加成') }}
+              <strong>{{ $t('判定规则') }}</strong>: {{ $t('判定值与难度对比，完全基于属性、评级和加成') }}
             </div>
             <div class="result-list">
               <div class="result-item perfect">
@@ -150,71 +150,71 @@
             <div class="judgement-types">
               <div class="type-item">
                 <span class="type-name">{{ $t('战斗判定') }}</span>
-                <span class="type-attrs">{{ $t('根骨50% + 灵性30% + 气运20%') }}</span>
+                <span class="type-attrs">{{ $t('STR50% + PER30% + LUK20%') }}</span>
               </div>
               <div class="type-item">
-                <span class="type-name">{{ $t('修炼判定') }}</span>
-                <span class="type-attrs">{{ $t('悟性50% + 灵性30% + 心性20%') }}</span>
+                <span class="type-name">{{ $t('生存判定') }}</span>
+                <span class="type-attrs">{{ $t('WIL50% + PER30% + STR20%') }}</span>
               </div>
               <div class="type-item">
-                <span class="type-name">{{ $t('技艺判定') }}</span>
-                <span class="type-attrs">{{ $t('悟性50% + 根骨30% + 灵性20%') }}</span>
+                <span class="type-name">{{ $t('技术判定') }}</span>
+                <span class="type-attrs">{{ $t('INT50% + PER30% + WIL20%') }}</span>
               </div>
               <div class="type-item">
                 <span class="type-name">{{ $t('社交判定') }}</span>
-                <span class="type-attrs">{{ $t('魅力50% + 悟性30% + 心性20%') }}</span>
+                <span class="type-attrs">{{ $t('CHA50% + INT30% + WIL20%') }}</span>
               </div>
               <div class="type-item">
                 <span class="type-name">{{ $t('探索判定') }}</span>
-                <span class="type-attrs">{{ $t('气运50% + 灵性30% + 悟性20%') }}</span>
+                <span class="type-attrs">{{ $t('PER50% + LUK30% + INT20%') }}</span>
               </div>
             </div>
           </div>
 
           <div class="help-section">
-            <h4>📖 {{ $t('六司属性说明') }}</h4>
+            <h4>📖 {{ $t('六维属性说明') }}</h4>
             <div class="attributes-desc">
               <div class="attr-card">
                 <div class="attr-header">
                   <span class="attr-icon">💪</span>
-                  <span class="attr-name">{{ $t('根骨') }}</span>
+                  <span class="attr-name">{{ $t('STR（力量）') }}</span>
                 </div>
-                <p>{{ $t('决定气血上限、恢复速度、寿命上限。影响炼体修行、抗打击能力。') }}</p>
+                <p>{{ $t('决定近战输出、负重与冲击抗性。') }}</p>
               </div>
               <div class="attr-card">
                 <div class="attr-header">
                   <span class="attr-icon">✨</span>
-                  <span class="attr-name">{{ $t('灵性') }}</span>
+                  <span class="attr-name">{{ $t('PER（感知）') }}</span>
                 </div>
-                <p>{{ $t('决定灵气上限、吸收效率。影响修炼速度、法术威力。') }}</p>
+                <p>{{ $t('决定侦查效率、陷阱识别和危险预警能力。') }}</p>
               </div>
               <div class="attr-card">
                 <div class="attr-header">
                   <span class="attr-icon">🧠</span>
-                  <span class="attr-name">{{ $t('悟性') }}</span>
+                  <span class="attr-name">{{ $t('INT（智力）') }}</span>
                 </div>
-                <p>{{ $t('决定神识上限、学习效率。影响功法领悟、技能掌握速度。') }}</p>
+                <p>{{ $t('决定学习效率、分析推理和战术规划能力。') }}</p>
               </div>
               <div class="attr-card">
                 <div class="attr-header">
                   <span class="attr-icon">🍀</span>
-                  <span class="attr-name">{{ $t('气运') }}</span>
+                  <span class="attr-name">{{ $t('LUK（幸运）') }}</span>
                 </div>
-                <p>{{ $t('决定各种概率、物品掉落品质。影响天材地宝获取、贵人相助。') }}</p>
+                <p>{{ $t('决定随机事件倾向、战利品质量和转危为安概率。') }}</p>
               </div>
               <div class="attr-card">
                 <div class="attr-header">
                   <span class="attr-icon">🌺</span>
-                  <span class="attr-name">{{ $t('魅力') }}</span>
+                  <span class="attr-name">{{ $t('CHA（魅力）') }}</span>
                 </div>
-                <p>{{ $t('决定初始好感度、社交加成。影响NPC互动、门派声望获取。') }}</p>
+                <p>{{ $t('决定沟通效率、说服成功率和团队协作上限。') }}</p>
               </div>
               <div class="attr-card">
                 <div class="attr-header">
                   <span class="attr-icon">💎</span>
-                  <span class="attr-name">{{ $t('心性') }}</span>
+                  <span class="attr-name">{{ $t('WIL（意志）') }}</span>
                 </div>
-                <p>{{ $t('决定心魔抗性、意志力。影响走火入魔抵抗、关键抉择。') }}</p>
+                <p>{{ $t('决定精神抗性、恐惧抵抗和高压下的稳定性。') }}</p>
               </div>
             </div>
           </div>
@@ -222,13 +222,12 @@
           <div class="help-section">
             <h4>💡 {{ $t('提升判定成功率') }}</h4>
             <ul class="tips-list">
-              <li>{{ $t('先天六司：天赋决定上限，无法改变但影响最大') }}</li>
-              <li>{{ $t('提升境界：境界越高，判定基础加成越大（练气+5，筑基+12...）') }}</li>
-              <li>{{ $t('修炼后天：后天六司可提升，但权重仅20%') }}</li>
-              <li>{{ $t('学习功法：高品质功法和技能熟练度提供显著加成') }}</li>
-              <li>{{ $t('装备法器：合适的装备能大幅提升判定值') }}</li>
+              <li>{{ $t('优先补齐短板属性，避免单项过高导致判定失衡') }}</li>
+              <li>{{ $t('提升评级：评级越高，判定基础加成越稳定') }}</li>
+              <li>{{ $t('能力强化：高品质能力与熟练度会提供显著加成') }}</li>
+              <li>{{ $t('装备协同：根据副本规则选择对应装备组合') }}</li>
               <li>{{ $t('状态效果：buff增强判定，注意避免debuff') }}</li>
-              <li>{{ $t('境界压制：高境界对低境界有明显优势，但不是绝对') }}</li>
+              <li>{{ $t('难度压制：高难副本会放大数值差距，但策略可弥补') }}</li>
             </ul>
           </div>
         </div>

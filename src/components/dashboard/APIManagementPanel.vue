@@ -914,8 +914,8 @@ const testAPI = async (api: APIConfig) => {
   try {
     // 根据是否启用强制JSON选择不同的测试提示词
     const testPrompt = api.forceJsonOutput
-      ? '你正在进行API连通性测试。请按照以下JSON格式输出测试结果：\n\n示例JSON格式：\n{"status": "ok", "message": "仙途本-连通测试-OK"}\n\n请严格按照上述JSON格式输出。'
-      : '你正在进行API连通性测试。请仅输出：仙途本-连通测试-OK';
+      ? '你正在进行API连通性测试。请按照以下JSON格式输出测试结果：\n\n示例JSON格式：\n{"status": "ok", "message": "主神空间-连通测试-OK"}\n\n请严格按照上述JSON格式输出。'
+      : '你正在进行API连通性测试。请仅输出：主神空间-连通测试-OK';
 
     // 使用直接测试方法，绕过环境检测
     const response = await aiService.testAPIDirectly({
@@ -934,14 +934,14 @@ const testAPI = async (api: APIConfig) => {
       try {
         const jsonResponse = JSON.parse(response);
         ok = jsonResponse.status === 'ok' ||
-             (jsonResponse.message && jsonResponse.message.includes('仙途本')) ||
+             (jsonResponse.message && jsonResponse.message.includes('主神空间')) ||
              response.toLowerCase().includes('ok');
       } catch {
         // JSON解析失败，尝试普通文本匹配
-        ok = response.toLowerCase().includes('仙途本') || response.toLowerCase().includes('ok');
+        ok = response.toLowerCase().includes('主神空间') || response.toLowerCase().includes('ok');
       }
     } else {
-      ok = response.toLowerCase().includes('仙途本') || response.toLowerCase().includes('ok');
+      ok = response.toLowerCase().includes('主神空间') || response.toLowerCase().includes('ok');
     }
 
     apiTestResults.value[api.id] = ok ? 'success' : 'fail';
@@ -1091,7 +1091,7 @@ const handleExport = () => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `仙途-API配置-${new Date().toISOString().split('T')[0]}.json`;
+  link.download = `主神空间-API配置-${new Date().toISOString().split('T')[0]}.json`;
   link.click();
   URL.revokeObjectURL(url);
   toast.success(t('API配置已导出'));

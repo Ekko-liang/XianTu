@@ -2439,8 +2439,8 @@ const deleteNpc = async (npcName: string) => {
 
 
 /**
- * [新增] 装备一个功法
- * @param itemId 要装备的功法物品ID
+ * [新增] 装备一个能力模块（兼容旧“功法”类型）
+ * @param itemId 要装备的物品ID
  */
 const equipTechnique = async (itemId: string) => {
   // 🔥 [修复] 使用 gameStateStore 获取当前存档数据
@@ -2454,9 +2454,11 @@ const equipTechnique = async (itemId: string) => {
   }
 
   const item = (saveData as any).角色?.背包?.物品?.[itemId];
+  const isTechniqueLikeItem = (target: any) =>
+    target?.类型 === '功法' || target?.类型 === '能力芯片' || target?.类型 === '能力模块';
 
-  if (!item || item.类型 !== '功法') {
-    toast.error('要装备的物品不是一个有效的功法');
+  if (!item || !isTechniqueLikeItem(item)) {
+    toast.error('要装备的物品不是一个有效的能力模块');
     return;
   }
 
@@ -2468,14 +2470,14 @@ const equipTechnique = async (itemId: string) => {
     完整物品数据: item
   });
 
-  // 1. 卸下当前所有功法
+  // 1. 卸下当前所有能力模块（兼容旧“功法”）
   Object.values(((saveData as any).角色?.背包?.物品 ?? {}) as Record<string, Item>).forEach((i) => {
-    if (i.类型 === '功法') {
+    if (isTechniqueLikeItem(i)) {
       i.已装备 = false;
     }
   });
 
-  // 2. 装备新功法
+  // 2. 装备新能力模块
   item.已装备 = true;
 
   // 🔥 [关键修复] 初始化修炼进度（如果未定义）
@@ -2490,10 +2492,13 @@ const equipTechnique = async (itemId: string) => {
   }
 
   // 检查哪些技能应该立即解锁（解锁阈值 <= 当前进度）
-  if (item.功法技能 && Array.isArray(item.功法技能)) {
+  const skillList = (item.功法技能 && Array.isArray(item.功法技能))
+    ? item.功法技能
+    : ((item as any).技能列表 && Array.isArray((item as any).技能列表) ? (item as any).技能列表 : []);
+  if (skillList.length > 0) {
     const currentProgress = item.修炼进度 || 0;
-    debug.log('角色商店', `[技能解锁检查] 功法: ${item.名称}, 进度: ${currentProgress}%, 技能数: ${item.功法技能.length}`);
-    item.功法技能.forEach((skill: any) => {
+    debug.log('角色商店', `[技能解锁检查] 模块: ${item.名称}, 进度: ${currentProgress}%, 技能数: ${skillList.length}`);
+    skillList.forEach((skill: any) => {
       const unlockThreshold = skill.熟练度要求 || 0;
       debug.log('角色商店', `  检查技能: ${skill.技能名称}, 阈值: ${unlockThreshold}%, 当前进度: ${currentProgress}%, 应解锁: ${currentProgress >= unlockThreshold}`);
       if (currentProgress >= unlockThreshold && !item.已解锁技能!.includes(skill.技能名称)) {
@@ -2511,18 +2516,22 @@ const equipTechnique = async (itemId: string) => {
       物品ID: item.物品ID,
       名称: item.名称,
     },
+    修炼能力: {
+      物品ID: item.物品ID,
+      名称: item.名称,
+    },
   };
 
-  debug.log('角色商店', `已装备功法: ${item.名称}`);
+  debug.log('角色商店', `已装备能力模块: ${item.名称}`);
   debug.log('角色商店', `修炼进度存储在: 背包.物品.${item.物品ID}.修炼进度`);
   debug.log('角色商店', `已解锁技能数量: ${item.已解锁技能?.length || 0}`);
 
-  // 🔥 [掌握技能自动计算] 装备功法后重新计算掌握技能
+  // 🔥 [掌握技能自动计算] 装备能力模块后重新计算掌握技能
   try {
     const updatedSkills = updateMasteredSkills(saveData);
-    debug.log('角色商店', `装备功法后已更新掌握技能列表，共 ${updatedSkills.length} 个技能`);
+    debug.log('角色商店', `装备能力模块后已更新掌握技能列表，共 ${updatedSkills.length} 个技能`);
   } catch (e) {
-    debug.error('角色商店', '装备功法后自动计算掌握技能失败:', e);
+    debug.error('角色商店', '装备能力模块后自动计算掌握技能失败:', e);
   }
 
   // 🔥 [修复] 更新 gameStateStore 并保存完整存档数据
@@ -2530,14 +2539,17 @@ const equipTechnique = async (itemId: string) => {
 
   // 🔥 [关键修复] loadFromSaveData 后再次确保技能解锁状态正确
   // 因为 loadFromSaveData 可能会创建新对象
-  const itemInStore = gameStateStore.inventory?.物品?.[itemId];
-  if (itemInStore && itemInStore.类型 === '功法') {
+  const itemInStore = gameStateStore.inventory?.物品?.[itemId] as any;
+  if (itemInStore && isTechniqueLikeItem(itemInStore)) {
     if (!itemInStore.已解锁技能) {
       itemInStore.已解锁技能 = [];
     }
     const currentProgress = itemInStore.修炼进度 || 0;
-    if (itemInStore.功法技能 && Array.isArray(itemInStore.功法技能)) {
-      itemInStore.功法技能.forEach((skill: any) => {
+    const inStoreSkillList = (itemInStore.功法技能 && Array.isArray(itemInStore.功法技能))
+      ? itemInStore.功法技能
+      : ((itemInStore.技能列表 && Array.isArray(itemInStore.技能列表)) ? itemInStore.技能列表 : []);
+    if (inStoreSkillList.length > 0) {
+      inStoreSkillList.forEach((skill: any) => {
         const unlockThreshold = skill.熟练度要求 || 0;
         if (currentProgress >= unlockThreshold && !itemInStore.已解锁技能!.includes(skill.技能名称)) {
           itemInStore.已解锁技能!.push(skill.技能名称);
@@ -2560,7 +2572,7 @@ const equipTechnique = async (itemId: string) => {
 
   // 🔥 修复：显示真实功法名称而非伪装名称
   const realTechniqueName = item.名称;
-  toast.success(`已开始修炼《${realTechniqueName}》`);
+  toast.success(`已装配能力模块《${realTechniqueName}》`);
 };
 
 /**
@@ -2659,8 +2671,8 @@ const importCharacter = async (profileData: CharacterProfile & { _导入存档�
 };
 
 /**
- * [新增] 卸下一个功法
- * @param itemId 要卸下的功法物品ID
+ * [新增] 卸下一个能力模块（兼容旧“功法”类型）
+ * @param itemId 要卸下的物品ID
  */
 /**
  * 从 IndexedDB 加载指定槽位的存档数据
@@ -2797,26 +2809,28 @@ const unequipTechnique = async (itemId: string) => {
     return;
   }
   const item = (saveData as any).角色?.背包?.物品?.[itemId];
+  const isTechniqueLikeItem = (target: any) =>
+    target?.类型 === '功法' || target?.类型 === '能力芯片' || target?.类型 === '能力模块';
 
   // 🔥 修复：使用与UI一致的验证逻辑，检查背包中的已装备状态
   // 兼容旧数据：如果 已装备 为 false 但 修炼中 为 true，也允许卸下
   const isEquipped = item.已装备 || (item as any).修炼中;
 
-  if (!item || item.类型 !== '功法' || !isEquipped) {
-    debug.error('角色商店', '功法卸载验证失败:', {
+  if (!item || !isTechniqueLikeItem(item) || !isEquipped) {
+    debug.error('角色商店', '能力模块卸载验证失败:', {
       itemExists: !!item,
       itemType: item?.类型,
       isEquipped: item?.已装备,
       isCultivating: (item as any)?.修炼中,
       requestedItemId: itemId
     });
-    toast.error('要卸下的功法与当前修炼的功法不匹配');
+    toast.error('要卸下的能力模块与当前已装配模块不匹配');
     return;
   }
 
   // 修炼进度已存储在背包物品本身，无需同步
 
-  // 2. 更新背包中的功法状态
+  // 2. 更新背包中的能力模块状态
   item.已装备 = false;
   if ((item as any).修炼中) (item as any).修炼中 = false;
 
@@ -2825,18 +2839,19 @@ const unequipTechnique = async (itemId: string) => {
     (saveData as any).角色.修炼 = {
       ...(((saveData as any).角色.修炼 ?? {}) as any),
       修炼功法: null,
+      修炼能力: null,
     };
   }
 
-  debug.log('角色商店', `已卸下功法: ${item.名称}`);
+  debug.log('角色商店', `已卸下能力模块: ${item.名称}`);
   debug.log('角色商店', `修炼进度保留在: 背包.物品.${item.物品ID}.修炼进度`);
 
-  // 🔥 [掌握技能自动计算] 卸下功法后重新计算掌握技能
+  // 🔥 [掌握技能自动计算] 卸下能力模块后重新计算掌握技能
   try {
     const updatedSkills = updateMasteredSkills(saveData);
-    debug.log('角色商店', `卸下功法后已更新掌握技能列表，共 ${updatedSkills.length} 个技能`);
+    debug.log('角色商店', `卸下能力模块后已更新掌握技能列表，共 ${updatedSkills.length} 个技能`);
   } catch (e) {
-    debug.error('角色商店', '卸下功法后自动计算掌握技能失败:', e);
+    debug.error('角色商店', '卸下能力模块后自动计算掌握技能失败:', e);
   }
 
   // 🔥 注意：由于saveData是gameStateStore状态的引用，直接修改已自动更新store
@@ -2848,7 +2863,7 @@ const unequipTechnique = async (itemId: string) => {
   const progress = item.修炼进度 || 0;
   // 🔥 修复：显示真实功法名称而非伪装名称
   const realTechniqueName =  item.名称;
-  toast.info(`已停止修炼《${realTechniqueName}》，修炼进度${progress}%已保存到背包`);
+  toast.info(`已卸下能力模块《${realTechniqueName}》，模块熟练度${progress}%已保存到背包`);
 };
 
 

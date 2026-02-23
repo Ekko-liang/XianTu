@@ -876,8 +876,8 @@ const finalizeCrafting = async (needById?: Map<string, number>, materialSnapshot
     successRate,
     success,
     resultQuality: { quality: quality as any, grade: grade as any },
-    materialQualityScore: 0,
-    daoBonusStage: 0,
+    materialQualityScore: computation.materialQualityScore,
+    daoBonusStage: computation.daoBonusStage,
   } as any;
   processText.value = process;
   resultItem.value = finalItem;

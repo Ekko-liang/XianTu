@@ -13,10 +13,12 @@ export interface GameAction {
 
 /**
  * 操作行动暂存系统
- * 用于存储玩家的游戏操作（如修炼功法、装备法宝等），
+ * 用于存储玩家的游戏操作（如训练能力、装备道具等），
  * 在下次发送AI消息时作为附加提示词发送
  */
 export const useActionQueueStore = defineStore('actionQueue', () => {
+  const ACTION_QUEUE_STORAGE_KEY = 'infinite_action_queue';
+  const LEGACY_ACTION_QUEUE_STORAGE_KEY = 'dao_action_queue';
   // 操作队列
   const pendingActions = ref<GameAction[]>([]);
   
@@ -44,8 +46,8 @@ export const useActionQueueStore = defineStore('actionQueue', () => {
       );
     }
 
-    // 确保任何时候只有一个修炼操作
-    // 如果添加新的修炼操作，则移除所有旧的
+    // 确保任何时候只有一个训练操作
+    // 如果添加新的训练操作，则移除所有旧的
     if (newAction.type === 'cultivate') {
       pendingActions.value = pendingActions.value.filter(a => a.type !== 'cultivate');
     }
@@ -64,7 +66,7 @@ export const useActionQueueStore = defineStore('actionQueue', () => {
     
     if (existingIndex !== -1) {
       // 如果存在，则替换它。这对于可以“更新”的操作很有用，
-      // 例如再次点击同一物品的“修炼”。
+      // 例如再次点击同一能力的“训练”。
       pendingActions.value[existingIndex] = newAction;
     } else {
       // 否则，添加新操作。
@@ -110,12 +112,12 @@ export const useActionQueueStore = defineStore('actionQueue', () => {
       switch (action.type) {
         case 'cultivate':
           if (action.itemType === '大道') {
-            return `感悟了《${action.itemName}》大道`;
+            return `推进了《${action.itemName}》能力分支`;
           } else {
-            return `修炼了《${action.itemName}》功法`;
+            return `训练了《${action.itemName}》能力`;
           }
         case 'equip':
-          return `装备了《${action.itemName}》${action.itemType || '法宝'}`;
+          return `装备了《${action.itemName}》${action.itemType || '装备'}`;
         case 'use':
           // 使用物品需要包含详细描述（包含效果）
           return action.description || `使用了《${action.itemName}》`;
@@ -138,7 +140,7 @@ export const useActionQueueStore = defineStore('actionQueue', () => {
       }
     });
 
-    return `\n\n【玩家最近操作】\n在本轮对话前，玩家进行了以下操作：\n${actionTexts.map(text => `• ${text}`).join('\n')}\n\n⚠️ **重要提醒**：请优先基于这些玩家操作来生成回应！先处理和反映这些具体动作的结果，然后再回应用户输入的文本内容。这些操作具有更高的优先级，应该在叙事中得到明确体现。`;
+    return `\n\n【轮回者最近操作】\n在本轮对话前，玩家进行了以下操作：\n${actionTexts.map(text => `• ${text}`).join('\n')}\n\n⚠️ **重要提醒**：请优先基于这些玩家操作来生成回应！先处理和反映这些具体动作的结果，然后再回应用户输入的文本内容。这些操作具有更高的优先级，应该在叙事中得到明确体现。`;
   };
   
   /**
@@ -164,7 +166,9 @@ export const useActionQueueStore = defineStore('actionQueue', () => {
    */
   const saveToStorage = () => {
     try {
-      localStorage.setItem('dao_action_queue', JSON.stringify(pendingActions.value));
+      const payload = JSON.stringify(pendingActions.value);
+      localStorage.setItem(ACTION_QUEUE_STORAGE_KEY, payload);
+      localStorage.setItem(LEGACY_ACTION_QUEUE_STORAGE_KEY, payload);
     } catch (error) {
       console.warn('[操作队列] 保存到localStorage失败:', error);
     }
@@ -175,7 +179,8 @@ export const useActionQueueStore = defineStore('actionQueue', () => {
    */
   const loadFromStorage = () => {
     try {
-      const stored = localStorage.getItem('dao_action_queue');
+      const stored = localStorage.getItem(ACTION_QUEUE_STORAGE_KEY)
+        || localStorage.getItem(LEGACY_ACTION_QUEUE_STORAGE_KEY);
       if (stored) {
         const actions = JSON.parse(stored) as GameAction[];
         // 过滤掉过老的操作（超过1小时）

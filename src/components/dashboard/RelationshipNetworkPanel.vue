@@ -81,7 +81,7 @@
                     </div>
                   </div>
                   <div class="person-realm" v-if="getNpcRealm(person) !== '未知'">
-                    <span class="realm-label">境界:</span>
+                    <span class="realm-label">评级:</span>
                     <span class="realm-value">{{ getNpcRealm(person) }}</span>
                   </div>
                   <div class="intimacy-info">
@@ -177,7 +177,7 @@
                     <h5 class="section-title">📋 基本信息</h5>
                     <div class="info-grid-responsive">
                       <div class="info-item-row">
-                        <span class="info-label">境界</span
+                        <span class="info-label">评级</span
                         ><span class="info-value">{{ getNpcRealm(selectedPerson) }}</span>
                       </div>
                       <div class="info-item-row">
@@ -189,7 +189,7 @@
                         ><span class="info-value">{{ getNpcAge(selectedPerson) }}</span>
                       </div>
                       <div class="info-item-row">
-                        <span class="info-label">灵根</span
+                        <span class="info-label">潜能</span
                         ><span class="info-value">{{ getNpcSpiritRoot(selectedPerson) }}</span>
                       </div>
                       <div class="info-item-row" v-if="selectedPerson.当前位置">
@@ -209,7 +209,7 @@
                     <div class="npc-vitals-container">
                       <div class="npc-vital-row">
                         <div class="npc-vital-meta">
-                          <span class="npc-vital-name">气血</span>
+                          <span class="npc-vital-name">HP</span>
                           <span class="npc-vital-nums">{{ formatNpcStatPair(selectedPerson, '气血') }}</span>
                         </div>
                         <div class="npc-vital-track">
@@ -218,7 +218,7 @@
                       </div>
                       <div class="npc-vital-row">
                         <div class="npc-vital-meta">
-                          <span class="npc-vital-name">灵气</span>
+                          <span class="npc-vital-name">EP</span>
                           <span class="npc-vital-nums">{{ formatNpcStatPair(selectedPerson, '灵气') }}</span>
                         </div>
                         <div class="npc-vital-track">
@@ -227,7 +227,7 @@
                       </div>
                       <div class="npc-vital-row">
                         <div class="npc-vital-meta">
-                          <span class="npc-vital-name">神识</span>
+                          <span class="npc-vital-name">MP</span>
                           <span class="npc-vital-nums">{{ formatNpcStatPair(selectedPerson, '神识') }}</span>
                         </div>
                         <div class="npc-vital-track">
@@ -236,7 +236,7 @@
                       </div>
                       <div class="npc-vital-row">
                         <div class="npc-vital-meta">
-                          <span class="npc-vital-name">寿元</span>
+                          <span class="npc-vital-name">存续时限</span>
                           <span class="npc-vital-nums">{{ formatNpcLifespan(selectedPerson) }}</span>
                         </div>
                         <div class="npc-vital-track">
@@ -274,7 +274,7 @@
                     class="detail-section"
                     v-if="selectedPerson.天赋?.length || selectedPerson.先天六司"
                   >
-                    <h5 class="section-title">天赋与六司</h5>
+                    <h5 class="section-title">天赋与属性倾向</h5>
                     <div v-if="selectedPerson.天赋?.length">
                       <h6 class="subsection-title">天赋能力</h6>
                       <div class="talents-grid">
@@ -290,30 +290,30 @@
                       </div>
                     </div>
                     <div v-if="selectedPerson.先天六司" style="margin-top: 1rem">
-                      <h6 class="subsection-title">先天六司</h6>
+                      <h6 class="subsection-title">基础六维（兼容映射）</h6>
                       <div class="attributes-grid">
                         <div class="attribute-item">
-                          <span class="attr-label">根骨</span
+                          <span class="attr-label">STR</span
                           ><span class="attr-value">{{ selectedPerson.先天六司.根骨 || 0 }}</span>
                         </div>
                         <div class="attribute-item">
-                          <span class="attr-label">灵性</span
+                          <span class="attr-label">PER</span
                           ><span class="attr-value">{{ selectedPerson.先天六司.灵性 || 0 }}</span>
                         </div>
                         <div class="attribute-item">
-                          <span class="attr-label">悟性</span
+                          <span class="attr-label">INT</span
                           ><span class="attr-value">{{ selectedPerson.先天六司.悟性 || 0 }}</span>
                         </div>
                         <div class="attribute-item">
-                          <span class="attr-label">气运</span
+                          <span class="attr-label">LUK</span
                           ><span class="attr-value">{{ selectedPerson.先天六司.气运 || 0 }}</span>
                         </div>
                         <div class="attribute-item">
-                          <span class="attr-label">魅力</span
+                          <span class="attr-label">CHA</span
                           ><span class="attr-value">{{ selectedPerson.先天六司.魅力 || 0 }}</span>
                         </div>
                         <div class="attribute-item">
-                          <span class="attr-label">心性</span
+                          <span class="attr-label">WIL</span
                           ><span class="attr-value">{{ selectedPerson.先天六司.心性 || 0 }}</span>
                         </div>
                       </div>
@@ -838,16 +838,16 @@
                     <h5 class="section-title">背包</h5>
                     <div v-if="selectedPerson.背包?.灵石" class="spirit-stones-grid">
                       <div class="spirit-stone-item">
-                        <span>下品灵石</span><span>{{ selectedPerson.背包.灵石.下品 || 0 }}</span>
+                        <span>兼容货币·下阶</span><span>{{ selectedPerson.背包.灵石.下品 || 0 }}</span>
                       </div>
                       <div class="spirit-stone-item">
-                        <span>中品灵石</span><span>{{ selectedPerson.背包.灵石.中品 || 0 }}</span>
+                        <span>兼容货币·中阶</span><span>{{ selectedPerson.背包.灵石.中品 || 0 }}</span>
                       </div>
                       <div class="spirit-stone-item">
-                        <span>上品灵石</span><span>{{ selectedPerson.背包.灵石.上品 || 0 }}</span>
+                        <span>兼容货币·高阶</span><span>{{ selectedPerson.背包.灵石.上品 || 0 }}</span>
                       </div>
                       <div class="spirit-stone-item">
-                        <span>极品灵石</span><span>{{ selectedPerson.背包.灵石.极品 || 0 }}</span>
+                        <span>兼容货币·特阶</span><span>{{ selectedPerson.背包.灵石.极品 || 0 }}</span>
                       </div>
                     </div>
                     <div class="npc-inventory" style="margin-top: 1rem">
@@ -1162,7 +1162,19 @@ const actionQueue = useActionQueueStore();
     const getRealmRank = (npc: NpcProfile): number => {
       const realmName = normalizeNonEmptyString((npc as any)?.境界?.名称) ?? '';
       const stage = normalizeNonEmptyString((npc as any)?.境界?.阶段) ?? '';
-      const realmOrder: Record<string, number> = {
+      const levelText = `${realmName}${stage}`.toUpperCase();
+
+      const rankOrder: Record<string, number> = {
+        D: 0,
+        C: 1,
+        B: 2,
+        A: 3,
+        S: 4,
+        SS: 5,
+        SSS: 6,
+      };
+
+      const legacyRealmOrder: Record<string, number> = {
         凡人: 0,
         练气: 1,
         筑基: 2,
@@ -1175,8 +1187,23 @@ const actionQueue = useActionQueueStore();
         渡劫: 9,
         真仙: 10,
       };
-      const stageOrder: Record<string, number> = { 初期: 0, 中期: 1, 后期: 2, 圆满: 3 };
-      return (realmOrder[realmName] ?? 0) * 10 + (stageOrder[stage] ?? 0);
+
+      let rankBase = -1;
+      if (/SSS/.test(levelText)) rankBase = rankOrder.SSS;
+      else if (/SS/.test(levelText)) rankBase = rankOrder.SS;
+      else if (/\bS\b/.test(levelText) || /S级/.test(levelText)) rankBase = rankOrder.S;
+      else if (/\bA\b/.test(levelText) || /A级/.test(levelText)) rankBase = rankOrder.A;
+      else if (/\bB\b/.test(levelText) || /B级/.test(levelText)) rankBase = rankOrder.B;
+      else if (/\bC\b/.test(levelText) || /C级/.test(levelText)) rankBase = rankOrder.C;
+      else if (/\bD\b/.test(levelText) || /D级/.test(levelText)) rankBase = rankOrder.D;
+
+      if (rankBase < 0) {
+        rankBase = legacyRealmOrder[realmName] ?? 0;
+      }
+
+      const stageOrder: Record<string, number> = { 一星: 0, 二星: 1, 三星: 2, 四星: 3, 五星: 4, 初期: 0, 中期: 1, 后期: 2, 圆满: 3, 极境: 4 };
+      const stageKey = normalizeNonEmptyString((npc as any)?.境界?.阶段) ?? '';
+      return rankBase * 10 + (stageOrder[stageKey] ?? 0);
     };
 
     const nameSet = new Set(npcs.map((n) => n.名字).filter((n) => typeof n === 'string' && n.trim()));
@@ -1598,9 +1625,14 @@ const getNpcRealm = (npc: NpcProfile): string => {
   if (!realmField) return '未知';
 
   if (typeof realmField === 'object' && realmField !== null) {
-    const name = realmField.名称 || '';
-    const stage = realmField.阶段 || '';
+    const name = String((realmField as any).名称 || '').trim();
+    const stage = String((realmField as any).阶段 || '').trim();
     if (name) {
+      // 新体系：轮回评级 + 星级（例如 D级3星）
+      if (name.includes('轮回') || ['D', 'C', 'B', 'A', 'S', 'SS', 'SSS'].some((r) => `${name}${stage}`.toUpperCase().includes(r))) {
+        return stage ? `${name}·${stage}` : name;
+      }
+      // 旧体系兼容
       return stage ? `${name}${stage}` : name;
     }
   }
@@ -2185,7 +2217,7 @@ ${memoriesText}
           { role: 'system', content: `【输出格式】：\n\`\`\`json\n{"text": "总结内容"}\n\`\`\`` },
 
           // 5. 总结要求
-          { role: 'system', content: `【总结要求】：\n- 第一人称"我"（${npcName}的视角）\n- 150-250字\n- 连贯的现代修仙小说叙述风格\n- 仅输出JSON，不要thinking/commands/options` },
+          { role: 'system', content: `【总结要求】：\n- 第一人称"我"（${npcName}的视角）\n- 150-250字\n- 连贯的无限流生存叙述风格\n- 仅输出JSON，不要thinking/commands/options` },
 
           // 6. 必须保留
           { role: 'system', content: `【必须保留】：\n- 原文中的人名（特别是玩家名字）\n- 原文中的地名\n- 原文中的事件\n- 原文中的物品交换\n- 原文中的情感变化` },
@@ -2233,7 +2265,7 @@ ${saveDataJson}
 【总结要求】：
 - 第一人称"我"（${npcName}的视角）
 - 150-250字
-- 连贯的现代修仙小说叙述风格
+- 连贯的无限流生存叙述风格
 - 仅输出JSON，不要thinking/commands/options
 
 【必须保留】：
@@ -2463,7 +2495,7 @@ const exportToWorldBook = async () => {
 
     // 获取或创建当前聊天的世界书
     const lorebooks = await tavernHelper.getLorebooks();
-    const worldbookName = '仙途_人物';
+    const worldbookName = '主神空间_人物';
     if (!lorebooks.includes(worldbookName)) {
       await tavernHelper.createLorebook(worldbookName);
     }
@@ -2479,8 +2511,8 @@ const exportToWorldBook = async () => {
       const birthDate = npc.出生日期;
       entryContent += `- 出生日期：${birthDate.年}年${birthDate.月}月${birthDate.日}日\n`;
     }
-    entryContent += `- 境界：${getNpcRealm(npc)}\n`;
-    entryContent += `- 灵根：${getNpcSpiritRoot(npc)}\n`;
+    entryContent += `- 评级：${getNpcRealm(npc)}\n`;
+    entryContent += `- 潜能：${getNpcSpiritRoot(npc)}\n`;
     if (npc.势力归属) entryContent += `- 势力：${npc.势力归属}\n`;
     if (npc.出生) entryContent += `- 出生地：${getNpcOrigin(npc.出生)}\n`;
     if (npc.当前位置?.描述) entryContent += `- 当前位置：${npc.当前位置.描述}\n`;
@@ -2499,15 +2531,15 @@ const exportToWorldBook = async () => {
       entryContent += `\n**天赋能力**\n${npc.天赋.map(t => `- ${getTalentName(t)}${getTalentDescription(t) ? ': ' + getTalentDescription(t) : ''}`).join('\n')}\n`;
     }
 
-    // 先天六司
+    // 基础六维（兼容映射）
     if (npc.先天六司) {
-      entryContent += `\n**先天六司**\n`;
-      entryContent += `- 根骨：${npc.先天六司.根骨 || 0}\n`;
-      entryContent += `- 灵性：${npc.先天六司.灵性 || 0}\n`;
-      entryContent += `- 悟性：${npc.先天六司.悟性 || 0}\n`;
-      entryContent += `- 气运：${npc.先天六司.气运 || 0}\n`;
-      entryContent += `- 魅力：${npc.先天六司.魅力 || 0}\n`;
-      entryContent += `- 心性：${npc.先天六司.心性 || 0}\n`;
+      entryContent += `\n**基础六维（兼容映射）**\n`;
+      entryContent += `- STR：${npc.先天六司.根骨 || 0}\n`;
+      entryContent += `- PER：${npc.先天六司.灵性 || 0}\n`;
+      entryContent += `- INT：${npc.先天六司.悟性 || 0}\n`;
+      entryContent += `- LUK：${npc.先天六司.气运 || 0}\n`;
+      entryContent += `- CHA：${npc.先天六司.魅力 || 0}\n`;
+      entryContent += `- WIL：${npc.先天六司.心性 || 0}\n`;
     }
 
     // 人格底线
@@ -2533,16 +2565,16 @@ const exportToWorldBook = async () => {
       });
     }
 
-    // 灵石
+    // 兼容旧货币（灵石字段）
     if (npc.背包?.灵石) {
       const stones = npc.背包.灵石;
       const total = (stones.下品 || 0) + (stones.中品 || 0) + (stones.上品 || 0) + (stones.极品 || 0);
       if (total > 0) {
-        entryContent += `\n**灵石**\n`;
-        if (stones.下品) entryContent += `- 下品：${stones.下品}\n`;
-        if (stones.中品) entryContent += `- 中品：${stones.中品}\n`;
-        if (stones.上品) entryContent += `- 上品：${stones.上品}\n`;
-        if (stones.极品) entryContent += `- 极品：${stones.极品}\n`;
+        entryContent += `\n**兼容货币（灵石字段）**\n`;
+        if (stones.下品) entryContent += `- 下阶：${stones.下品}\n`;
+        if (stones.中品) entryContent += `- 中阶：${stones.中品}\n`;
+        if (stones.上品) entryContent += `- 高阶：${stones.上品}\n`;
+        if (stones.极品) entryContent += `- 特阶：${stones.极品}\n`;
       }
     }
 
@@ -2585,7 +2617,7 @@ const exportToWorldBook = async () => {
         delay: null
       },
       extra: {
-        来源: '仙途',
+        来源: '主神空间',
         导出时间: new Date().toLocaleString('zh-CN'),
         人物ID: npcName
       }

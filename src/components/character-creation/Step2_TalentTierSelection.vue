@@ -1,6 +1,6 @@
 <template>
   <div class="talent-tier-selection">
-    <div v-if="store.isLoading" class="loading-state">{{ $t('感应天道，测算天资...') }}</div>
+    <div v-if="store.isLoading" class="loading-state">{{ $t('校准觉醒类型参数...') }}</div>
     <div v-else-if="store.error" class="error-state">{{ $t('天机混沌') }}：{{ store.error }}</div>
 
     <div v-else class="tier-layout">
@@ -13,7 +13,7 @@
             @click="isCustomModalVisible = true"
             class="action-item shimmer-on-hover"
           >
-            <span class="action-name">{{ $t('自定义天资') }}</span>
+            <span class="action-name">{{ $t('自定义觉醒') }}</span>
           </button>
           <button @click="handleAIGenerate" class="action-item shimmer-on-hover">
             <span class="action-name">{{ $t('AI推演') }}</span>
@@ -55,15 +55,15 @@
           <div class="description-scroll">
             <p>{{ activeTier.description }}</p>
           </div>
-          <div class="points-display">{{ $t('天道点') }}: {{ activeTier.total_points }}</div>
+          <div class="points-display">{{ $t('属性点') }}: {{ activeTier.total_points }}</div>
         </div>
-        <div v-else class="placeholder">{{ $t('请选择你的天资等级，这将决定你的起点。') }}</div>
+        <div v-else class="placeholder">{{ $t('请选择觉醒类型，这将决定你的成长倾向。') }}</div>
       </div>
     </div>
 
     <CustomCreationModal
       :visible="isCustomModalVisible"
-      :title="$t('自定义天资')"
+      :title="$t('自定义觉醒')"
       :fields="customTierFields"
       :validationFn="validateCustomTier"
       @close="isCustomModalVisible = false"
@@ -73,7 +73,7 @@
     <!-- 编辑模态框 -->
     <CustomCreationModal
       :visible="isEditModalVisible"
-      :title="$t('编辑天资')"
+      :title="$t('编辑觉醒')"
       :fields="customTierFields"
       :validationFn="validateCustomTier"
       :initialData="editInitialData"
@@ -147,18 +147,18 @@ const filteredTalentTiers = computed(() => {
 
 // 根据 types/index.ts 中的 TalentTier 接口定义字段
 const customTierFields = [
-  { key: 'name', label: '天资名称', type: 'text', placeholder: '例如：凡人' },
-  { key: 'description', label: '天资描述', type: 'textarea', placeholder: '描述此天资的特点...' },
-  { key: 'total_points', label: '天道点', type: 'number', placeholder: '例如：20' },
+  { key: 'name', label: '觉醒名称', type: 'text', placeholder: '例如：精神型觉醒' },
+  { key: 'description', label: '觉醒描述', type: 'textarea', placeholder: '描述此觉醒的能力倾向...' },
+  { key: 'total_points', label: '属性点', type: 'number', placeholder: '例如：24' },
   { key: 'rarity', label: '稀有度', type: 'number', placeholder: '1-10，数值越高越稀有' },
   { key: 'color', label: '辉光颜色', type: 'color', placeholder: '例如：#808080' },
 ] as const
 
 function validateCustomTier(data: Partial<CustomTierData>) {
     const errors: Record<string, string> = {};
-    if (!data.name?.trim()) errors.name = '天资名称不可为空';
+    if (!data.name?.trim()) errors.name = '觉醒名称不可为空';
     const points = Number(data.total_points);
-    if (isNaN(points) || points < 0) errors.total_points = '天道点必须是非负数';
+    if (isNaN(points) || points < 0) errors.total_points = '属性点必须是非负数';
     const rarity = Number(data.rarity);
     if (isNaN(rarity) || rarity < 1 || rarity > 10) errors.rarity = '稀有度必须在1-10之间';
     return {
@@ -182,10 +182,10 @@ async function handleCustomSubmit(data: CustomTierData) {
     // await saveGameData(store.creationData); // NOTE: 持久化由Pinia插件自动处理
     handleSelectTalentTier(newTier);
     isCustomModalVisible.value = false;
-    toast.success(`自定义天资 "${newTier.name}" 已保存！`);
+    toast.success(`自定义觉醒 "${newTier.name}" 已保存！`);
   } catch (e) {
-    console.error('保存自定义天资失败:', e);
-    toast.error('保存自定义天资失败！');
+    console.error('保存自定义觉醒失败:', e);
+    toast.error('保存自定义觉醒失败！');
   }
 }
 

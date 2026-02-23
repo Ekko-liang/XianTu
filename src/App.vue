@@ -180,7 +180,7 @@
     <div v-if="showAuthorModal" class="help-overlay" @click.self="showAuthorModal = false">
       <div class="help-modal">
         <div class="help-header">
-          <h2 class="help-title">仙途教程</h2>
+          <h2 class="help-title">主神空间教程</h2>
           <button class="help-close" @click="showAuthorModal = false">
             <X :size="18" />
           </button>
@@ -189,7 +189,7 @@
         <div class="help-body">
           <div class="help-version">v{{ displayVersion }}</div>
 
-          <p class="help-desc">AI驱动的沉浸式修仙文字冒险游戏</p>
+          <p class="help-desc">AI驱动的沉浸式无限流文字冒险游戏</p>
 
           <a href="https://ddct.top/" target="_blank" class="help-link-card">
             <Globe :size="18" />
@@ -205,11 +205,11 @@
             <h3>核心功能</h3>
             <div class="help-features">
               <span>🎲 智能判定</span>
-              <span>🌟 三千大道</span>
+              <span>🌟 能力树成长</span>
               <span>📖 动态剧情</span>
               <span>💾 多存档</span>
               <span>⚔️ 深度RPG</span>
-              <span>🗺️ 世界探索</span>
+              <span>🗺️ 副本探索</span>
             </div>
           </div>
 

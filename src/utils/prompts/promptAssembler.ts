@@ -6,6 +6,33 @@ import { getNsfwSettingsFromStorage } from '@/utils/nsfw';
 // 导出常用的规则常量
 export { SAVE_DATA_STRUCTURE as DATA_STRUCTURE_DEFINITIONS };
 
+type RuntimeGamePhase = 'hub' | 'mission' | 'settlement';
+
+function resolveGamePhase(gameState?: any): RuntimeGamePhase {
+  const phase = String(
+    gameState?.gamePhase
+      ?? gameState?.元数据?.当前阶段
+      ?? gameState?.当前阶段
+      ?? 'hub',
+  ).toLowerCase();
+
+  if (phase === 'mission' || phase === 'settlement') {
+    return phase;
+  }
+  return 'hub';
+}
+
+function hasMissionBriefingContext(gameState?: any): boolean {
+  const mission =
+    gameState?.currentMission
+    ?? gameState?.当前副本
+    ?? gameState?.current_mission;
+
+  if (!mission || typeof mission !== 'object') return false;
+  const status = String((mission as Record<string, unknown>)?.status ?? 'briefing').toLowerCase();
+  return status === 'briefing';
+}
+
 /**
  * 组装最终的系统Prompt（异步版本，支持自定义提示词）
  * 所有提示词都通过 getPrompt() 获取，支持用户自定义
@@ -73,6 +100,31 @@ export async function assembleSystemPrompt(
     if (eventRules) {
       promptSections.push(eventRules);
     }
+  }
+
+  // ♾️ 无限流阶段提示词（按当前游戏阶段自动注入）
+  const phase = resolveGamePhase(gameState);
+  const phasePromptKeys: string[] = ['worldAdaptationRules'];
+  if (phase === 'mission') {
+    phasePromptKeys.push('missionNarrativePrompts');
+  } else if (phase === 'settlement') {
+    phasePromptKeys.push('missionSettlementPrompts');
+  } else {
+    phasePromptKeys.push('hubNarrativePrompts');
+    if (hasMissionBriefingContext(gameState)) {
+      phasePromptKeys.push('missionBriefingPrompts');
+    }
+  }
+
+  const phasePromptContents = await Promise.all(
+    phasePromptKeys.map(async (key) => {
+      const content = (await getPrompt(key)).trim();
+      return content;
+    }),
+  );
+
+  for (const content of phasePromptContents) {
+    if (content) promptSections.push(content);
   }
 
   // 🔞 NSFW 设置（酒馆端专用）

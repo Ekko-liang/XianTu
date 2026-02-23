@@ -1,6 +1,6 @@
 <template>
   <div class="origin-selection-container">
-    <div v-if="store.isLoading" class="loading-state">{{ $t('追溯过往，探寻出身...') }}</div>
+    <div v-if="store.isLoading" class="loading-state">{{ $t('检索穿越契机...') }}</div>
     <div v-else-if="store.error" class="error-state">{{ $t('因果不明') }}：{{ store.error }}</div>
 
     <div v-else class="origin-layout">
@@ -13,7 +13,7 @@
             @click="isCustomModalVisible = true"
             class="action-item shimmer-on-hover"
           >
-            <span class="action-name">{{ $t('自定义出身') }}</span>
+            <span class="action-name">{{ $t('自定义契机') }}</span>
           </button>
           <button @click="handleAIGenerate" class="action-item shimmer-on-hover">
             <span class="action-name">{{ $t('AI推演') }}</span>
@@ -27,7 +27,7 @@
            @click="handleSelectRandom"
            @mouseover="activeOrigin = 'random'"
           >
-           <span class="origin-name">{{ $t('随机出身') }}</span>
+           <span class="origin-name">{{ $t('随机契机') }}</span>
            <span class="origin-cost">{{ $t('0 点') }}</span>
           </div>
           <div class="divider"></div>
@@ -65,15 +65,15 @@
           <div class="description-scroll">
             <p>{{ activeDescription }}</p>
           </div>
-          <div class="cost-display">{{ $t('消耗天道点: {0}').replace('{0}', String(activeCost)) }}</div>
+          <div class="cost-display">{{ $t('消耗属性点: {0}').replace('{0}', String(activeCost)) }}</div>
         </div>
-        <div v-else class="placeholder">{{ $t('请选择一处出身，或听天由命。') }}</div>
+        <div v-else class="placeholder">{{ $t('请选择穿越契机，或交给随机命运。') }}</div>
       </div>
     </div>
 
     <CustomCreationModal
       :visible="isCustomModalVisible"
-      :title="$t('自定义出身')"
+      :title="$t('自定义契机')"
       :fields="customOriginFields"
       :validationFn="validateCustomOrigin"
       @close="isCustomModalVisible = false"
@@ -83,7 +83,7 @@
     <!-- 编辑模态框 -->
     <CustomCreationModal
       :visible="isEditModalVisible"
-      :title="$t('编辑出身')"
+      :title="$t('编辑契机')"
       :fields="customOriginFields"
       :validationFn="validateCustomOrigin"
       :initialData="editInitialData"
@@ -177,9 +177,9 @@ const _modifierOptions = [
 // 自定义出身字段 - 重新设计为背景设定
 // 根据 types/index.ts 中的 Origin 接口定义字段
 const customOriginFields: ModalField[] = [
-  { key: 'name', label: '出身名称', type: 'text', placeholder: '例如：山野遗孤' },
-  { key: 'description', label: '出身描述', type: 'textarea', placeholder: '描述此出身的背景故事和成长经历...' },
-  { key: 'talent_cost', label: '天道点消耗', type: 'number', placeholder: '选择此出身需要消耗的天道点，可为负数表示奖励' },
+  { key: 'name', label: '契机名称', type: 'text', placeholder: '例如：濒死穿越' },
+  { key: 'description', label: '契机描述', type: 'textarea', placeholder: '描述触发进入主神空间的关键事件...' },
+  { key: 'talent_cost', label: '属性点消耗', type: 'number', placeholder: '选择此契机需要消耗的属性点，可为负数表示奖励' },
   { key: 'rarity', label: '稀有度', type: 'number', placeholder: '1-10，数值越高越稀有' },
   {
     key: 'attribute_modifiers',
@@ -227,13 +227,13 @@ function validateCustomOrigin(data: Partial<CustomOriginData>) {
     const errors: Record<string, string> = {};
 
     // 必填字段验证
-    if (!data.name?.trim()) errors.name = '出身名称不可为空';
-    if (!data.description?.trim()) errors.description = '出身描述不可为空';
+    if (!data.name?.trim()) errors.name = '契机名称不可为空';
+    if (!data.description?.trim()) errors.description = '契机描述不可为空';
 
     // 数值字段验证
     const talentCost = Number(data.talent_cost);
     if (data.talent_cost !== undefined && data.talent_cost !== '' && isNaN(talentCost)) {
-      errors.talent_cost = '天道点消耗必须是数字';
+      errors.talent_cost = '属性点消耗必须是数字';
     }
 
     const rarity = Number(data.rarity);
@@ -279,10 +279,10 @@ async function handleCustomSubmit(data: CustomOriginData) {
     store.addOrigin(newOrigin);
     handleSelectOrigin(newOrigin);
     isCustomModalVisible.value = false;
-    toast.success(`自定义出身 "${newOrigin.name}" 已保存！`);
+    toast.success(`自定义契机 "${newOrigin.name}" 已保存！`);
   } catch (e) {
-    console.error('保存自定义出身失败:', e);
-    toast.error('保存自定义出身失败！');
+    console.error('保存自定义契机失败:', e);
+    toast.error('保存自定义契机失败！');
   }
 }
 

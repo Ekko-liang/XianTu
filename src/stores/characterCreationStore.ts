@@ -13,35 +13,48 @@ import { aiService } from '@/services/aiService';
 import { getTavernHelper, getCurrentCharacterName } from '../utils/tavern';
 import { fetchWorlds, fetchTalentTiers, fetchOrigins, fetchSpiritRoots, fetchTalents } from '../services/request';
 import {
-  LOCAL_WORLDS,
-  LOCAL_TALENT_TIERS,
-  LOCAL_ORIGINS,
-  LOCAL_SPIRIT_ROOTS,
-  LOCAL_TALENTS,
-} from '../data/creationData';
+  INFINITE_GOLDEN_FINGERS,
+  INFINITE_ATTRIBUTE_POINTS,
+} from '../data/infiniteCreationData';
 
 // =======================================================================
 //                           本地类型定义
 // =======================================================================
 
 export type AttributeKey = 'root_bone' | 'spirituality' | 'comprehension' | 'fortune' | 'charm' | 'temperament';
+export type InfiniteAttributeKey = 'strength' | 'perception' | 'intelligence' | 'luck' | 'charisma' | 'willpower';
+
+export const INFINITE_TO_LEGACY_ATTRIBUTE_MAP: Record<InfiniteAttributeKey, AttributeKey> = {
+  strength: 'root_bone',
+  perception: 'spirituality',
+  intelligence: 'comprehension',
+  luck: 'fortune',
+  charisma: 'charm',
+  willpower: 'temperament',
+};
 
 export interface CharacterCreationPayload {
   character_name: string;
   gender: string;
   race: string;
-  world_id: number | '';
-  talent_tier_id: number | '';
   current_age: number;
+  /** 金手指 ID */
+  golden_finger_id: number | '';
+  /** 穿越前身份（选填，纯叙事） */
+  pre_reincarnation_identity: string;
+  /** 先天六司（兼容旧字段名，固定 30 点分配） */
   root_bone: number;
   spirituality: number;
   comprehension: number;
   fortune: number;
   charm: number;
   temperament: number;
-  origin_id: number | null;
-  spirit_root_id: number | null;
-  selected_talent_ids: number[];
+  /** @deprecated 兼容旧逻辑 */
+  world_id?: number | '';
+  talent_tier_id?: number | '';
+  origin_id?: number | null;
+  spirit_root_id?: number | null;
+  selected_talent_ids?: number[];
 }
 
 type DataSource = 'local' | 'cloud';
@@ -57,9 +70,12 @@ interface CharacterCreationDataWithSource {
   origins: OriginWithSource[];
   spiritRoots: SpiritRootWithSource[];
   talents: TalentWithSource[];
+  /** 无限流简化：金手指 */
+  goldenFingers: import('../data/infiniteCreationData').GoldenFinger[];
 }
 
-const TOTAL_STEPS = 7;
+/** 无限流简化流程：3 步（金手指 → 属性 → 确认） */
+const TOTAL_STEPS = 3;
 
 // Type guard to validate the structure of DAD_creationData from Tavern
 function isDADCustomData(data: unknown): data is DADCustomData {
@@ -75,6 +91,16 @@ function isDADCustomData(data: unknown): data is DADCustomData {
     Array.isArray(obj.talents)
   );
 }
+
+/** 无限流固定 30 点档位（兼容 CharacterBaseInfo 天资字段） */
+const INFINITE_FIXED_TIER: TalentTier = {
+  id: 0,
+  name: '无限流标准',
+  description: '基础属性固定 30 点分配',
+  total_points: INFINITE_ATTRIBUTE_POINTS,
+  rarity: 1,
+  color: '#94a3b8',
+};
 
 
 // =======================================================================
@@ -93,24 +119,22 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
     origins: [],
     spiritRoots: [],
     talents: [],
+    goldenFingers: INFINITE_GOLDEN_FINGERS,
   });
 
   const characterPayload = ref<CharacterCreationPayload>({
     gender: '男',
     character_name: '无名者',
     race: '人族',
-    world_id: '',
-    talent_tier_id: '',
     current_age: 16,
+    golden_finger_id: '',
+    pre_reincarnation_identity: '',
     root_bone: 0,
     spirituality: 0,
     comprehension: 0,
     fortune: 0,
     charm: 0,
     temperament: 0,
-    origin_id: null,
-    spirit_root_id: null,
-    selected_talent_ids: [],
   });
   const currentStep = ref(1);
   const isLocalCreation = ref(true);
@@ -135,52 +159,50 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
     generateOnlyContinents: true // 默认只生成大陆（开局优化）
   });
 
-  // 修仙难度配置
+  // 无限流难度配置
   type DifficultyLevel = '简单' | '普通' | '困难' | '噩梦';
   const gameDifficulty = ref<DifficultyLevel>('普通');
 
   // 难度提示词配置（切换式，非叠加）
   const difficultyPrompts: Record<DifficultyLevel, string> = {
     简单: `【难度模式：简单】
-- 世界对主角较为友善，机缘频繁出现
-- 敌人实力普遍较弱，战斗容易获胜
-- 资源获取容易，修炼进度较快
-- 突破瓶颈的难度降低
-- NPC对主角态度友好，容易获得帮助
+- 副本环境相对友善，关键线索更容易发现
+- 敌对单位强度偏低，容错空间较高
+- 资源与补给更充足，任务压力降低
+- 团队协作收益更高，冲突惩罚更轻
 - 判定难度-10，幸运点+5`,
     普通: `【难度模式：普通】
-- 世界遵循正常修仙规则，机缘与危险并存
-- 敌人实力与主角相当，战斗需要策略
-- 资源获取需要努力，修炼进度正常
-- 突破瓶颈需要积累和机缘
-- NPC态度中立，需要建立关系
+- 副本遵循标准无限流规则，机会与风险并存
+- 敌我强度大体匹配，需要策略推进
+- 资源获取需要行动成本，神点收益正常
+- NPC态度中立，需要通过行为建立信任
 - 判定难度正常，无额外修正`,
-    困难: `【难度模式：困难】天道对主角格外严苛！
-- 世界充满危险，机缘稀少且竞争激烈
-- 敌人实力普遍较强，战斗需要谨慎
-- 资源稀缺，修炼进度缓慢
-- 突破瓶颈困难重重，需要特殊机缘
-- NPC对主角态度冷淡，需要付出代价获得帮助
+    困难: `【难度模式：困难】主神判定显著收紧！
+- 副本威胁密度更高，误判代价明显放大
+- 敌对单位普遍更强，正面冲突风险上升
+- 资源稀缺，容错与恢复窗口变窄
+- 关键节点需精确决策，否则连锁失败
+- NPC更谨慎，建立协作需要更高成本
 【困难模式惩罚】
 - 所有判定难度+10
 - 幸运点上限-5
 - 大失败阈值扩大：<难度-10即为大失败
 - 失败必有代价，不可轻描淡写
-- 敌人境界普遍比主角高半级到一级`,
-    噩梦: `【难度模式：噩梦】天道要看这只蝼蚁如何挣扎！
-- 世界极度危险，处处是陷阱和敌人
-- 敌人实力远超主角，战斗九死一生
-- 资源极度稀缺，修炼举步维艰
-- 突破瓶颈几乎不可能，需要逆天机缘
-- NPC对主角充满敌意，信任难以建立
-- 死亡风险极高，每一步都需谨慎
+- 敌人威胁等级普遍高于玩家半级到一级`,
+    噩梦: `【难度模式：噩梦】主神开启极限筛选！
+- 副本极度危险，陷阱与高压事件持续叠加
+- 敌对强度远超常规，硬拼几乎必败
+- 资源极度稀缺，恢复和补给窗口极短
+- 关键目标强制时限，拖延会触发惩罚链
+- NPC高度戒备，信任建立极慢
+- 生存风险极高，每一步都可能致命
 【噩梦模式惩罚】
 - 所有判定难度+20
 - 幸运点上限-10，下限-15
 - 大失败阈值扩大：<难度-5即为大失败
 - 大失败惩罚翻倍（重伤变濒死，损失翻倍）
 - 失败也有严重代价
-- 敌人境界普遍比主角高一到两级
+- 敌人评级普遍比主角高一到两级
 - 开局自带负面状态：【天道试炼】（所有判定-5，持续整个游戏）
 - 机缘出现概率减半，陷阱出现概率翻倍`
   };
@@ -300,59 +322,46 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
     charm: characterPayload.value.charm,
     temperament: characterPayload.value.temperament,
   }));
-  const selectedWorld = computed(() => creationData.value.worlds.find(w => w.id === characterPayload.value.world_id) || null);
-  const selectedTalentTier = computed(() => creationData.value.talentTiers.find(t => t.id === characterPayload.value.talent_tier_id) || null);
-  const selectedOrigin = computed(() => creationData.value.origins.find(o => o.id === characterPayload.value.origin_id) || null);
-  const selectedSpiritRoot = computed(() => creationData.value.spiritRoots.find(s => s.id === characterPayload.value.spirit_root_id) || null);
-  const selectedTalents = computed(() => creationData.value.talents.filter(t => characterPayload.value.selected_talent_ids.includes(t.id)));
+  const infiniteAttributes = computed(() => ({
+    strength: characterPayload.value.root_bone,
+    perception: characterPayload.value.spirituality,
+    intelligence: characterPayload.value.comprehension,
+    luck: characterPayload.value.fortune,
+    charisma: characterPayload.value.charm,
+    willpower: characterPayload.value.temperament,
+  }));
+  /** 金手指 */
+  const selectedGoldenFinger = computed(() =>
+    creationData.value.goldenFingers.find((g) => g.id === characterPayload.value.golden_finger_id) || null
+  );
+  /** 穿越前身份（选填文本） */
+  const preReincarnationIdentity = computed(() => characterPayload.value.pre_reincarnation_identity);
+  /** 兼容：世界（无限流不选世界，返回固定占位） */
+  const selectedWorld = computed((): WorldWithSource | null => ({
+    id: 0,
+    name: '主神空间',
+    era: '无限流',
+    description: '轮回者的起点',
+    source: 'local' as DataSource,
+  } as WorldWithSource));
+  /** 兼容：天资 <- 固定 30 点档位 */
+  const selectedTalentTier = computed(() => INFINITE_FIXED_TIER);
+  /** 兼容：穿越契机已移除 */
+  const selectedOrigin = computed(() => null);
+  /** 兼容：天赋潜能已移除 */
+  const selectedSpiritRoot = computed(() => null);
+  /** 兼容：无限流不再有模版初始技能，由 AI 根据身份动态生成 */
+  const selectedTalents = computed((): TalentWithSource[] => []);
 
-  const bonusTalentPoints = computed(() => {
-    let points = 0;
-    if (selectedTalents.value.some(t => t.name === '霸王血脉')) {
-      points += 1;
-      console.log('[天道点计算] 检测到 "霸王血脉" 天赋, 增加 1 天道点');
-    }
-    return points;
-  });
+  const bonusTalentPoints = computed(() => 0);
 
+  /** 无限流：固定 30 点，剩余 = 30 - 已分配属性总和 */
   const remainingTalentPoints = computed(() => {
-    if (!selectedTalentTier.value) return 0;
-
-    let points = selectedTalentTier.value.total_points;
-    console.log('[天道点计算] 初始天道点:', points);
-
-    // Add bonus points from talents
-    points += bonusTalentPoints.value;
-
-    if (selectedOrigin.value) {
-      console.log('[天道点计算] 出生消耗:', selectedOrigin.value.talent_cost);
-      points -= selectedOrigin.value.talent_cost;
-    }
-
-    if (selectedSpiritRoot.value) {
-      console.log('[天道点计算] 灵根消耗:', selectedSpiritRoot.value.talent_cost);
-      points -= selectedSpiritRoot.value.talent_cost;
-    }
-
-    const talentCost = selectedTalents.value.reduce((total, talent) => total + talent.talent_cost, 0);
-    console.log('[天道点计算] 已选天赋数量:', selectedTalents.value.length);
-    console.log('[天道点计算] 已选天赋列表:', selectedTalents.value.map(t => ({ 名称: t.name, 消耗: t.talent_cost })));
-    console.log('[天道点计算] 天赋总消耗:', talentCost);
-    points -= talentCost;
-
-    const allocatedAttributePoints = Object.values(attributes.value).reduce((sum, val) => sum + val, 0);
-    console.log('[天道点计算] 先天六司总和:', allocatedAttributePoints);
-    points -= allocatedAttributePoints;
-
-    console.log('[天道点计算] 最终剩余:', points);
-    return points;
+    const allocated = Object.values(attributes.value).reduce((sum, val) => sum + val, 0);
+    return INFINITE_ATTRIBUTE_POINTS - allocated;
   });
 
-  const totalTalentCost = computed(() => {
-    if (!selectedTalentTier.value) return 0;
-    const cost = selectedTalentTier.value.total_points - remainingTalentPoints.value;
-    return Math.max(0, cost);
-  });
+  const totalTalentCost = computed(() => 0);
 
   // --- ACTIONS ---
 
@@ -372,32 +381,26 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
   }
 
   async function createEmptyPayload(): Promise<CharacterCreationPayload> {
-    // 尝试获取当前用户名字
-    let character_name = '无名者'; // 默认值为无名者
+    let character_name = '无名者';
     try {
       const userName = await getCurrentCharacterName();
       character_name = userName || '无名者';
-    } catch (error) {
-      console.warn('获取用户名字失败:', error);
+    } catch {
       character_name = '无名者';
     }
-    
     return {
       gender: '男',
-      character_name: character_name,
+      character_name,
       race: '人族',
-      world_id: '',
-      talent_tier_id: '',
       current_age: 16,
+      golden_finger_id: '',
+      pre_reincarnation_identity: '',
       root_bone: 0,
       spirituality: 0,
       comprehension: 0,
       fortune: 0,
       charm: 0,
       temperament: 0,
-      origin_id: null,
-      spirit_root_id: null,
-      selected_talent_ids: [],
     };
   }
 
@@ -418,304 +421,30 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
     }
 
     try {
-      if (currentMode === 'single') {
-        console.log("【创世神殿】初始化单机模式，加载本地数据和自定义数据！");
-        
-        // 加载本地预设数据
-        const localWorlds = LOCAL_WORLDS.map(w => ({ ...w, source: 'local' as DataSource }));
-        const localTalentTiers = LOCAL_TALENT_TIERS.map(t => ({ ...t, source: 'local' as DataSource }));
-        const localOrigins = LOCAL_ORIGINS.map(o => ({ ...o, source: 'local' as DataSource }));
-        const localSpiritRoots = LOCAL_SPIRIT_ROOTS.map(s => ({ ...s, source: 'local' as DataSource }));
-        const localTalents = LOCAL_TALENTS.map(t => ({ ...t, source: 'local' as DataSource }));
-        
-        // 尝试加载自定义数据（从 IndexedDB）
-        let savedData: DADCustomData = { worlds: [], talentTiers: [], origins: [], spiritRoots: [], talents: [] };
-        try {
-          const { loadFromIndexedDB } = await import('@/utils/indexedDBManager');
-          const potentialData = await loadFromIndexedDB('customCreationData');
-          if (potentialData && isDADCustomData(potentialData)) {
-            savedData = potentialData;
-            console.log("【创世神殿】成功加载自定义数据:", {
-              worlds: savedData.worlds.length,
-              talentTiers: savedData.talentTiers.length,
-              origins: savedData.origins.length,
-              spiritRoots: savedData.spiritRoots.length,
-              talents: savedData.talents.length
-            });
-          }
-        } catch (error) {
-          console.warn("【创世神殿】加载自定义数据失败，仅使用本地数据:", error);
-        }
-        
-        const savedCloudWorlds = savedData.worlds.map(w => ({...w, source: 'cloud' as DataSource}));
-        const savedCloudTalentTiers = savedData.talentTiers.map(t => ({...t, source: 'cloud' as DataSource}));
-        const savedCloudOrigins = savedData.origins.map(o => ({...o, source: 'cloud' as DataSource}));
-        const savedCloudSpiritRoots = savedData.spiritRoots.map(s => ({...s, source: 'cloud' as DataSource}));
-        const savedCloudTalents = savedData.talents.map(t => ({...t, source: 'cloud' as DataSource}));
-        
-        // 合并本地数据和自定义数据
-        const merge = <T extends { id: number }>(local: T[], cloud: T[]): T[] => {
-            const map = new Map<number, T>();
-            local.forEach(item => map.set(item.id, item));
-            cloud.forEach(item => map.set(item.id, item));
-            return Array.from(map.values());
-        };
-        
-        creationData.value.worlds = merge(localWorlds, savedCloudWorlds);
-        creationData.value.talentTiers = merge(localTalentTiers, savedCloudTalentTiers);
-        creationData.value.origins = merge(localOrigins, savedCloudOrigins);
-        creationData.value.spiritRoots = merge(localSpiritRoots, savedCloudSpiritRoots);
-        creationData.value.talents = merge(localTalents, savedCloudTalents);
-      } else {
-        console.log("【创世神殿】初始化联机模式，从后端获取云端数据！");
-
-        // 联机模式：主动从后端请求数据
-        const { isBackendConfigured } = await import('@/services/backendConfig');
-        const { verifyStoredToken } = await import('@/services/request');
-
-        if (isBackendConfigured()) {
-          // 验证 token 有效性
-          const tokenValid = await verifyStoredToken();
-          if (!tokenValid) {
-            console.warn("【创世神殿】联机模式 token 无效，回退到本地数据");
-            creationData.value.worlds = LOCAL_WORLDS.map(w => ({ ...w, source: 'local' as DataSource }));
-            creationData.value.talentTiers = LOCAL_TALENT_TIERS.map(t => ({ ...t, source: 'local' as DataSource }));
-            creationData.value.origins = LOCAL_ORIGINS.map(o => ({ ...o, source: 'local' as DataSource }));
-            creationData.value.spiritRoots = LOCAL_SPIRIT_ROOTS.map(s => ({ ...s, source: 'local' as DataSource }));
-            creationData.value.talents = LOCAL_TALENTS.map(t => ({ ...t, source: 'local' as DataSource }));
-            error.value = "联机模式需要先登录";
-          } else {
-            try {
-              console.log("【创世神殿】后端已配置且 token 有效，开始请求云端数据...");
-              const [cloudWorlds, cloudTalentTiers, cloudOrigins, cloudSpiritRoots, cloudTalents] = await Promise.all([
-                fetchWorlds(),
-                fetchTalentTiers(),
-                fetchOrigins(),
-                fetchSpiritRoots(),
-                fetchTalents()
-              ]);
-
-              console.log("【创世神殿】成功获取云端数据:", {
-                worlds: cloudWorlds.length,
-                talentTiers: cloudTalentTiers.length,
-                origins: cloudOrigins.length,
-                spiritRoots: cloudSpiritRoots.length,
-                talents: cloudTalents.length
-              });
-
-              // 标记为云端数据
-              creationData.value.worlds = cloudWorlds.map(w => ({...w, source: 'cloud' as DataSource}));
-              creationData.value.talentTiers = cloudTalentTiers.map(t => ({...t, source: 'cloud' as DataSource}));
-              creationData.value.origins = cloudOrigins.map(o => ({...o, source: 'cloud' as DataSource}));
-              creationData.value.spiritRoots = cloudSpiritRoots.map(s => ({...s, source: 'cloud' as DataSource}));
-              creationData.value.talents = cloudTalents.map(t => ({...t, source: 'cloud' as DataSource}));
-
-            } catch (fetchError) {
-              console.error("【创世神殿】获取云端数据失败，回退到本地数据:", fetchError);
-              // 回退到本地数据
-              creationData.value.worlds = LOCAL_WORLDS.map(w => ({ ...w, source: 'local' as DataSource }));
-              creationData.value.talentTiers = LOCAL_TALENT_TIERS.map(t => ({ ...t, source: 'local' as DataSource }));
-              creationData.value.origins = LOCAL_ORIGINS.map(o => ({ ...o, source: 'local' as DataSource }));
-              creationData.value.spiritRoots = LOCAL_SPIRIT_ROOTS.map(s => ({ ...s, source: 'local' as DataSource }));
-              creationData.value.talents = LOCAL_TALENTS.map(t => ({ ...t, source: 'local' as DataSource }));
-            }
-          }
-        } else {
-          console.warn("【创世神殿】后端未配置，使用本地数据！");
-          creationData.value.worlds = LOCAL_WORLDS.map(w => ({ ...w, source: 'local' as DataSource }));
-          creationData.value.talentTiers = LOCAL_TALENT_TIERS.map(t => ({ ...t, source: 'local' as DataSource }));
-          creationData.value.origins = LOCAL_ORIGINS.map(o => ({ ...o, source: 'local' as DataSource }));
-          creationData.value.spiritRoots = LOCAL_SPIRIT_ROOTS.map(s => ({ ...s, source: 'local' as DataSource }));
-          creationData.value.talents = LOCAL_TALENTS.map(t => ({ ...t, source: 'local' as DataSource }));
-        }
-      }
+      console.log("【创世神殿】初始化模式:", currentMode, "加载金手指数据");
+      creationData.value.goldenFingers = INFINITE_GOLDEN_FINGERS;
+      creationData.value.worlds = [];
+      creationData.value.talentTiers = [];
+      creationData.value.origins = [];
+      creationData.value.spiritRoots = [];
+      creationData.value.talents = [];
     } catch (e) {
       console.error("加载数据失败:", e);
       error.value = "加载数据失败";
-      // 即使出错也使用正确的数据源标记      creationData.value.worlds = LOCAL_WORLDS.map(w => ({ ...w, source: 'local' as DataSource }));
-      creationData.value.talentTiers = LOCAL_TALENT_TIERS.map(t => ({ ...t, source: 'local' as DataSource }));
-      creationData.value.origins = LOCAL_ORIGINS.map(o => ({ ...o, source: 'local' as DataSource }));
-      creationData.value.spiritRoots = LOCAL_SPIRIT_ROOTS.map(s => ({ ...s, source: 'local' as DataSource }));
-      creationData.value.talents = LOCAL_TALENTS.map(t => ({ ...t, source: 'local' as DataSource }));
+      creationData.value.goldenFingers = INFINITE_GOLDEN_FINGERS;
     } finally {
       isLoading.value = false;
     }
   }
+  /** 无限流简化：金手指使用本地数据 */
   async function fetchCloudWorlds() {
-    console.log("【创世神殿】正在从云端获取世界列表...");
-    isLoading.value = true;
-    error.value = null;
-    
-    try {
-      const cloudWorlds = await fetchWorlds();
-      console.log("【创世神殿】成功获取云端世界数据", cloudWorlds);
-      
-      const cloudWorldsWithSource = cloudWorlds.map(w => ({ ...w, source: 'cloud' as DataSource }));
-      
-      // 合并云端和本地数据，本地为主
-      const localWorlds = LOCAL_WORLDS.map(w => ({ ...w, source: 'local' as DataSource }));
-      const worldMap = new Map<number, WorldWithSource>();
-      cloudWorldsWithSource.forEach(w => worldMap.set(w.id, w)); // 先添加云端数据      localWorlds.forEach(w => worldMap.set(w.id, w)); // 本地数据覆盖同ID的云端数据（本地为主）
-      creationData.value.worlds = Array.from(worldMap.values());
-      console.log("【创世神殿】世界列表已更新:", creationData.value.worlds.length, "个世界");
-      console.log("【创世神殿】云端世界", creationData.value.worlds.filter(w => w.source === 'cloud'));
-    } catch (e) {
-      console.error("【创世神殿】从云端获取世界列表失败:", e);
-      error.value = `获取云端世界列表失败: ${e instanceof Error ? e.message : '未知错误'}`;
-      
-      // 失败时提供本地数据作为备选
-      const localWorlds = LOCAL_WORLDS.map(w => ({ ...w, source: 'local' as DataSource }));
-      creationData.value.worlds = localWorlds;
-      console.warn("【创世神殿】云端数据获取失败，已提供本地备选数据");
-    } finally {
-      isLoading.value = false;
-    }
+    creationData.value.goldenFingers = INFINITE_GOLDEN_FINGERS;
   }
 
-  /**
-   * 获取所有云端创世数据（世界、天资、出身、灵根、天赋）
-   */
+  /** 无限流简化：云端创角数据暂用本地金手指 */
   async function fetchAllCloudData(): Promise<number> {
-    console.log("【创世神殿】正在从云端获取完整创世数据...");
-    isLoading.value = true;
-    error.value = null;
-    
-    try {
-      // 并发获取所有数据类型
-      const [cloudWorlds, cloudTalentTiers, cloudOrigins, cloudSpiritRoots, cloudTalents] = await Promise.all([
-        fetchWorlds(),
-        fetchTalentTiers(),
-        fetchOrigins(),
-        fetchSpiritRoots(),
-        fetchTalents()
-      ]);
-
-      console.log("【创世神殿】成功获取所有云端数据");
-      console.log("- 世界:", cloudWorlds.length, "个");
-      console.log("- 天资等级:", cloudTalentTiers.length, "个");
-      console.log("- 出身:", cloudOrigins.length, "个");
-      console.log("- 灵根:", cloudSpiritRoots.length, "个");
-      console.log("- 天赋:", cloudTalents.length, "个");
-
-      // 记录合并前各项数据的数量
-      const beforeCounts = {
-        worlds: creationData.value.worlds.length,
-        talentTiers: creationData.value.talentTiers.length,
-        origins: creationData.value.origins.length,
-        spiritRoots: creationData.value.spiritRoots.length,
-        talents: creationData.value.talents.length,
-      };
-
-      // 安全地转换API返回的数据，确保类型正确
-      const safeTransform = <T>(items: any[], defaultItem: Omit<T, 'source'>): (T & { source: DataSource })[] => {
-        return (items || []).filter(Boolean).map(item => ({
-          ...defaultItem,
-          ...item,
-          source: 'cloud' as DataSource,
-        } as T & { source: DataSource }));
-      };
-
-      const cloudWorldsWithSource = safeTransform<World>(cloudWorlds, { id: 0, name: '', era: '', description: '' });
-      const cloudTalentTiersWithSource = safeTransform<TalentTier>(cloudTalentTiers, { id: 0, name: '未知天资', description: '', total_points: 20, rarity: 1, color: '#FFFFFF' });
-      const cloudOriginsWithSource = safeTransform<Origin>(cloudOrigins, { id: 0, name: '', description: '', talent_cost: 0, attribute_modifiers: {}, rarity: 0 });
-      const cloudSpiritRootsWithSource = safeTransform<SpiritRoot>(cloudSpiritRoots, { id: 0, name: '', tier: '', description: '', base_multiplier: 0, talent_cost: 0 });
-      const cloudTalentsWithSource = safeTransform<Talent>(cloudTalents, { id: 0, name: '', description: '', talent_cost: 0, rarity: 0 });
-      
-      // 使用当前 store 中的数据作为本地数据源进行合并，而不是用初始常量
-      const localWorlds = creationData.value.worlds;
-      const localTalentTiers = creationData.value.talentTiers;
-      const localOrigins = creationData.value.origins;
-      const localSpiritRoots = creationData.value.spiritRoots;
-      const localTalents = creationData.value.talents;
-
-      // 该函数现在计算并返回需要新增的云端项目
-      const findNewItems = <T extends { id: number; name: string; source: DataSource }>(existing: T[], cloud: T[]): T[] => {
-        const newItems: T[] = [];
-        const existingNames = new Set(existing.map(item => item.name));
-        let maxId = Math.max(...existing.map(item => item.id), 0);
-
-        cloud.forEach(cloudItem => {
-          if (!existingNames.has(cloudItem.name)) {
-            maxId++;
-            const newItem = {
-              ...cloudItem,
-              id: maxId
-            };
-            newItems.push(newItem);
-            existingNames.add(newItem.name); // 确保在同一次同步中，云端数据自身的重复项也被过滤
-          }
-        });
-
-        return newItems;
-      };
-      
-      // 合并数据，通过直接修改数组来确保响应性
-      const mergeInto = <T extends { id: number; name: string; source: DataSource }>(existing: T[], newItems: T[]) => {
-        if (newItems.length > 0) {
-          existing.push(...newItems);
-        }
-      };
-
-      mergeInto(creationData.value.worlds, findNewItems(localWorlds, cloudWorldsWithSource));
-      mergeInto(creationData.value.talentTiers, findNewItems(localTalentTiers, cloudTalentTiersWithSource));
-      mergeInto(creationData.value.origins, findNewItems(localOrigins, cloudOriginsWithSource));
-      mergeInto(creationData.value.spiritRoots, findNewItems(localSpiritRoots, cloudSpiritRootsWithSource));
-      mergeInto(creationData.value.talents, findNewItems(localTalents, cloudTalentsWithSource));
-
-      console.log("【创世神殿】所有云端数据合并完成");
-      console.log("【创世神殿】最终数据验证");
-      console.log("- 世界 (云端):", creationData.value.worlds.filter(w => w.source === 'cloud').length);
-      console.log("- 天资 (云端):", creationData.value.talentTiers.filter(t => t.source === 'cloud').length);
-      console.log("- 出身 (云端):", creationData.value.origins.filter(o => o.source === 'cloud').length);
-      console.log("- 灵根 (云端):", creationData.value.spiritRoots.filter(s => s.source === 'cloud').length);
-      console.log("- 天赋 (云端):", creationData.value.talents.filter(t => t.source === 'cloud').length);
-      console.log("【创世神殿】天资数据示例", creationData.value.talentTiers.slice(0, 3).map(t => ({ name: t.name, source: t.source })));
-      
-      // 计算新增条目总数
-      const afterCounts = {
-        worlds: creationData.value.worlds.length,
-        talentTiers: creationData.value.talentTiers.length,
-        origins: creationData.value.origins.length,
-        spiritRoots: creationData.value.spiritRoots.length,
-        talents: creationData.value.talents.length,
-      };
-
-      const newItemsCount =
-        (afterCounts.worlds - beforeCounts.worlds) +
-        (afterCounts.talentTiers - beforeCounts.talentTiers) +
-        (afterCounts.origins - beforeCounts.origins) +
-        (afterCounts.spiritRoots - beforeCounts.spiritRoots) +
-        (afterCounts.talents - beforeCounts.talents);
-
-      console.log(`【创世神殿】同步完成，新增 ${newItemsCount} 项数据。`);
-
-      // 🔥 修复：移除此处的 persistCustomData() 调用
-      // 云端数据不需要保存到 IndexedDB，每次联机时可以重新获取
-      // 之前的实现会覆盖用户在单机模式下创建的自定义数据
-      // await persistCustomData();  // 已移除，避免覆盖用户自定义数据
-      return newItemsCount; // 返回新增数量
-    } catch (e) {
-      console.error("【创世神殿】获取云端创世数据失败", e);
-      error.value = `获取云端创世数据失败: ${e instanceof Error ? e.message : '未知错误'}`;
-      
-      // 失败时使用本地数据作为备选
-      const localWorlds = LOCAL_WORLDS.map(w => ({ ...w, source: 'local' as DataSource }));
-      const localTalentTiers = LOCAL_TALENT_TIERS.map(t => ({ ...t, source: 'local' as DataSource }));
-      const localOrigins = LOCAL_ORIGINS.map(o => ({ ...o, source: 'local' as DataSource }));
-      const localSpiritRoots = LOCAL_SPIRIT_ROOTS.map(s => ({ ...s, source: 'local' as DataSource }));
-      const localTalents = LOCAL_TALENTS.map(t => ({ ...t, source: 'local' as DataSource }));
-      
-      creationData.value.worlds = localWorlds;
-      creationData.value.talentTiers = localTalentTiers;
-      creationData.value.origins = localOrigins;
-      creationData.value.spiritRoots = localSpiritRoots;
-      creationData.value.talents = localTalents;
-      
-      console.warn("【创世神殿】云端数据获取失败，已提供本地备选数据");
-      return 0; // 失败时返回0
-    } finally {
-      isLoading.value = false;
-    }
+    creationData.value.goldenFingers = INFINITE_GOLDEN_FINGERS;
+    return 0;
   }
 
 
@@ -870,27 +599,26 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
     return creationData.value[type].find(item => item.id === id) as T || null;
   };
   
-  function selectWorld(worldId: number | '') { characterPayload.value.world_id = worldId; }
-  function selectTalentTier(tierId: number | '') {
-    characterPayload.value.talent_tier_id = tierId;
-    characterPayload.value.origin_id = null;
-    characterPayload.value.spirit_root_id = null;
-    characterPayload.value.selected_talent_ids = [];
-    characterPayload.value.root_bone = 0;
-    characterPayload.value.spirituality = 0;
-    characterPayload.value.comprehension = 0;
-    characterPayload.value.fortune = 0;
-    characterPayload.value.charm = 0;
-    characterPayload.value.temperament = 0;
+  function selectGoldenFinger(goldenFingerId: number | '') {
+    characterPayload.value.golden_finger_id = goldenFingerId;
   }
-  function selectOrigin(originId: number | null) { characterPayload.value.origin_id = originId; }
-  function selectSpiritRoot(rootId: number | null) { characterPayload.value.spirit_root_id = rootId; }
-  function toggleTalent(talentId: number) {
-    const index = characterPayload.value.selected_talent_ids.indexOf(talentId);
-    if (index > -1) characterPayload.value.selected_talent_ids.splice(index, 1);
-    else characterPayload.value.selected_talent_ids.push(talentId);
+  function setPreReincarnationIdentity(text: string) {
+    characterPayload.value.pre_reincarnation_identity = text;
   }
+  function selectWorld(_worldId: number | '') {
+    // 无限流不选世界
+  }
+  function selectTalentTier(_tierId: number | '') {
+    // 无限流无天资选择，固定 30 点
+  }
+  function selectOrigin(_originId: number | null) {}
+  function selectSpiritRoot(_rootId: number | null) {}
+  function toggleTalent(_talentId: number) {}
   function setAttribute(key: AttributeKey, value: number) { if (key in characterPayload.value) characterPayload.value[key] = value; }
+  function setInfiniteAttribute(key: InfiniteAttributeKey, value: number) {
+    const legacyKey = INFINITE_TO_LEGACY_ATTRIBUTE_MAP[key];
+    setAttribute(legacyKey, value);
+  }
 
   function setAIGeneratedSpiritRoot(spiritRoot: SpiritRoot) {
     if (!spiritRoot || typeof spiritRoot !== 'object' || !spiritRoot.name) return;
@@ -988,14 +716,14 @@ export const useCharacterCreationStore = defineStore('characterCreation', () => 
 
   return {
     mode, isLoading, error, creationData, characterPayload, currentStep, isLocalCreation, initialGameMessage, worldGenerationConfig, useStreamingStart, generateMode, splitResponseGeneration,
-    // 创建流程状态
     isCreating, creationPhase, creationError,
-    gameDifficulty, currentDifficultyPrompt, // 难度配置
-    totalSteps, attributes, selectedWorld, selectedTalentTier, selectedOrigin, selectedSpiritRoot, selectedTalents, remainingTalentPoints, totalTalentCost, bonusTalentPoints,
+    gameDifficulty, currentDifficultyPrompt,
+    totalSteps, attributes, infiniteAttributes,
+    selectedGoldenFinger, preReincarnationIdentity, selectedWorld, selectedTalentTier, selectedOrigin, selectedSpiritRoot, selectedTalents, remainingTalentPoints, totalTalentCost, bonusTalentPoints,
     initializeStore, fetchCloudWorlds, fetchAllCloudData, addWorld, addTalentTier, addOrigin, addSpiritRoot, addTalent, addGeneratedData,
     removeWorld, removeTalentTier, removeOrigin, removeSpiritRoot, removeTalent, // 导出删除函数
     updateWorld, updateTalentTier, updateOrigin, updateSpiritRoot, updateTalent, getItemById, // 导出编辑函数
-    selectWorld, selectTalentTier, selectOrigin, selectSpiritRoot, toggleTalent, setAttribute,
+    selectGoldenFinger, setPreReincarnationIdentity, selectWorld, selectTalentTier, selectOrigin, selectSpiritRoot, toggleTalent, setAttribute, setInfiniteAttribute,
     resetCharacter, nextStep, prevStep, goToStep, setMode, toggleLocalCreation, setInitialGameMessage, setWorldGenerationConfig,
     resetOnExit, startLocalCreation, startCloudCreation, persistCustomData,
     setAIGeneratedSpiritRoot,

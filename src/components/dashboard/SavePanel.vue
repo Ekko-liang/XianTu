@@ -697,7 +697,7 @@ const exportSingleSave = async (save: SaveSlot) => {
 
     const link = document.createElement('a');
     link.href = URL.createObjectURL(dataBlob);
-    const fileName = `仙途-${save.存档名}-${getLocalDateString()}.json`;
+    const fileName = `主神空间-${save.存档名}-${getLocalDateString()}.json`;
     link.download = fileName;
 
     document.body.appendChild(link);
@@ -784,7 +784,7 @@ const exportCharacter = async () => {
     const link = document.createElement('a');
     link.href = URL.createObjectURL(dataBlob);
     const characterName = characterProfile.角色?.名字 || '未命名角色';
-    const fileName = `仙途-角色-${characterName}-${getLocalDateString()}.json`;
+    const fileName = `主神空间-角色-${characterName}-${getLocalDateString()}.json`;
     link.download = fileName;
 
     document.body.appendChild(link);
@@ -867,7 +867,7 @@ const exportSaves = async () => {
 
     const link = document.createElement('a');
     link.href = URL.createObjectURL(dataBlob);
-    const fileName = `仙途-存档备份-${getLocalDateString()}.json`;
+    const fileName = `主神空间-存档备份-${getLocalDateString()}.json`;
     link.download = fileName;
 
     // 添加到DOM并触发点击

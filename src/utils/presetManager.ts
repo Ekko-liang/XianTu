@@ -31,6 +31,16 @@ import type { World, TalentTier, Origin, SpiritRoot, Talent } from '@/types';
 import { createDadBundle, unwrapDadBundle } from './dadBundle';
 
 
+/** 金手指（无限流简化创角） */
+export interface PresetGoldenFinger {
+  id: number;
+  name: string;
+  description?: string;
+  initialLevel?: string;
+  advancePath?: string[];
+  category?: string;
+}
+
 export interface CharacterPreset {
   id: string;
   name: string;
@@ -41,11 +51,16 @@ export interface CharacterPreset {
     gender?: '男' | '女' | '其他';
     race?: string;
     current_age?: number;
-    world: World | null;
-    talentTier: TalentTier | null;
-    origin: Origin | null;
-    spiritRoot: SpiritRoot | null;
-    talents: Talent[];
+    /** 无限流：金手指 */
+    goldenFinger?: PresetGoldenFinger | null;
+    /** 穿越前身份（选填叙事） */
+    preReincarnationIdentity?: string;
+    /** @deprecated 兼容旧预设 */
+    world?: World | null;
+    talentTier?: TalentTier | null;
+    origin?: Origin | null;
+    spiritRoot?: SpiritRoot | null;
+    talents?: Talent[];
     baseAttributes: {
       root_bone: number;
       spirituality: number;

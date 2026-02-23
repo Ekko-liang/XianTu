@@ -4,11 +4,44 @@
     <div class="sidebar-header">
       <h3 class="sidebar-title">
         <User :size="18" class="title-icon" />
-        <span>{{ t('角色状态') }}</span>
+        <span>轮回面板</span>
       </h3>
     </div>
 
     <div v-if="isDataLoaded && characterInfo" class="sidebar-content">
+      <div class="reincarnator-section">
+        <h3 class="section-title">
+          <Star :size="14" class="section-icon" />
+          <span>轮回者状态</span>
+        </h3>
+        <div class="reincarnator-grid">
+          <div class="reincarnator-item">
+            <span class="label">等级</span>
+            <span class="value">{{ reincarnator.level }}级 {{ reincarnatorStar }}</span>
+          </div>
+          <div class="reincarnator-item">
+            <span class="label">灵魂强度</span>
+            <span class="value">{{ reincarnator.soulStrength }}</span>
+          </div>
+          <div class="reincarnator-item">
+            <span class="label">神点</span>
+            <span class="value">{{ reincarnator.godPoints }}</span>
+          </div>
+          <div class="reincarnator-item">
+            <span class="label">副本数</span>
+            <span class="value">{{ reincarnator.missionCount }}</span>
+          </div>
+          <div class="reincarnator-item">
+            <span class="label">存活率</span>
+            <span class="value">{{ survivalRateText }}</span>
+          </div>
+          <div class="reincarnator-item" v-if="reincarnator.promotionTrialPending">
+            <span class="label">晋升试炼</span>
+            <span class="value danger">待触发 → {{ reincarnator.pendingPromotionTarget }}</span>
+          </div>
+        </div>
+      </div>
+
       <!-- 核心数值 -->
       <div class="vitals-section">
         <h3 class="section-title">
@@ -20,12 +53,12 @@
             <div class="vital-info">
               <span class="vital-name">
                 <Droplet :size="12" class="vital-icon blood" />
-                <span>{{ t('气血') }}</span>
+                <span>HP</span>
               </span>
-              <span class="vital-text">{{ playerStatus?.气血?.当前 }} / {{ playerStatus?.气血?.上限 }}</span>
+              <span class="vital-text">{{ reincarnator.vitals.HP.current }} / {{ reincarnator.vitals.HP.max }}</span>
             </div>
             <div class="progress-bar">
-              <div class="progress-fill health" :style="{ width: getVitalPercent('气血') + '%' }"></div>
+              <div class="progress-fill health" :style="{ width: getVitalPercent('HP') + '%' }"></div>
             </div>
           </div>
 
@@ -33,12 +66,12 @@
             <div class="vital-info">
               <span class="vital-name">
                 <Sparkles :size="12" class="vital-icon mana" />
-                <span>{{ t('灵气') }}</span>
+                <span>EP</span>
               </span>
-              <span class="vital-text">{{ playerStatus?.灵气?.当前 }} / {{ playerStatus?.灵气?.上限 }}</span>
+              <span class="vital-text">{{ reincarnator.vitals.EP.current }} / {{ reincarnator.vitals.EP.max }}</span>
             </div>
             <div class="progress-bar">
-              <div class="progress-fill mana" :style="{ width: getVitalPercent('灵气') + '%' }"></div>
+              <div class="progress-fill mana" :style="{ width: getVitalPercent('EP') + '%' }"></div>
             </div>
           </div>
 
@@ -46,12 +79,12 @@
             <div class="vital-info">
               <span class="vital-name">
                 <Brain :size="12" class="vital-icon spirit" />
-                <span>{{ t('神识') }}</span>
+                <span>MP</span>
               </span>
-              <span class="vital-text">{{ playerStatus?.神识?.当前 }} / {{ playerStatus?.神识?.上限 }}</span>
+              <span class="vital-text">{{ reincarnator.vitals.MP.current }} / {{ reincarnator.vitals.MP.max }}</span>
             </div>
             <div class="progress-bar">
-              <div class="progress-fill spirit" :style="{ width: getVitalPercent('神识') + '%' }"></div>
+              <div class="progress-fill spirit" :style="{ width: getVitalPercent('MP') + '%' }"></div>
             </div>
           </div>
 
@@ -59,72 +92,52 @@
             <div class="vital-info">
               <span class="vital-name">
                 <Clock :size="12" class="vital-icon lifespan" />
-                <span>{{ t('寿元') }}</span>
+                <span>任务存活率</span>
               </span>
-              <span class="vital-text">{{ currentAge }} / {{ playerStatus?.寿命?.上限 }}</span>
+              <span class="vital-text">{{ survivalRateText }}</span>
             </div>
             <div class="progress-bar">
-              <div class="progress-fill lifespan" :style="{ width: getLifespanPercent() + '%' }"></div>
+              <div class="progress-fill lifespan" :style="{ width: getSurvivalPercent() + '%' }"></div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- 境界状态 -->
+      <!-- 副本状态 -->
       <div class="cultivation-section">
         <h3 class="section-title">
           <Star :size="14" class="section-icon" />
-          <span>{{ t('境界状态') }}</span>
+          <span>副本进度</span>
         </h3>
         <div class="realm-display">
-          <div class="realm-info">
-            <span class="realm-name">{{ formatRealmDisplay(playerStatus?.境界) }}</span>
-            <span v-if="playerStatus?.境界?.突破描述" class="realm-breakthrough">{{ playerStatus?.境界?.突破描述 }}</span>
+          <div v-if="currentMission" class="realm-info">
+            <span class="realm-name">{{ currentMission.name }}</span>
+            <span class="realm-breakthrough">{{ currentMission.difficulty }}级 · 第{{ currentMission.day }}天</span>
           </div>
-          <!-- 有进度数据：显示进度条（包含凡人 -> 引气入体） -->
-          <div v-if="isRealmProgressAvailable" class="realm-progress">
+          <div v-if="currentMission" class="realm-progress">
             <div class="progress-bar">
               <div
                 class="progress-fill cultivation"
-                :class="getRealmProgressClass()"
-                :style="{ width: realmProgressPercent + '%' }"
+                :style="{ width: missionProgressPercent + '%' }"
               ></div>
             </div>
-            <span class="progress-text" :class="getRealmProgressClass()">
-              {{ realmProgressPercent }}%
-              <span v-if="realmProgressPercent >= 100" class="breakthrough-hint">可突破!</span>
-              <span v-else-if="realmProgressPercent >= 90" class="sprint-hint">可冲刺</span>
+            <span class="progress-text">
+              目标完成度 {{ missionProgressPercent }}%
             </span>
           </div>
-          <!-- 无进度数据：显示等待提示 -->
           <div v-else class="realm-mortal">
-            <span class="mortal-text">{{ realmWaitingText }}</span>
-          </div>
-        </div>
-
-        <!-- 声望显示 -->
-        <div class="reputation-display">
-          <div class="reputation-item">
-            <div class="reputation-info">
-              <span class="reputation-label">
-                <Star :size="12" class="vital-icon reputation" />
-                <span>{{ t('声望') }}</span>
-              </span>
-              <span class="reputation-value" :class="getReputationClass()">
-                {{ getReputationDisplay() }}
-              </span>
-            </div>
+            <span class="mortal-text">当前处于主神空间休整阶段</span>
           </div>
         </div>
       </div>
 
 
-      <!-- 天赋神通 -->
+      <!-- 天赋与专长 -->
       <div class="collapsible-section talents-section">
         <div class="section-header" @click="talentsCollapsed = !talentsCollapsed">
           <h3 class="section-title">
             <Star :size="14" class="section-icon gold" />
-            <span>{{ t('天赋神通') }}</span>
+            <span>{{ t('天赋与专长') }}</span>
           </h3>
           <button class="collapse-toggle" :class="{ 'collapsed': talentsCollapsed }">
             <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
@@ -146,7 +159,7 @@
 
           <!-- 空状态显示 -->
           <div v-if="!characterInfo.天赋 || characterInfo.天赋.length === 0" class="empty-talents">
-            <div class="empty-text">{{ t('暂无天赋神通') }}</div>
+            <div class="empty-text">{{ t('暂无天赋与专长') }}</div>
           </div>
         </div>
       </div>
@@ -189,7 +202,7 @@
 
     <!-- 无角色数据 -->
     <div v-else class="no-character">
-      <div class="no-char-text">{{ t('请选择角色开启修仙之旅') }}</div>
+      <div class="no-char-text">请选择角色进入主神空间</div>
     </div>
 
     <!-- 详情模态框 -->
@@ -206,9 +219,8 @@ import StatusDetailCard from './components/StatusDetailCard.vue';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { useUIStore } from '@/stores/uiStore';
 import type { StatusEffect } from '@/types/game.d.ts';
-import { formatRealmWithStage } from '@/utils/realmUtils';
-import { calculateAgeFromBirthdate } from '@/utils/lifespanCalculator';
 import { useI18n } from '@/i18n';
+import { formatStarText } from '@/utils/reincarnatorProgress';
 
 const { t } = useI18n();
 
@@ -217,30 +229,33 @@ const gameStateStore = useGameStateStore();
 const uiStore = useUIStore();
 
 // 数据加载状态
-const isDataLoaded = computed(() => gameStateStore.isGameLoaded && !!gameStateStore.character);
+const isDataLoaded = computed(() => gameStateStore.isGameLoaded && !!gameStateStore.reincarnator);
 
 // 直接使用中文字段访问数据
 const characterInfo = computed(() => gameStateStore.character);
-const playerStatus = computed(() => gameStateStore.attributes);
+const reincarnator = computed(() => gameStateStore.reincarnator);
+const reincarnatorStar = computed(() => formatStarText(reincarnator.value?.star ?? 1));
+const survivalRateText = computed(() => `${Math.round((reincarnator.value?.survivalRate ?? 0) * 100)}%`);
+const currentMission = computed(() => gameStateStore.currentMission);
+const missionProgressPercent = computed(() => {
+  const mission = currentMission.value;
+  if (!mission) return 0;
+  const objectives = [
+    ...(Array.isArray(mission.mainQuest?.objectives) ? mission.mainQuest.objectives : []),
+    ...(Array.isArray(mission.sideQuests)
+      ? mission.sideQuests.flatMap((quest) => (Array.isArray(quest.objectives) ? quest.objectives : []))
+      : []),
+  ];
+  if (objectives.length === 0) return mission.status === 'completed' ? 100 : 0;
+  const completed = objectives.filter((objective) => objective.completed === true).length;
+  return Math.max(0, Math.min(100, Math.round((completed / objectives.length) * 100)));
+});
 const statusEffects = computed(() => {
   const effects = gameStateStore.effects || [];
   // 🔥 过滤掉无效的状态效果（undefined、null或缺少状态名称）
   return effects.filter((effect): effect is StatusEffect =>
     effect != null && typeof effect === 'object' && '状态名称' in effect
   );
-});
-
-// 自动计算当前年龄（基于出生日期）
-const currentAge = computed(() => {
-  const birthdate = characterInfo.value?.出生日期;
-  const gameTime = gameStateStore.gameTime;
-
-  if (birthdate && gameTime) {
-    return calculateAgeFromBirthdate(birthdate, gameTime);
-  }
-
-  // 兜底：返回寿命当前值
-  return gameStateStore.attributes?.寿命?.当前 || 0;
 });
 
 // 收缩状态
@@ -267,50 +282,15 @@ const formatTimeDisplay = (time: string | undefined): string => {
 
   return time;
 };
-
-
-
-// 计算百分比的工具方法
-const realmProgressPercent = computed(() => {
-  if (!gameStateStore.attributes?.境界) return 0;
-  const progress = gameStateStore.attributes.境界.当前进度;
-  const maxProgress = gameStateStore.attributes.境界.下一级所需;
-  if (!maxProgress || maxProgress <= 0) return 0;
-  return Math.max(0, Math.min(100, Math.round((progress / maxProgress) * 100)));
-});
-
-const isRealmProgressAvailable = computed(() => {
-  const maxProgress = gameStateStore.attributes?.境界?.下一级所需;
-  return typeof maxProgress === 'number' && maxProgress > 0;
-});
-
-const realmWaitingText = computed(() => {
-  const desc = playerStatus.value?.境界?.突破描述;
-  if (desc) return `${t('等待仙缘')} · ${desc}`;
-  return t('等待仙缘');
-});
-
-// 根据进度百分比返回CSS类名
-const getRealmProgressClass = (): string => {
-  const percent = realmProgressPercent.value;
-  if (percent >= 100) return 'realm-breakthrough';  // 红色 - 可突破
-  if (percent >= 90) return 'realm-sprint';         // 黄色 - 可冲刺
-  return '';                                         // 紫色 - 默认
-};
-
 // 计算生命体征百分比
-const getVitalPercent = (type: '气血' | '灵气' | '神识') => {
-  if (!gameStateStore.attributes) return 0;
-  const vital = (gameStateStore.attributes as any)[type];
-  if (!vital?.当前 || !vital?.上限) return 0;
-  return Math.round((vital.当前 / vital.上限) * 100);
+const getVitalPercent = (type: 'HP' | 'EP' | 'MP') => {
+  const vital = reincarnator.value?.vitals?.[type];
+  if (!vital?.max) return 0;
+  return Math.max(0, Math.min(100, Math.round((Number(vital.current) / Number(vital.max)) * 100)));
 };
 
-// 计算寿命百分比（使用计算后的年龄）
-const getLifespanPercent = () => {
-  const maxLifespan = gameStateStore.attributes?.寿命?.上限;
-  if (!maxLifespan) return 0;
-  return Math.round((currentAge.value / maxLifespan) * 100);
+const getSurvivalPercent = () => {
+  return Math.max(0, Math.min(100, Math.round((reincarnator.value?.survivalRate ?? 0) * 100)));
 };
 
 // 获取天赋数据
@@ -370,65 +350,6 @@ const showStatusDetail = (effect: StatusEffect) => {
   });
 };
 
-const formatRealmDisplay = (realm?: unknown): string => {
-  return formatRealmWithStage(realm);
-};
-
-// 获取声望显示文本
-const getReputationDisplay = (): string => {
-  const reputation = playerStatus.value?.声望;
-  if (reputation === undefined || reputation === null) {
-    return '籍籍无名';
-  }
-
-  const repValue = Number(reputation);
-
-  // 负数声望（恶名）
-  if (repValue < 0) {
-    if (repValue <= -5000) return `恶名昭彰 (${repValue})`;
-    if (repValue <= -1000) return `臭名远扬 (${repValue})`;
-    if (repValue <= -500) return `声名狼藉 (${repValue})`;
-    if (repValue <= -100) return `恶名在外 (${repValue})`;
-    return `小有恶名 (${repValue})`;
-  }
-
-  // 正数声望
-  if (repValue >= 10000) return `传说人物 (${repValue})`;
-  if (repValue >= 5000) return `名满天下 (${repValue})`;
-  if (repValue >= 3000) return `威震四方 (${repValue})`;
-  if (repValue >= 1000) return `名动一方 (${repValue})`;
-  if (repValue >= 500) return `声名远播 (${repValue})`;
-  if (repValue >= 100) return `小有名气 (${repValue})`;
-
-  return '籍籍无名';
-};
-
-// 获取声望CSS类名
-const getReputationClass = (): string => {
-  const reputation = playerStatus.value?.声望;
-  if (reputation === undefined || reputation === null) {
-    return 'reputation-neutral';
-  }
-
-  const repValue = Number(reputation);
-
-  if (repValue < 0) {
-    if (repValue <= -5000) return 'reputation-evil-legendary';
-    if (repValue <= -1000) return 'reputation-evil-high';
-    if (repValue <= -500) return 'reputation-evil-medium';
-    if (repValue <= -100) return 'reputation-evil-low';
-    return 'reputation-evil-minor';
-  }
-
-  if (repValue >= 10000) return 'reputation-legendary';
-  if (repValue >= 5000) return 'reputation-famous';
-  if (repValue >= 3000) return 'reputation-renowned';
-  if (repValue >= 1000) return 'reputation-notable';
-  if (repValue >= 500) return 'reputation-known';
-  if (repValue >= 100) return 'reputation-minor';
-
-  return 'reputation-neutral';
-};
 </script>
 
 <style scoped>
@@ -901,6 +822,7 @@ const getReputationClass = (): string => {
 /* 通用区块样式 */
 .ai-chat-section,
 .info-section,
+.reincarnator-section,
 .cultivation-section,
 .vitals-section,
 .attributes-section,
@@ -912,6 +834,37 @@ const getReputationClass = (): string => {
   border: 1px solid rgba(var(--color-border-rgb), 0.4);
   border-radius: 10px;
   backdrop-filter: blur(4px);
+}
+
+.reincarnator-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.reincarnator-item {
+  border: 1px solid rgba(var(--color-border-rgb), 0.35);
+  border-radius: 8px;
+  padding: 8px;
+  background: rgba(var(--color-surface-rgb), 0.65);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.reincarnator-item .label {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.reincarnator-item .value {
+  color: var(--color-text);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.reincarnator-item .value.danger {
+  color: var(--color-warning);
 }
 
 /* 天赋神通特定样式 */

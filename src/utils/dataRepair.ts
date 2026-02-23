@@ -15,7 +15,7 @@ import type { GradeType } from '@/data/itemQuality';
 import { cloneDeep } from 'lodash';
 import { isSaveDataV3, migrateSaveDataToLatest } from '@/utils/saveMigration';
 import { validateSaveDataV3 } from '@/utils/saveValidationV3';
-import { normalizeBackpackCurrencies } from '@/utils/currencySystem';
+import { normalizeBackpackCurrencies, syncGodPointsBetweenProfileAndInventory } from '@/utils/currencySystem';
 
 /**
  * 修复并清洗存档数据，确保所有必需字段存在且格式正确
@@ -32,8 +32,9 @@ export function repairSaveData(saveData: SaveData | null | undefined): SaveData 
     // 统一入口：非V3一律先迁移到V3（迁移后只保留V3结构）
     const migrated = isSaveDataV3(saveData) ? (saveData as any) : migrateSaveDataToLatest(saveData as any).migrated;
     const repaired = cloneDeep(migrated) as any;
+    const minimal = createMinimalSaveDataV3() as any;
 
-    // 运行期校验（允许轻微修复，但结构必须是 V3 五领域）
+    // 运行期校验（允许轻微修复，但结构必须是 V3 主结构）
     const validation = validateSaveDataV3(repaired);
     if (!validation.isValid) {
       console.warn('[数据修复] ⚠️ 存档结构不合格，使用最小V3模板兜底:', validation.errors);
@@ -41,7 +42,7 @@ export function repairSaveData(saveData: SaveData | null | undefined): SaveData 
     }
 
     // --- 元数据 ---
-    repaired.元数据 = repaired.元数据 && typeof repaired.元数据 === 'object' ? repaired.元数据 : createMinimalSaveDataV3().元数据;
+    repaired.元数据 = repaired.元数据 && typeof repaired.元数据 === 'object' ? repaired.元数据 : minimal.元数据;
     repaired.元数据.版本号 = 3;
     repaired.元数据.存档ID = repaired.元数据.存档ID || `save_${Date.now()}`;
     repaired.元数据.存档名 = repaired.元数据.存档名 || '自动存档';
@@ -49,12 +50,22 @@ export function repairSaveData(saveData: SaveData | null | undefined): SaveData 
     repaired.元数据.更新时间 = new Date().toISOString();
     repaired.元数据.游戏时长秒 = validateNumber(repaired.元数据.游戏时长秒, 0, 999999999, 0);
     repaired.元数据.时间 = repairGameTime(repaired.元数据.时间);
+    repaired.元数据.当前阶段 = ['hub', 'mission', 'settlement'].includes(String(repaired.元数据.当前阶段))
+      ? repaired.元数据.当前阶段
+      : 'hub';
+
+    // --- 无限流主结构 ---
+    repaired.轮回者 = repaired.轮回者 && typeof repaired.轮回者 === 'object' ? repaired.轮回者 : cloneDeep(minimal.轮回者);
+    repaired.主神空间 = repaired.主神空间 && typeof repaired.主神空间 === 'object' ? repaired.主神空间 : cloneDeep(minimal.主神空间);
+    repaired.团队 = repaired.团队 && typeof repaired.团队 === 'object' ? repaired.团队 : cloneDeep(minimal.团队);
+    repaired.副本记录 = Array.isArray(repaired.副本记录) ? repaired.副本记录 : [];
+    if (!('当前副本' in repaired)) repaired.当前副本 = null;
 
     // --- 角色 ---
-    repaired.角色 = repaired.角色 && typeof repaired.角色 === 'object' ? repaired.角色 : createMinimalSaveDataV3().角色;
-    repaired.角色.身份 = repaired.角色.身份 && typeof repaired.角色.身份 === 'object' ? repaired.角色.身份 : createMinimalSaveDataV3().角色.身份;
+    repaired.角色 = repaired.角色 && typeof repaired.角色 === 'object' ? repaired.角色 : cloneDeep(repaired.轮回者);
+    repaired.角色.身份 = repaired.角色.身份 && typeof repaired.角色.身份 === 'object' ? repaired.角色.身份 : minimal.角色.身份;
 
-    repaired.角色.身份.名字 = repaired.角色.身份.名字 || '无名修士';
+    repaired.角色.身份.名字 = repaired.角色.身份.名字 || '无名轮回者';
     repaired.角色.身份.性别 = repaired.角色.身份.性别 || '男';
     if (!repaired.角色.身份.出生日期) repaired.角色.身份.出生日期 = { 年: 982, 月: 1, 日: 1 };
     if (!repaired.角色.身份.先天六司 || typeof repaired.角色.身份.先天六司 !== 'object') {
@@ -79,9 +90,9 @@ export function repairSaveData(saveData: SaveData | null | undefined): SaveData 
     } else {
       repaired.角色.属性.境界 = repairRealm(repaired.角色.属性.境界);
       repaired.角色.属性.气血 = repairValuePair(repaired.角色.属性.气血, 100, 100);
-      repaired.角色.属性.灵气 = repairValuePair(repaired.角色.属性.灵气, 50, 50);
-      repaired.角色.属性.神识 = repairValuePair(repaired.角色.属性.神识, 30, 30);
-      repaired.角色.属性.寿命 = repairValuePair(repaired.角色.属性.寿命, 18, 80);
+      repaired.角色.属性.灵气 = repairValuePair(repaired.角色.属性.灵气, 80, 80);
+      repaired.角色.属性.神识 = repairValuePair(repaired.角色.属性.神识, 80, 80);
+      repaired.角色.属性.寿命 = repairValuePair(repaired.角色.属性.寿命, 18, 120);
       repaired.角色.属性.声望 = validateNumber(repaired.角色.属性.声望, 0, 999999, 0);
     }
 
@@ -89,7 +100,7 @@ export function repairSaveData(saveData: SaveData | null | undefined): SaveData 
     if (!repaired.角色.位置 || typeof repaired.角色.位置 !== 'object') {
       repaired.角色.位置 = createDefaultLocation();
     } else if (!repaired.角色.位置.描述) {
-      repaired.角色.位置.描述 = '朝天大陆·无名之地';
+      repaired.角色.位置.描述 = '主神空间·休整区';
     }
 
     // --- 效果 ---
@@ -140,7 +151,7 @@ export function repairSaveData(saveData: SaveData | null | undefined): SaveData 
 
     // --- 社交.关系 ---
     const playerName = typeof repaired.角色?.身份?.名字 === 'string' ? repaired.角色.身份.名字.trim() : '';
-    if (!repaired.社交 || typeof repaired.社交 !== 'object') repaired.社交 = createMinimalSaveDataV3().社交;
+    if (!repaired.社交 || typeof repaired.社交 !== 'object') repaired.社交 = minimal.社交;
     if (!repaired.社交.关系 || typeof repaired.社交.关系 !== 'object') {
       repaired.社交.关系 = {};
     } else {
@@ -260,15 +271,27 @@ export function repairSaveData(saveData: SaveData | null | undefined): SaveData 
     }
 
     // --- 系统.历史 ---
-    if (!repaired.系统 || typeof repaired.系统 !== 'object') repaired.系统 = createMinimalSaveDataV3().系统;
+    if (!repaired.系统 || typeof repaired.系统 !== 'object') repaired.系统 = minimal.系统;
     if (!repaired.系统.历史 || typeof repaired.系统.历史 !== 'object') repaired.系统.历史 = { 叙事: [] };
     if (!Array.isArray(repaired.系统.历史.叙事)) repaired.系统.历史.叙事 = [];
 
     // --- 角色子模块最小化补全 ---
     if (!repaired.角色.大道 || typeof repaired.角色.大道 !== 'object') repaired.角色.大道 = { 大道列表: {} };
     if (!repaired.角色.功法 || typeof repaired.角色.功法 !== 'object') repaired.角色.功法 = { 当前功法ID: null, 功法进度: {}, 功法套装: { 主修: null, 辅修: [] } };
-    if (!repaired.角色.修炼 || typeof repaired.角色.修炼 !== 'object') repaired.角色.修炼 = { 修炼功法: null, 修炼状态: { 模式: '未修炼' } };
+    if (!repaired.角色.修炼 || typeof repaired.角色.修炼 !== 'object') {
+      repaired.角色.修炼 = { 修炼功法: null, 修炼能力: null, 修炼状态: { 模式: '待机' } };
+    }
     if (!repaired.角色.技能 || typeof repaired.角色.技能 !== 'object') repaired.角色.技能 = { 掌握技能: [], 装备栏: [], 冷却: {} };
+    if (!repaired.角色.修炼.修炼状态 || typeof repaired.角色.修炼.修炼状态 !== 'object') {
+      repaired.角色.修炼.修炼状态 = { 模式: '待机' };
+    }
+    const repairMode = String((repaired.角色.修炼.修炼状态 as any).模式 || '').trim();
+    if (!repairMode || repairMode === '未修炼') {
+      (repaired.角色.修炼.修炼状态 as any).模式 = '待机';
+    }
+    if (!('修炼能力' in repaired.角色.修炼)) {
+      repaired.角色.修炼.修炼能力 = (repaired.角色.修炼 as any).修炼功法 ?? null;
+    }
 
     // --- 社交.事件 ---
     if (!repaired.社交.事件 || typeof repaired.社交.事件 !== 'object') {
@@ -303,6 +326,46 @@ export function repairSaveData(saveData: SaveData | null | undefined): SaveData 
     }
 
 
+    // --- 镜像同步：轮回者为主、角色为兼容镜像 ---
+    repaired.轮回者 = {
+      ...cloneDeep(minimal.轮回者),
+      ...(repaired.轮回者 || {}),
+      身份: repaired.角色.身份,
+      属性: repaired.角色.属性,
+      位置: repaired.角色.位置,
+      效果: repaired.角色.效果,
+      身体: repaired.角色.身体,
+      背包: repaired.角色.背包,
+      装备: repaired.角色.装备,
+      功法: repaired.角色.功法,
+      修炼: repaired.角色.修炼,
+      大道: repaired.角色.大道,
+      技能: repaired.角色.技能,
+    };
+    repaired.轮回者.godPoints = syncGodPointsBetweenProfileAndInventory(
+      repaired.轮回者.背包 as any,
+      Number(repaired.轮回者?.godPoints ?? 0),
+      true,
+    );
+
+    repaired.角色 = {
+      身份: repaired.轮回者.身份,
+      属性: repaired.轮回者.属性,
+      位置: repaired.轮回者.位置,
+      效果: repaired.轮回者.效果,
+      身体: repaired.轮回者.身体,
+      背包: repaired.轮回者.背包,
+      装备: repaired.轮回者.装备,
+      功法: repaired.轮回者.功法,
+      修炼: repaired.轮回者.修炼,
+      大道: repaired.轮回者.大道,
+      技能: repaired.轮回者.技能,
+    };
+
+    if (repaired?.系统?.扩展 && typeof repaired.系统.扩展 === 'object' && '无限流' in repaired.系统.扩展) {
+      delete repaired.系统.扩展.无限流;
+    }
+
     console.log('[数据修复] ✅ 存档数据修复完成');
     return repaired;
   } catch (error) {
@@ -311,113 +374,67 @@ export function repairSaveData(saveData: SaveData | null | undefined): SaveData 
   }
 }
 
-/**
- * 根据境界和阶段生成修仙小说风格的突破描述
- */
-function getDefaultBreakthroughDescription(realmName?: string, stage?: string): string {
-  const name = realmName || '凡人';
-  const currentStage = stage || '';
+function normalizeRealmRankName(value: unknown): string {
+  const raw = String(value || '').trim();
+  if (!raw) return 'D';
+  const upper = raw.toUpperCase();
+  if (['D', 'C', 'B', 'A', 'S', 'SS', 'SSS'].includes(upper)) return upper;
+  if (/^D级/.test(raw) || /(凡人|新人|候选)/.test(raw)) return 'D';
+  if (/^C级/.test(raw) || /(练气|初级轮回者|见习)/.test(raw)) return 'C';
+  if (/^B级/.test(raw) || /(筑基|中级轮回者|正式)/.test(raw)) return 'B';
+  if (/^A级/.test(raw) || /(金丹|高级轮回者|资深)/.test(raw)) return 'A';
+  if (/^S级/.test(raw) || /(元婴|精英轮回者)/.test(raw)) return 'S';
+  if (/^SS级/.test(raw) || /(化神|传说轮回者)/.test(raw)) return 'SS';
+  if (/^SSS级/.test(raw) || /(炼虚|合体|渡劫|超越者)/.test(raw)) return 'SSS';
+  return raw;
+}
 
-  // 凡人境界
-  if (name === '凡人') {
-    return '引气入体，感悟天地灵气，踏上修仙第一步';
-  }
-
-  // 定义各境界的突破描述
-  const realmDescriptions: Record<string, Record<string, string>> = {
-    '练气': {
-      '初期': '凝聚丹田灵气，打通任督二脉，冲击练气中期',
-      '中期': '拓宽经脉，提升灵气容量，冲击练气后期',
-      '后期': '凝实根基，感悟天地法则，冲击练气圆满',
-      '圆满': '灵气贯通周天，凝练灵根本源，准备筑基',
-      '': '搬运周天，凝聚灵气，夯实练气根基'
-    },
-    '筑基': {
-      '初期': '凝聚道台，将灵气压缩凝实，冲击筑基中期',
-      '中期': '稳固道基，扩充丹田容量，冲击筑基后期',
-      '后期': '感悟天地法则，凝练金丹雏形，冲击筑基圆满',
-      '圆满': '道基圆满，破而后立，将灵气凝聚成金丹',
-      '': '夯实道基，压缩灵气，提升筑基境界'
-    },
-    '金丹': {
-      '初期': '凝实金丹，刻画符文，冲击金丹中期',
-      '中期': '淬炼金丹，领悟道韵，冲击金丹后期',
-      '后期': '金丹大成，蕴养元神，冲击金丹圆满',
-      '圆满': '破丹成婴，元神出窍，踏入元婴境界',
-      '': '淬炼金丹本源，刻画天地符文，提升金丹品质'
-    },
-    '元婴': {
-      '初期': '稳固元婴，凝练神魂，冲击元婴中期',
-      '中期': '元婴壮大，感悟大道，冲击元婴后期',
-      '后期': '元婴大成，凝练元神，冲击元婴圆满',
-      '圆满': '元神蜕变，肉身成圣，准备化神',
-      '': '壮大元婴，淬炼神魂，提升元婴境界'
-    },
-    '化神': {
-      '初期': '神魂合一，领悟法则，冲击化神中期',
-      '中期': '凝聚神格，参悟天道，冲击化神后期',
-      '后期': '神格大成，融合法则，冲击化神圆满',
-      '圆满': '炼虚合道，肉身不灭，准备突破炼虚',
-      '': '感悟大道法则，凝练神格，提升化神境界'
-    },
-    '炼虚': {
-      '初期': '炼虚化实，虚空凝形，冲击炼虚中期',
-      '中期': '虚实合一，参悟空间法则，冲击炼虚后期',
-      '后期': '撕裂虚空，掌控空间，冲击炼虚圆满',
-      '圆满': '虚空大成，与天地合一，准备渡劫',
-      '': '炼化虚空之力，感悟空间奥义，提升炼虚境界'
-    },
-    '合体': {
-      '初期': '天人合一，与天地共鸣，冲击合体中期',
-      '中期': '领悟天道，掌控天地之力，冲击合体后期',
-      '后期': '天地认可，法则加身，冲击合体圆满',
-      '圆满': '与道合真，天劫将至，准备渡劫飞升',
-      '': '感悟天地大道，与天地共鸣，提升合体境界'
-    },
-    '大乘': {
-      '初期': '大道圆满，法则入体，冲击大乘中期',
-      '中期': '天道认可，参悟仙道，冲击大乘后期',
-      '后期': '仙韵初现，准备渡劫，冲击大乘圆满',
-      '圆满': '渡九九天劫，飞升仙界，超脱凡尘',
-      '': '感悟仙道奥义，凝练仙体，准备飞升'
-    }
-  };
-
-  // 获取对应境界的描述
-  const stageDescriptions = realmDescriptions[name];
-  if (stageDescriptions) {
-    return stageDescriptions[currentStage] || stageDescriptions[''] || `感悟${name}境界奥义，提升修为境界`;
-  }
-
-  // 未知境界的通用描述
-  const genericDescriptions: Record<string, string> = {
-    '初期': `凝练${name}初期根基，冲击${name}中期`,
-    '中期': `稳固${name}中期修为，冲击${name}后期`,
-    '后期': `圆满${name}后期境界，冲击${name}圆满`,
-    '圆满': `${name}圆满大成，准备突破下一境界`,
-    '': `感悟${name}境界奥义，提升修为`
-  };
-
-  return genericDescriptions[currentStage] || `感悟${name}境界，提升修为`;
+function normalizeRealmStage(value: unknown): string {
+  const raw = String(value || '').trim();
+  if (!raw) return '一星';
+  if (/初期|一星|1星/.test(raw)) return '一星';
+  if (/中期|二星|2星/.test(raw)) return '二星';
+  if (/后期|三星|3星/.test(raw)) return '三星';
+  if (/圆满|四星|4星/.test(raw)) return '四星';
+  if (/极境|五星|5星/.test(raw)) return '五星';
+  return raw;
 }
 
 /**
- * 修复境界数据
+ * 根据评级与星级生成默认晋升描述（兼容旧境界输入）
+ */
+function getDefaultBreakthroughDescription(realmName?: string, stage?: string): string {
+  const rank = normalizeRealmRankName(realmName);
+  const star = normalizeRealmStage(stage);
+
+  const descriptionsByStar: Record<string, string> = {
+    一星: '刚完成阶段适配，需继续积累副本生还经验。',
+    二星: '能力循环逐渐稳定，可承担更高压任务节点。',
+    三星: '战术执行成熟，开始具备副本核心成员能力。',
+    四星: '已满足灵魂条件，可等待主神触发晋升试炼。',
+    五星: '达到当前评级上限，晋升试炼成功率显著提升。',
+  };
+
+  const tail = descriptionsByStar[star] || '持续完成副本结算，积累灵魂强度。';
+  return `${rank}级${star}：${tail}`;
+}
+
+/**
+ * 修复评级数据（兼容旧境界字段）
  */
 function repairRealm(realm: any): Realm {
   if (!realm || typeof realm !== 'object') {
     return {
-      名称: "凡人",
-      阶段: "",
+      名称: 'D',
+      阶段: '一星',
       当前进度: 0,
       下一级所需: 100,
-      突破描述: '引气入体，感悟天地灵气，踏上修仙第一步'
+      突破描述: getDefaultBreakthroughDescription('D', '一星'),
     };
   }
 
-  // 🔥 修复：保留原有境界数据，只补充缺失字段
-  const name = realm.名称 || "凡人";
-  const stage = realm.阶段 !== undefined ? realm.阶段 : "";
+  const name = normalizeRealmRankName(realm.名称 ?? realm.name ?? realm.rank ?? realm.level);
+  const stage = normalizeRealmStage(realm.阶段 ?? realm.stage);
   const progress = validateNumber(realm.当前进度, 0, 999999999, 0);
   const required = validateNumber(realm.下一级所需, 1, 999999999, 100);
 
@@ -426,7 +443,7 @@ function repairRealm(realm: any): Realm {
     阶段: stage,
     当前进度: progress,
     下一级所需: required,
-    突破描述: realm.突破描述 || getDefaultBreakthroughDescription(name, stage)
+    突破描述: realm.突破描述 || getDefaultBreakthroughDescription(name, stage),
   };
 }
 
@@ -519,23 +536,23 @@ function repairNpc(npc: NpcProfile): NpcProfile {
   if (!repaired.属性 || typeof repaired.属性 !== 'object') {
     repaired.属性 = {
       气血: { 当前: 100, 上限: 100 },
-      灵气: { 当前: 50, 上限: 50 },
-      神识: { 当前: 30, 上限: 30 },
-      寿元上限: 100
+      灵气: { 当前: 80, 上限: 80 },
+      神识: { 当前: 80, 上限: 80 },
+      寿元上限: 120
     };
   } else {
     repaired.属性.气血 = repairValuePair(repaired.属性.气血, 100, 100);
-    repaired.属性.灵气 = repairValuePair(repaired.属性.灵气, 50, 50);
-    repaired.属性.神识 = repairValuePair(repaired.属性.神识, 30, 30);
-    repaired.属性.寿元上限 = typeof repaired.属性.寿元上限 === 'number' ? repaired.属性.寿元上限 : 100;
+    repaired.属性.灵气 = repairValuePair(repaired.属性.灵气, 80, 80);
+    repaired.属性.神识 = repairValuePair(repaired.属性.神识, 80, 80);
+    repaired.属性.寿元上限 = typeof repaired.属性.寿元上限 === 'number' ? repaired.属性.寿元上限 : 120;
   }
   // 兼容旧格式：如果有旧的独立字段，迁移到属性对象
   if ((repaired as any).气血 || (repaired as any).灵气 || (repaired as any).神识 || (repaired as any).寿元) {
     repaired.属性 = {
       气血: repairValuePair((repaired as any).气血, 100, 100),
-      灵气: repairValuePair((repaired as any).灵气, 50, 50),
-      神识: repairValuePair((repaired as any).神识, 30, 30),
-      寿元上限: (repaired as any).寿元?.上限 ?? 100
+      灵气: repairValuePair((repaired as any).灵气, 80, 80),
+      神识: repairValuePair((repaired as any).神识, 80, 80),
+      寿元上限: (repaired as any).寿元?.上限 ?? 120
     };
     delete (repaired as any).气血;
     delete (repaired as any).灵气;
@@ -545,9 +562,9 @@ function repairNpc(npc: NpcProfile): NpcProfile {
 
   // 修复位置
   if (!repaired.当前位置 || typeof repaired.当前位置 !== 'object') {
-    repaired.当前位置 = { 描述: '朝天大陆·无名之地' };
+    repaired.当前位置 = { 描述: '主神空间·休整区' };
   } else if (!repaired.当前位置.描述) {
-    repaired.当前位置.描述 = '朝天大陆·无名之地';
+    repaired.当前位置.描述 = '主神空间·休整区';
   }
 
   // 修复好感度
@@ -591,22 +608,22 @@ function validateNumber(value: any, min: number, max: number, defaultValue: numb
 function createDefaultAttributes(): PlayerAttributes {
   return {
     境界: {
-      名称: '凡人',
-      阶段: '',
+      名称: 'D',
+      阶段: '一星',
       当前进度: 0,
       下一级所需: 100,
-      突破描述: '引气入体，感悟天地灵气，踏上修仙第一步'
+      突破描述: getDefaultBreakthroughDescription('D', '一星')
     },
     声望: 0,
     气血: { 当前: 100, 上限: 100 },
-    灵气: { 当前: 50, 上限: 50 },
-    神识: { 当前: 30, 上限: 30 },
-    寿命: { 当前: 18, 上限: 80 },
+    灵气: { 当前: 80, 上限: 80 },
+    神识: { 当前: 80, 上限: 80 },
+    寿命: { 当前: 18, 上限: 120 },
   } as PlayerAttributes;
 }
 
 function createDefaultLocation(): PlayerLocation {
-  return { 描述: '朝天大陆·无名之地', x: 5000, y: 5000 } as PlayerLocation;
+  return { 描述: '主神空间·休整区', x: 5000, y: 5000 } as PlayerLocation;
 }
 
 /**
@@ -619,7 +636,7 @@ function createMinimalSaveData(): SaveData {
 function createMinimalSaveDataV3(): SaveData {
   const nowIso = new Date().toISOString();
   const time = { 年: 1000, 月: 1, 日: 1, 小时: 8, 分钟: 0 } as GameTime;
-  return {
+  const legacyTemplate = {
     元数据: {
       版本号: 3,
       存档ID: `save_${Date.now()}`,
@@ -629,17 +646,18 @@ function createMinimalSaveDataV3(): SaveData {
       更新时间: nowIso,
       游戏时长秒: 0,
       时间: time,
+      当前阶段: 'hub',
     },
     角色: {
       身份: {
-        名字: '无名修士',
+        名字: '无名轮回者',
         性别: '男',
         出生日期: { 年: 982, 月: 1, 日: 1 },
         种族: '人族',
-        世界: '朝天大陆' as any,
-        天资: '凡人' as any,
-        出生: '散修',
-        灵根: '五行杂灵根',
+        世界: '主神空间' as any,
+        天资: '普通' as any,
+        出生: '未知背景',
+        灵根: '未觉醒潜能',
         天赋: [],
         先天六司: { 根骨: 5, 灵性: 5, 悟性: 5, 气运: 5, 魅力: 5, 心性: 5 },
         后天六司: { 根骨: 0, 灵性: 0, 悟性: 0, 气运: 0, 魅力: 0, 心性: 0 },
@@ -651,7 +669,7 @@ function createMinimalSaveDataV3(): SaveData {
       背包: { 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 }, 物品: {} },
       装备: { 装备1: null, 装备2: null, 装备3: null, 装备4: null, 装备5: null, 装备6: null },
       功法: { 当前功法ID: null, 功法进度: {}, 功法套装: { 主修: null, 辅修: [] } },
-      修炼: { 修炼功法: null, 修炼状态: { 模式: '未修炼' } },
+      修炼: { 修炼功法: null, 修炼能力: null, 修炼状态: { 模式: '待机' } },
       大道: { 大道列表: {} },
       技能: { 掌握技能: [], 装备栏: [], 冷却: {} },
     },
@@ -667,7 +685,7 @@ function createMinimalSaveDataV3(): SaveData {
     },
     世界: {
       信息: {
-        世界名称: '朝天大陆',
+        世界名称: '主神空间',
         大陆信息: [],
         势力信息: [],
         地点信息: [],
@@ -675,7 +693,7 @@ function createMinimalSaveDataV3(): SaveData {
         世界背景: '',
         世界纪元: '',
         特殊设定: [],
-        版本: 'v1',
+        版本: 'v3-infinite-flow',
       },
       状态: { 环境: {}, 事件: [], 历史: [], NPC状态: {} },
     },
@@ -689,4 +707,7 @@ function createMinimalSaveDataV3(): SaveData {
       联机: { 模式: '单机', 房间ID: null, 玩家ID: null, 只读路径: ['世界'], 世界曝光: false, 冲突策略: '服务器' },
     },
   } as any;
+
+  const { migrated } = migrateSaveDataToLatest(legacyTemplate);
+  return migrated as SaveData;
 }

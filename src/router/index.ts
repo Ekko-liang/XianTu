@@ -1,5 +1,5 @@
 /**
- * 仙途 (XianTu) - 路由配置
+ * 主神空间无限流 - 路由配置
  * @author 千夜 | GitHub: qianye60 | Bilibili: 477576651
  * @license CC BY-NC-SA 4.0 - 商业使用需授权
  */
@@ -43,8 +43,8 @@ import MemoryCenterPanel from '../components/dashboard/MemoryCenterPanel.vue';
 import CharacterDetailsPanel from '../components/dashboard/CharacterDetailsPanel.vue';
 import InventoryPanel from '../components/dashboard/InventoryPanel.vue';
 import RelationshipNetworkPanel from '../components/dashboard/RelationshipNetworkPanel.vue';
-import SkillsPanel from '../components/dashboard/SkillsPanel.vue'; // 功法面板
-import ThousandDaoPanel from '../components/dashboard/ThousandDaoPanel.vue'; // 新的三千大道面板
+import SkillsPanel from '../components/dashboard/SkillsPanel.vue';
+import ThousandDaoPanel from '../components/dashboard/ThousandDaoPanel.vue';
 import SettingsPanel from '../components/dashboard/SettingsPanel.vue';
 import SavePanel from '../components/dashboard/SavePanel.vue';
 import WorldMapRoute from '../components/dashboard/WorldMapRoute.vue';
@@ -62,6 +62,14 @@ import GameVariablePanel from '../components/dashboard/GameVariablePanel.vue';
 import PromptManagementPanel from '../components/dashboard/PromptManagementPanel.vue';
 import OnlineTravelPanel from '../components/dashboard/OnlineTravelPanel.vue';
 import APIManagementPanel from '../components/dashboard/APIManagementPanel.vue';
+import MissionSelectPanel from '../components/dashboard/MissionSelectPanel.vue';
+import MissionBriefingPanel from '../components/dashboard/MissionBriefingPanel.vue';
+import MissionSettlementPanel from '../components/dashboard/MissionSettlementPanel.vue';
+import HubMapPanel from '../components/dashboard/HubMapPanel.vue';
+import ExchangePanel from '../components/dashboard/ExchangePanel.vue';
+import TeamPanel from '../components/dashboard/TeamPanel.vue';
+import AbilityTreePanel from '../components/dashboard/AbilityTreePanel.vue';
+import MissionHistoryPanel from '../components/dashboard/MissionHistoryPanel.vue';
 
 const routes = [
   {
@@ -126,14 +134,22 @@ const routes = [
         component: RelationshipNetworkPanel,
       },
       {
-        path: 'techniques',
+        path: 'abilities',
         name: 'Techniques',
-        component: SkillsPanel, // 功法面板（合并了原cultivation功能）
+        component: SkillsPanel,
+      },
+      {
+        path: 'techniques',
+        redirect: { name: 'Techniques' },
+      },
+      {
+        path: 'ability-overview',
+        name: 'ThousandDao',
+        component: ThousandDaoPanel,
       },
       {
         path: 'thousand-dao',
-        name: 'ThousandDao',
-        component: ThousandDaoPanel, // 三千大道面板
+        redirect: { name: 'ThousandDao' },
       },
       {
         path: 'settings',
@@ -225,6 +241,46 @@ const routes = [
         path: 'api-management',
         name: 'APIManagement',
         component: APIManagementPanel,
+      },
+      {
+        path: 'mission-select',
+        name: 'MissionSelect',
+        component: MissionSelectPanel,
+      },
+      {
+        path: 'mission-briefing',
+        name: 'MissionBriefing',
+        component: MissionBriefingPanel,
+      },
+      {
+        path: 'mission-settlement',
+        name: 'MissionSettlement',
+        component: MissionSettlementPanel,
+      },
+      {
+        path: 'hub-map',
+        name: 'HubMap',
+        component: HubMapPanel,
+      },
+      {
+        path: 'exchange',
+        name: 'Exchange',
+        component: ExchangePanel,
+      },
+      {
+        path: 'team',
+        name: 'TeamPanel',
+        component: TeamPanel,
+      },
+      {
+        path: 'ability-tree',
+        name: 'AbilityTree',
+        component: AbilityTreePanel,
+      },
+      {
+        path: 'mission-history',
+        name: 'MissionHistory',
+        component: MissionHistoryPanel,
       },
     ],
   },

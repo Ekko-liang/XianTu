@@ -50,6 +50,11 @@ import { REALM_ATTRIBUTE_STANDARDS, QUALITY_SYSTEM, REPUTATION_GUIDE } from '@/u
 import { ACTION_OPTIONS_RULES } from '@/utils/prompts/definitions/actionOptions';
 import { EVENT_SYSTEM_RULES } from '@/utils/prompts/definitions/eventSystemRules';
 import { PLAYER_PERSONALITY_RULES } from '@/utils/prompts/definitions/playerPersonality';
+import { HUB_NARRATIVE_PROMPTS } from '@/utils/prompts/definitions/hubNarrativePrompts';
+import { MISSION_BRIEFING_PROMPTS } from '@/utils/prompts/definitions/missionBriefingPrompts';
+import { MISSION_NARRATIVE_PROMPTS } from '@/utils/prompts/definitions/missionNarrativePrompts';
+import { MISSION_SETTLEMENT_PROMPTS } from '@/utils/prompts/definitions/missionSettlementPrompts';
+import { WORLD_ADAPTATION_RULES } from '@/utils/prompts/definitions/worldAdaptationRules';
 
 export interface PromptDefinition {
   name: string;
@@ -151,7 +156,7 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       name: '2. 核心规则',
       content: BUSINESS_RULES,
       category: 'coreRequest',
-      description: '境界、NPC、战斗规则',
+      description: '等级、NPC、战斗规则',
       order: 2,
       weight: 9
     },
@@ -167,7 +172,7 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       name: '2.5 扩展规则',
       content: EXTENDED_BUSINESS_RULES,
       category: 'coreRequest',
-      description: '大道、宗门等扩展',
+      description: '能力、队伍等扩展',
       order: 2.5,
       weight: 5
     },
@@ -191,9 +196,49 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       name: '5. 世界标准',
       content: WORLD_STANDARDS,
       category: 'coreRequest',
-      description: '境界属性、品质',
+      description: '等级数值、品质',
       order: 5,
       weight: 7
+    },
+    worldAdaptationRules: {
+      name: '5.1 世界适配',
+      content: WORLD_ADAPTATION_RULES,
+      category: 'coreRequest',
+      description: '多副本世界规则适配',
+      order: 5.1,
+      weight: 8
+    },
+    hubNarrativePrompts: {
+      name: '5.2 主神空间叙事',
+      content: HUB_NARRATIVE_PROMPTS,
+      category: 'coreRequest',
+      description: '主神空间阶段的叙事导向',
+      order: 5.2,
+      weight: 8
+    },
+    missionBriefingPrompts: {
+      name: '5.3 副本简报',
+      content: MISSION_BRIEFING_PROMPTS,
+      category: 'coreRequest',
+      description: '副本进入前的简报结构',
+      order: 5.3,
+      weight: 8
+    },
+    missionNarrativePrompts: {
+      name: '5.4 副本叙事',
+      content: MISSION_NARRATIVE_PROMPTS,
+      category: 'coreRequest',
+      description: '副本阶段叙事与风险规则',
+      order: 5.4,
+      weight: 8
+    },
+    missionSettlementPrompts: {
+      name: '5.5 副本结算',
+      content: MISSION_SETTLEMENT_PROMPTS,
+      category: 'coreRequest',
+      description: '副本结算与复盘规则',
+      order: 5.5,
+      weight: 8
     },
     // ==================== 联机模式提示词 ====================
     onlineModeRules: {
@@ -234,7 +279,7 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
 
 **AI应该如何处理**：
 - ✅ NPC会觉得玩家在说胡话、疯言疯语，或者是某种隐喻
-- ✅ NPC可能认为玩家是在讲故事、做梦、或者修炼走火入魔
+- ✅ NPC可能认为玩家是在讲故事、做梦、或者精神受到了污染
 - ✅ 如果玩家展示了强大实力，NPC可能会半信半疑
 - ✅ 世界继续正常演化，不会因为玩家的"奇怪话"而崩溃
 - ❌ 不要让NPC直接理解"穿越"概念（除非是特殊设定的世界）
@@ -249,7 +294,7 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
 **AI应该如何处理**：
 - ✅ 如果世界主人是NPC，可以正常引导玩家去找
 - ✅ 如果世界主人不在线，NPC不知道世界主人的位置
-- ✅ NPC可能会误解玩家的意思（比如理解为"宗主"、"城主"等）
+- ✅ NPC可能会误解玩家的意思（比如理解为"站点负责人"、"城防指挥官"等）
 - ✅ 可以让玩家通过探索、打听来了解世界主人的信息
 
 ### 类型3：提到游戏机制
@@ -284,9 +329,9 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
 
 ### 当玩家提到"原世界"时
 正确示例：
-- 【周围的修士面面相觑，似乎觉得你在说胡话】
-- "另一个世界？你是在讲故事吗？"那名修士笑道。
-- \`这人莫不是修炼走火入魔了？\` 那名修士心中暗想。
+- 【周围的原住民面面相觑，似乎觉得你在说胡话】
+- "另一个世界？你是在讲故事吗？"那名巡逻者笑道。
+- \`这人精神状态不太稳定。\` 那名巡逻者心中暗想。
 
 错误示例：
 - ❌ "哦，你是穿越者啊！"（NPC不应该理解穿越概念）
@@ -295,15 +340,15 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
 
 ### 当玩家寻找世界主人时
 正确示例：
-- "你说的是XXX？他是我们宗门的长老，现在不在宗内。"
-- 【你打听到，XXX最近在闭关修炼，不见外人】
-- "世界的主人？你是说天道吗？"那名修士疑惑地看着你。
+- "你说的是XXX？他是这里的站点负责人，现在不在据点。"
+- 【你打听到，XXX最近在执行高危任务，不见外人】
+- "世界的主人？你是说总控中心吗？"那名原住民疑惑地看着你。
 
 ### 当玩家说奇怪的话时
 正确示例：
 - 【众人沉默，似乎不知道如何回应你的话】
-- "你这话我听不懂。"那名修士摇了摇头。
-- \`此人言语古怪，还是小心为上。\` 那名修士心中警惕起来。
+- "你这话我听不懂。"那名原住民摇了摇头。
+- \`此人言语古怪，还是小心为上。\` 那名原住民心中警惕起来。
 
 ## ⚠️ 严禁事项
 - ❌ 不要让NPC突然理解"穿越"、"联机"、"玩家"等元概念
@@ -406,17 +451,17 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
 - 系统判定/系统提示: 〔...〕（必须使用下面的严格格式）
 
 ## 🔒 标记铁律（CRITICAL）
-- 【】只允许写环境/场景，严禁用于系统/面板：禁止【系统提示】、【系统判定】、【当前状态】、【气血/灵气】等
+- 【】只允许写环境/场景，严禁用于系统/面板：禁止【系统提示】、【系统判定】、【当前状态】、【HP/EP/MP】等
 - 系统判定/状态变化必须写在 〔〕 内；禁止在正文中单独输出“系统提示/系统判定/当前状态”等标题行
-  - ✅ 〔修炼:成功,判定值:12,难度:10,基础:0,幸运:+2,环境:+5,状态:+5〕
-  - ❌ 【当前状态】气血：95/100
+  - ✅ 〔探索:成功,判定值:12,难度:10,基础:0,幸运:+2,环境:+5,状态:+5〕
+  - ❌ 【当前状态】HP：95/100
   - ❌ 系统提示：……
 
 ## 📝 正文要求（必须遵守）
 1. **长度**：建议400-800字，重要场景可到1000字，不要太长！
-2. **判定系统**：战斗/修炼/炼丹/探索/社交等场景**必须使用判定**
+2. **判定系统**：战斗/潜入/破解/探索/社交等场景**必须使用判定**
 3. **判定格式（必须严格遵守）**：〔类型:结果,判定值:数字,难度:数字,基础:数字,幸运:+/-数字,环境:+/-数字,状态:+/-数字〕
-   - 类型 ∈ 战斗/修炼/炼丹/探索/社交/逃跑/感知
+   - 类型 ∈ 战斗/潜入/破解/探索/社交/逃跑/感知
    - 结果 ∈ 大失败/失败/成功/大成功/完美
 4. **叙事风格**：多描写少总结，结尾留钩子，承接上文情节
 5. **格式标记**：合理使用【】环境、\`心理\`、""对话、〔〕判定
@@ -442,48 +487,18 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
     },
     splitGenerationStep2: {
       name: '10. 分步指令',
-      content: `# 分步生成 2/2：仅指令
+      content: `# 分步生成 2/2：仅指令（主神空间无限流）
 
 ## 🧭 内部自检清单（不要输出，仅用于生成指令）
-
-### 基础同步（V3短路径）- 必须全面更新！
-□ 位置变化 → set \`角色.位置\`
-□ 时间流逝 → add \`元数据.时间.分钟\`（修炼/闭关按实际时长）
-□ 货币变化 → add \`角色.背包.货币.<币种ID>.数量\`
-□ 物品增删 → set/delete \`角色.背包.物品.[物品ID]\`
-
-### 修炼与突破
-□ 日常修炼 → add \`角色.属性.境界.当前进度\`
-□ 功法熟练 → add \`角色.功法.功法进度.[功法ID].熟练度\`
-□ 悟道进展 → add \`角色.大道.大道列表.[道名].当前经验\`
-□ 大道解锁 → set \`角色.大道.大道列表.[道名]\`（完整DaoData对象）
-□ 功法解锁技能 → push \`角色.功法.功法进度.[功法ID].已解锁技能\`
-□ 小阶段突破 → set \`角色.属性.境界.阶段\`（初期→中期→后期→圆满→极境）
-□ 大境界突破 → set \`角色.属性.境界.名称\` + 更新属性上限
-
-### 渡劫系统
-□ 渡劫开始 → push \`角色.效果\` 添加"渡劫中"状态
-□ 每道天雷 → add \`角色.属性.气血.当前\`（负）+ add \`角色.属性.灵气.当前\`（负）
-□ 渡劫成功 → set 新境界 + 更新属性上限 + push \`社交.事件.事件记录\`
-□ 渡劫失败 → 重伤/陨落处理 + push \`社交.事件.事件记录\`
-
-### 战斗与消耗 - 必须更新所有参与者！
-□ 施法/出招 → add \`角色.属性.灵气.当前\`（负，按技能消耗%）
-□ 玩家受伤 → add \`角色.属性.气血.当前\`（负）
-□ NPC受伤 → add \`社交.关系.[NPC名].属性.气血.当前\`（负）
-□ 神识消耗 → add \`角色.属性.神识.当前\`（负）
-□ 状态效果 → push \`角色.效果\`（中毒/重伤/虚弱等）
-
-### NPC交互 - 必须全面更新NPC状态！
-□ NPC出场 → set \`社交.关系.[NPC名]\`（完整对象）
-□ 好感变化 → add \`社交.关系.[NPC名].好感度\`
-□ NPC记忆 → push \`社交.关系.[NPC名].记忆\`
-□ NPC状态 → set \`社交.关系.[NPC名].当前外貌状态\`
-□ NPC属性变化：气血/灵气/神识/境界/位置都要更新
-
-### 世界事件与宗门
-□ 重大事件 → push \`社交.事件.事件记录\`
-□ 宗门贡献 → add \`社交.宗门.成员信息.贡献\`
+### 核心同步（V3主结构）
+□ 位置变化 → set \`轮回者.位置\` 或 \`当前副本.临时状态.位置\`
+□ 时间流逝 → add \`元数据.时间.分钟\`
+□ 神点变化 → add \`轮回者.godPoints\`（同时可同步 \`轮回者.背包.货币.神点.数量\`）
+□ 物资变化 → set/delete \`轮回者.背包.物品.[物品ID]\`
+□ 状态变化 → add \`轮回者.vitals.HP.current / EP.current / MP.current\`
+□ 临时状态 → push/set \`当前副本.specialEvents\`、\`当前副本.临时状态.*\`
+□ 队伍联动 → add/set/push \`团队.成员\`、\`团队.collaborationLogs\`、\`团队.teamEvents\`
+□ 关系联动 → add/set/push \`社交.关系\`、\`社交.关系矩阵.edges\`
 
 ## 🔴 输出格式（必须严格遵守）
 {"mid_term_memory":"50-100字摘要","tavern_commands":[{"action":"add","key":"元数据.时间.分钟","value":30}],"action_options":["选项1","选项2","选项3","选项4","选项5"]}
@@ -491,10 +506,9 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
 ## ✅ JSON与key规则（CRITICAL）
 - 只输出一个JSON对象，禁止任何前后缀文字、禁止 \`\`\` 代码块
 - 字符串如需换行，用 \`\\n\`
-- 规则文中的 \`[NPC名]\` / \`[道名]\` / \`{功法ID}\` 只是占位符，输出key时必须替换成真实名称，且不要保留方括号/花括号
-- 方括号 \`[]\` 只有数组索引可以用：例如 \`角色.效果[0]\`
-- tavern_commands[*].key 必须以 \`元数据.\`/\`角色.\`/\`社交.\`/\`世界.\`/\`系统.\` 开头（V3短路径）
-- 必须输出严格JSON：只用英文半角标点 \`\" , : [ ] { }\`，禁止中文引号/逗号/顿号
+- tavern_commands[*].key 必须以 \`元数据.\`/\`轮回者.\`/\`主神空间.\`/\`团队.\`/\`副本记录.\`/\`当前副本.\`/\`社交.\`/\`世界.\`/\`系统.\` 开头
+- 禁止路径：\`系统.扩展.无限流.*\`
+- 必须输出严格JSON：只用英文半角标点 \`\" , : [ ] { }\`
 
 ## ⚠️ 严禁（违反将导致生成失败）
 - ❌ text 字段（正文已在第1步完成）
@@ -504,10 +518,7 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
 ## ✅ 本步骤只需要
 - mid_term_memory：摘要
 - tavern_commands：数据更新指令
-- action_options：行动选项（如启用）
-
-## 🔔 实时关注NPC
-若有NPC的\`实时关注\`为true，即使不在玩家身边，也要根据第1步正文推演其动态并更新`.trim(),
+- action_options：行动选项（如启用）`.trim(),
       category: 'coreRequest',
       description: '分步模式第2步',
       order: 10,
@@ -519,7 +530,7 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       content: `# 开局生成 1/2：仅开局叙事
 
 ## 🔴 输出格式（必须严格遵守）
-{"text":"600-1000字开局叙事，第三人称，修仙正剧风"}
+{"text":"600-1000字开局叙事，第三人称，无限流主神空间风格"}
 
 ## ✅ JSON字符串规则（CRITICAL）
 - 只输出一个JSON对象，禁止任何前后缀文字、禁止 \`\`\` 代码块
@@ -564,10 +575,10 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
 ## 🧭 内部自检清单（不要输出，仅用于生成指令）
 
 ### 开局必须初始化的数据
-□ 时间：set \`元数据.时间\` + set \`角色.身份.出生日期\`
-□ 位置：set \`角色.位置\` {描述,x,y,灵气浓度}
-□ 声望：set \`角色.属性.声望\`
-□ 资源：set \`角色.背包.灵石\`
+□ 时间：set \`元数据.时间\` + set \`轮回者.身份.出生日期\`
+□ 位置：set \`轮回者.位置\`
+□ 神点：set \`轮回者.godPoints\`
+□ 资源：set \`轮回者.背包.货币.神点.数量\` + set \`轮回者.背包.物品\`
 □ NPC：set \`社交.关系.{NPC名}\`（0-3个重要人物）
 
 ## 🔴 输出格式（必须严格遵守）
@@ -576,8 +587,9 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
 ## ✅ JSON与key规则（CRITICAL）
 - 只输出一个JSON对象，禁止任何前后缀文字、禁止 \`\`\` 代码块
 - 字符串如需换行，用 \`\\n\`
-- 占位符 \`[NPC名]\` / \`[道名]\` 必须替换成真实名称
-- tavern_commands[*].key 必须以 \`元数据.\`/\`角色.\`/\`社交.\`/\`世界.\`/\`系统.\` 开头
+- 占位符 \`[NPC名]\` 必须替换成真实名称
+- tavern_commands[*].key 必须以 \`元数据.\`/\`轮回者.\`/\`主神空间.\`/\`团队.\`/\`副本记录.\`/\`当前副本.\`/\`社交.\`/\`世界.\`/\`系统.\` 开头
+- 禁止路径：\`系统.扩展.无限流.*\`
 - 开局阶段 tavern_commands 只允许 \`action: "set"\`
 - 必须输出严格JSON：只用英文半角标点
 
@@ -595,7 +607,7 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
     // ==================== 总结请求提示词 ====================
     memorySummary: {
       name: '记忆总结',
-      content: `记忆总结助手。第一人称"我"，250-400字，保留人名/地名/事件/物品/境界，忽略对话/情绪/细节。
+      content: `记忆总结助手。第一人称"我"，250-400字，保留人名/地点/事件/物品/副本目标/队伍状态，忽略对话枝节。
 输出：{"text": "总结内容"}`,
       category: 'summary',
       description: '中期→长期记忆',
@@ -615,10 +627,10 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
     // ==================== 动态生成提示词 ====================
     npcGeneration: {
       name: 'NPC生成',
-      content: `生成修仙世界NPC。
-核心：世界不以玩家为中心，NPC有独立生活；严禁参考玩家境界生成"镜像NPC"或"量身对手"。
-要求：根据场景合理分布境界、姓名性格多样化、身份决定行为。
-输出JSON：{姓名,性别,年龄,境界:{名称,阶段},性格,外貌,背景,说话风格,当前行为,个人目标,初始好感度:50}`,
+      content: `生成主神空间/副本场景NPC。
+核心：世界不以玩家为中心，NPC有独立目标与风险偏好；严禁直接按玩家数值生成镜像对手。
+要求：根据当前阶段（hub/mission）与副本类型给出身份、立场、行为目标与初始关系。
+输出JSON：{姓名,性别,身份,立场,外貌描述,性格特征[],当前行为,个人目标,与玩家关系,好感度}`,
       category: 'generation',
       description: '动态生成NPC',
       order: 1,
@@ -626,10 +638,10 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
     },
     eventGeneration: {
       name: '事件生成',
-      content: `生成修仙世界"刚刚发生"的世界事件（用于影响玩家与世界演变）。要求：
-- 必须让玩家受到影响（危险/资源/关系/位置/修炼环境/势力格局至少一项）
-- 事件可以是宗门大战、世界变化、异宝降世、秘境现世、好友出事/突破等
-- 涉及好友时，需参考关系/好感度与境界，不能无端超规格
+      content: `生成主神空间或副本中的"刚刚发生"事件（用于影响玩家与世界演变）。要求：
+- 必须让玩家受到影响（危险/资源/关系/位置/任务进度/队伍状态至少一项）
+- 事件可以是副本突发规则、队友冲突、隐藏目标暴露、关键道具争夺、原住民立场变化等
+- 涉及队友时，需参考信任度与状态（active/injured/dead/betrayed），不能无端超规格
 - 不要公告式总结，要有现场感（刚发生）
 输出JSON（不要代码块/解释/额外文本）：
 {
@@ -655,8 +667,8 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
     },
     itemGeneration: {
       name: '物品生成',
-      content: `生成修仙世界物品。品质：凡(1-3)/黄(4-5)/玄(6-7)/地(8-9)/天(10)。
-输出JSON：{物品ID,名称,类型,品质:{quality,grade},描述,数量,效果}`,
+      content: `生成无限流物资。类型建议：装备/能力芯片/消耗品/材料/任务道具/其他。
+输出JSON：{物品ID,名称,类型,品质:{quality,grade},描述,数量,可带入副本?:bool,效果?}`,
       category: 'generation',
       description: '动态生成物品',
       order: 3,
@@ -664,7 +676,7 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
     },
     regionMapGeneration: {
       name: '区域地图生成',
-      content: `你是一个修仙世界的地图设计师。请根据地点信息，为该地点设计内部格子地图（建筑列表）。
+      content: `你是一个副本区域地图设计师。请根据地点信息，为该地点设计内部格子地图（建筑列表）。
 
 【坐标系规则】
 - 左下角为 (1,1)，向右 x 增大，向上 y 增大
@@ -672,11 +684,11 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
 
 【建筑类型】
 - entrance: 区域入口/大门，玩家进入时的默认落点（至少 1 个，isEntrance:true）
-- main: 核心建筑（宗主殿、议事厅、神殿等）
-- residential: 居所（弟子宿舍、客栈、民居等）
-- functional: 功能建筑（藏经阁、炼丹房、坊市、擂台等）
-- restricted: 禁区（禁地、秘库、祖地等）
-- wilderness: 自然地形（山峰、湖泊、广场、道路等）
+- main: 核心建筑（控制室、发电站、中控塔、神殿等）
+- residential: 居所（宿舍、客栈、民居、临时营地等）
+- functional: 功能建筑（医疗站、工坊、交易区、补给点等）
+- restricted: 禁区（封锁区、军械库、污染核心等）
+- wilderness: 自然地形（山体、林地、河谷、广场、道路等）
 
 【数量参考】
 - 1x1: 1个建筑
@@ -694,24 +706,24 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
     },
     locationPlacement: {
       name: '地点坐标定位',
-      content: `你是一个修仙世界地图规划师。请根据以下信息，为新出现的地点确定在世界地图上的坐标位置。
+      content: `你是一个多副本世界地图规划师。请根据以下信息，为新出现的地点确定在世界地图上的坐标位置。
 
 【坐标系规则】
 - 坐标中心为 (5000, 5000)，向东 x 增大，向西 x 减小，向南 y 增大，向北 y 减小
 - 坐标范围约 1000-9000
 
-【境界与活动范围约束】
-- 凡人/练气期：只活动在本大陆较小范围内，距离宗门/城镇不超过大陆范围的 1/4
-- 筑基期：可活动于整个所属大陆
-- 金丹期及以上：可跨大陆活动
+【风险与活动范围约束】
+- 新人/低级目标：活动在安全区与外围区域
+- 中级目标：可跨多个区域但有明显风险边界
+- 高级目标：可进入高危区与核心区
 
 【地点类型】
-- 名山大川：自然地标（山脉、河流、湖泊、洞天）
-- 城镇坊市：人类聚居地（城市、镇、村落、坊市）
-- 宗门势力：修仙宗门、门派、世家
-- 洞天福地：高灵气的特殊地点
-- 凶险之地：危险区域（妖兽领地、魔道势力、危险秘境）
-- 奇珍异地：特殊资源地点
+- 自然地标：山脉、河流、废墟、地下洞穴等
+- 聚居区域：城市、镇、村落、临时营地
+- 阵营据点：主神代理点/副本势力据点/敌对堡垒
+- 高价值区：高风险高收益的资源点或情报点
+- 凶险之地：危险区域（污染区、异变区、禁入区）
+- 特殊异地：规则异常或时空紊乱地点
 
 【严格输出】只输出纯 JSON，不含任何解释文字：
 {"名称":"地点名称","类型":"地点类型","描述":"一句话描述","坐标":{"x":数字,"y":数字}}`,
@@ -759,7 +771,7 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
       name: '文本优化',
       content: `# 文本优化助手
 
-你是一个专业的中文文学编辑，负责丰富和润色修仙小说文本。
+你是一个专业的中文文学编辑，负责丰富和润色无限流叙事文本。
 
 ## 核心要求
 **必须使用中文输出！禁止输出任何英文内容！**
@@ -767,15 +779,15 @@ export function getSystemPrompts(): Record<string, PromptDefinition> {
 ## 优化原则
 1. **保持原意**：不改变故事情节、人物行为、对话内容、判定结果
 2. **丰富细节**：增加环境描写、动作细节、心理活动，让场景更生动
-3. **提升文采**：使用更优美、更具画面感的修仙风格表达
+3. **提升文采**：使用更具画面感和压迫感的无限流表达
 4. **扩充内容**：在不改变原意的前提下，适当扩充描写，让文本更丰满
-5. **修仙氛围**：强化修仙世界的意境、灵气、道韵等元素
+5. **副本氛围**：强化任务压力、规则冲突与生存张力
 
 ## 优化重点
-- **动作描写**：增加细节，更加生动形象（如：灵力运转、法诀施展）
-- **环境描写**：增加意境和氛围（如：灵气流动、天地异象）
+- **动作描写**：增加细节，更加生动形象（如：战术动作、资源取舍）
+- **环境描写**：增加压迫氛围（如：警报、倒计时、规则异变）
 - **对话**：保持人物性格，可适当增加语气词和神态描写
-- **心理描写**：更加细腻深入，展现修炼感悟
+- **心理描写**：更加细腻深入，展现抉择压力
 - **感官体验**：增加视觉、听觉、触觉等感官描写
 
 ## 禁止事项

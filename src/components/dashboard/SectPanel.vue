@@ -775,32 +775,24 @@ const formatJoinDate = (dateStr: string | undefined): string => {
   }
 };
 
-// 格式化宗门等级，避免重复显示"宗门"
+// 格式化阵营等级，避免重复后缀
 const formatSectLevel = (level: string): string => {
   if (!level) return '未知';
-  // 如果等级已经包含"宗门"，直接返回
-  if (level.includes('宗门')) return level;
-  // 否则添加"宗门"后缀
-  return level + '宗门';
+  if (level.includes('阵营') || level.includes('级')) return level;
+  return `${level}级阵营`;
 };
 
-// 格式化境界名称，智能处理"期"后缀
+// 格式化评级文本（兼容旧境界字段）
 const formatRealmName = (realm: string): string => {
   if (!realm) return '未知';
 
-  // 如果已经包含"期"，直接返回
-  if (realm.includes('期')) return realm;
+  const raw = String(realm).trim();
+  if (!raw) return '未知';
+  if (/([DCBASS]{1,3})级/.test(raw) || /(一星|二星|三星|四星|五星)/.test(raw)) return raw;
+  if (/^(D|C|B|A|S|SS|SSS)$/i.test(raw)) return `${raw.toUpperCase()}级`;
+  if (/(练气|筑基|金丹|元婴|化神|炼虚|合体|渡劫|凡人)/.test(raw)) return `${raw}(旧境界)`;
 
-  // 如果是完整的境界描述（如"练气初期"），直接返回
-  const fullRealmPattern = /(练气|筑基|金丹|元婴|化神|炼虚|合体|渡劫)(初期|中期|后期|圆满|极境)/;
-  if (fullRealmPattern.test(realm)) return realm;
-
-  // 如果只是境界名称（如"练气"、"筑基"），添加"期"后缀
-  const simpleRealmPattern = /^(练气|筑基|金丹|元婴|化神|炼虚|合体|渡劫)$/;
-  if (simpleRealmPattern.test(realm)) return realm + '期';
-
-  // 其他情况直接返回
-  return realm;
+  return raw;
 };
 
 const selectSect = (sect: WorldFaction) => {
@@ -809,8 +801,8 @@ const selectSect = (sect: WorldFaction) => {
 
 const confirmLeave = (currentName: string, nextName?: string) => {
   const tip = nextName
-    ? `你已加入${currentName}，是否退出并加入${nextName}？退出后将清空该宗门的贡献与兑换数据。`
-    : `确定退出${currentName}？退出后将清空该宗门的贡献与兑换数据。`;
+    ? `你已加入${currentName}，是否退出并加入${nextName}？退出后将清空该阵营的贡献与兑换数据。`
+    : `确定退出${currentName}？退出后将清空该阵营的贡献与兑换数据。`;
   return window.confirm(tip);
 };
 
@@ -823,7 +815,7 @@ const applyLeave = (sectName: string) => {
 const requestLeaveSect = (sect: WorldFaction | null) => {
   const currentName = playerSectInfo.value?.宗门名称;
   if (!currentName) {
-    toast.info('尚未加入宗门');
+    toast.info('尚未加入阵营');
     return;
   }
   if (!confirmLeave(currentName)) return;
@@ -835,7 +827,7 @@ const requestLeaveSect = (sect: WorldFaction | null) => {
 
 const requestJoinSect = (sect: WorldFaction) => {
   if (!sect.可否加入) {
-    toast.warning('该宗门暂不接受加入');
+    toast.warning('该阵营暂不接受加入');
     return;
   }
 

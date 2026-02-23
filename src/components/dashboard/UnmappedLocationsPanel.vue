@@ -137,6 +137,20 @@ function handleIgnore(name: string) {
 }
 
 const REALM_RANK_HINTS: Array<{ token: string; rank: number }> = [
+  { token: 'SSS', rank: 7 },
+  { token: 'SS', rank: 6 },
+  { token: 'S', rank: 5 },
+  { token: 'A', rank: 4 },
+  { token: 'B', rank: 3 },
+  { token: 'C', rank: 2 },
+  { token: 'D', rank: 1 },
+  { token: '新人', rank: 1 },
+  { token: '初级轮回者', rank: 2 },
+  { token: '中级轮回者', rank: 3 },
+  { token: '高级轮回者', rank: 4 },
+  { token: '精英轮回者', rank: 5 },
+  { token: '传说轮回者', rank: 6 },
+  { token: '超越者', rank: 7 },
   { token: '凡人', rank: 0 },
   { token: '练气', rank: 1 },
   { token: '筑基', rank: 2 },
@@ -163,6 +177,8 @@ const REALM_RANK_HINTS: Array<{ token: string; rank: number }> = [
 function getRealmRank(realmKey: string): number {
   const raw = String(realmKey || '').trim();
   if (!raw) return -1;
+  if (raw.includes('SSS')) return 7;
+  if (raw.includes('SS')) return 6;
   let best = -1;
   for (const item of REALM_RANK_HINTS) {
     if (raw.includes(item.token)) {
@@ -183,8 +199,16 @@ function resolvePreferredRealmKey(): string | undefined {
   if (!col || Object.keys(col).length === 0) return props.activeRealmKey;
 
   const attrs = gameStateStore.attributes as any;
+  const reincarnatorLevel = String((gameStateStore.reincarnator as any)?.level || '').trim();
   const playerRealm =
-    String(attrs?.['境界']?.['名称'] || (typeof attrs?.['境界'] === 'string' ? attrs['境界'] : '') || '').trim();
+    (reincarnatorLevel ? `${reincarnatorLevel}级` : '')
+    || String(
+      attrs?.['评级']?.['名称']
+      || attrs?.['境界']?.['名称']
+      || (typeof attrs?.['评级'] === 'string' ? attrs['评级'] : '')
+      || (typeof attrs?.['境界'] === 'string' ? attrs['境界'] : '')
+      || '',
+    ).trim();
   if (playerRealm && col[playerRealm]) return playerRealm;
 
   const keys = Object.keys(col);
@@ -202,7 +226,7 @@ async function handleAdd(npc: UnmappedNpc) {
   // 提取 NPC 境界和势力
   const npcData = npc.npcData as any;
   const realm: string =
-    npcData?.境界 ?? npcData?.属性?.境界 ?? npcData?.realm ?? '';
+    npcData?.评级 ?? npcData?.境界 ?? npcData?.属性?.评级 ?? npcData?.属性?.境界 ?? npcData?.realm ?? '';
   const faction: string =
     npcData?.势力归属 ?? npcData?.所属势力 ?? npcData?.faction ?? '';
 

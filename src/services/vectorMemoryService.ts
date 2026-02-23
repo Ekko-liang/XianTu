@@ -69,12 +69,23 @@ const DEFAULT_CONFIG: VectorMemoryConfig = {
 
 // ============ 中文分词和关键词提取 ============
 
-// 修仙相关关键词词典
+// 无限流关键词词典（兼容旧修仙词）
 const CULTIVATION_KEYWORDS = new Set([
-  // 境界
+  // 轮回评级
+  '新人', 'D级', 'C级', 'B级', 'A级', 'S级', 'SS级', 'SSS级', '晋升', '试炼',
+  // 副本与阶段
+  '主神空间', '副本', '结算', '传送', '任务', '主线', '支线', '隐藏任务',
+  '存活', '失败', '抹杀', '评价', '奖励', '惩罚',
+  // 能力与资源
+  '能力', '技能', '能力树', '强化', '进化', '神点', '兑换', '装备', '道具', '芯片',
+  // 团队与关系
+  '队友', '团队', '协作', '信任', '背叛', '同伴', '敌对轮回者', '阵营',
+  // 风险与环境
+  '危险', '威胁', '封锁区', '避难所', '实验站', '调查局', '反抗军',
+  // 兼容旧境界关键词
   '凡人', '练气', '筑基', '金丹', '元婴', '化神', '炼虚', '合体', '渡劫', '飞升',
   '初期', '中期', '后期', '圆满', '极境', '突破', '瓶颈',
-  // 修炼
+  // 兼容旧修炼关键词
   '修炼', '闭关', '悟道', '感悟', '丹田', '经脉', '灵气', '真气', '法力', '神识',
   // 战斗
   '战斗', '交手', '斩杀', '击败', '重伤', '轻伤', '濒死', '陨落',
@@ -128,7 +139,7 @@ export function extractTags(content: string): string[] {
   const tokens = tokenize(content);
 
   for (const token of tokens) {
-    // 优先添加修仙关键词
+    // 优先添加词典关键词
     if (CULTIVATION_KEYWORDS.has(token)) {
       tags.push(token);
     }
@@ -154,11 +165,11 @@ export function extractTags(content: string): string[] {
  * 推断记忆分类
  */
 export function inferCategory(content: string, tags: string[]): VectorMemoryEntry['category'] {
-  const combatKeywords = ['战斗', '交手', '斩杀', '击败', '重伤', '攻击', '防御'];
-  const socialKeywords = ['师父', '徒弟', '道友', '拜师', '结交', '好感', '关系'];
-  const cultivationKeywords = ['修炼', '闭关', '突破', '感悟', '境界', '功法'];
-  const explorationKeywords = ['探索', '发现', '秘境', '历练', '寻找'];
-  const eventKeywords = ['机缘', '劫难', '事件', '任务', '完成'];
+  const combatKeywords = ['战斗', '交手', '斩杀', '击败', '重伤', '攻击', '防御', '清剿', '歼灭'];
+  const socialKeywords = ['队友', '团队', '协作', '信任', '背叛', '好感', '关系', '盟友'];
+  const cultivationKeywords = ['能力', '强化', '进化', '晋升', '试炼', '境界', '功法'];
+  const explorationKeywords = ['探索', '发现', '秘境', '封锁区', '实验站', '调查', '搜寻'];
+  const eventKeywords = ['机缘', '劫难', '事件', '任务', '完成', '结算', '传送'];
 
   const check = (keywords: string[]) =>
     keywords.some(k => content.includes(k) || tags.includes(k));
@@ -182,7 +193,7 @@ class SimpleVectorizer {
   private wordToIndex: Map<string, number>;
 
   constructor() {
-    // 使用修仙关键词作为词汇表
+    // 使用无限流关键词词汇表（兼容旧修仙词）
     this.vocabulary = Array.from(CULTIVATION_KEYWORDS);
     this.wordToIndex = new Map();
     this.vocabulary.forEach((word, index) => {

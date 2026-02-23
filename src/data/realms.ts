@@ -1,176 +1,205 @@
 import type { RealmDefinition, RealmStageDefinition, RealmStage } from '../types/game';
 
-// 通用子阶段定义函数
-function createStandardStages(realmLevel: number): RealmStageDefinition[] {
-  const baseMultiplier = 1 + realmLevel * 0.2;
+const STAGE_ORDER: RealmStage[] = ['一星', '二星', '三星', '四星', '五星'];
 
-  return [
-    {
-      stage: '初期' as RealmStage,
-      title: '初窥门径',
-      breakthrough_difficulty: '普通' as const,
-      resource_multiplier: baseMultiplier,
-      lifespan_bonus: 0,
-      special_abilities: []
-    },
-    {
-      stage: '中期' as RealmStage,
-      title: '渐入佳境',
-      breakthrough_difficulty: '普通' as const,
-      resource_multiplier: baseMultiplier * 1.3,
-      lifespan_bonus: Math.floor(realmLevel * 10),
-      special_abilities: []
-    },
-    {
-      stage: '后期' as RealmStage,
-      title: '炉火纯青',
-      breakthrough_difficulty: '困难' as const,
-      resource_multiplier: baseMultiplier * 1.6,
-      lifespan_bonus: Math.floor(realmLevel * 20),
-      special_abilities: []
-    },
-    {
-      stage: '圆满' as RealmStage,
-      title: '臻至完美',
-      breakthrough_difficulty: '困难' as const,
-      resource_multiplier: baseMultiplier * 2,
-      lifespan_bonus: Math.floor(realmLevel * 30),
-      special_abilities: [`${getRealmName(realmLevel)}圆满气息`, '境界稳固']
-    },
-    {
-      stage: '极境' as RealmStage,
-      title: '逆天而行',
-      breakthrough_difficulty: '逆天' as const,
-      resource_multiplier: baseMultiplier * 3,
-      lifespan_bonus: Math.floor(realmLevel * 50),
-      special_abilities: [
-        '同境无敌',
-        '有限越阶战斗',
-        '大道烙印',
-        '法则亲和提升'
-      ],
-      can_cross_realm_battle: true
-    }
-  ];
-}
+const STAGE_META: Record<RealmStage, { title: string; breakthrough: RealmStageDefinition['breakthrough_difficulty']; progressRange: string }> = {
+  一星: { title: '适应阶段', breakthrough: '普通', progressRange: '0%-20%' },
+  二星: { title: '稳定阶段', breakthrough: '普通', progressRange: '20%-45%' },
+  三星: { title: '成熟阶段', breakthrough: '困难', progressRange: '45%-70%' },
+  四星: { title: '峰值阶段', breakthrough: '极难', progressRange: '70%-95%' },
+  五星: { title: '超限阶段', breakthrough: '逆天', progressRange: '95%-100%' },
 
-function getRealmName(level: number): string {
-  const names = ['凡人', '练气', '筑基', '金丹', '元婴', '化神', '炼虚', '合体', '渡劫'];
-  return names[level] || '未知境界';
-}
+  // 兼容旧阶段词
+  初期: { title: '适应阶段', breakthrough: '普通', progressRange: '0%-20%' },
+  中期: { title: '稳定阶段', breakthrough: '普通', progressRange: '20%-45%' },
+  后期: { title: '成熟阶段', breakthrough: '困难', progressRange: '45%-70%' },
+  圆满: { title: '峰值阶段', breakthrough: '极难', progressRange: '70%-95%' },
+  极境: { title: '超限阶段', breakthrough: '逆天', progressRange: '95%-100%' },
+};
 
-// 导出getRealmName函数供其他模块使用
-export { getRealmName };
+const RANK_LABELS = [
+  '新人(D级)',
+  '初级轮回者(C级)',
+  '中级轮回者(B级)',
+  '高级轮回者(A级)',
+  '精英轮回者(S级)',
+  '传说轮回者(SS级)',
+  '超越者(SSS级)',
+] as const;
 
-export const REALM_DEFINITIONS: RealmDefinition[] = [
-  {
-    level: 0,
-    name: '凡人',
-    title: '凡尘俗子',
-    coreFeature: '生老病死，轮回不止',
-    lifespan: '约百载',
-    activityScope: '凡尘浊世',
-    gapDescription: '不入仙门，终为蝼蚁。'
-  },
-  {
-    level: 1,
-    name: '练气',
-    title: '问道童子',
-    coreFeature: '引气入体，洗涤凡躯',
-    lifespan: '约120载',
-    activityScope: '凡尘浊世',
-    gapDescription: '在凡间已是异人，可施展微末法术，被乡野尊为"仙童"。',
-    stages: createStandardStages(1)
-  },
-  {
-    level: 2,
-    name: '筑基',
-    title: '入道之士',
-    coreFeature: '灵气液化，丹田筑基',
-    lifespan: '约250载',
-    activityScope: '凡尘与元气清都之间',
-    gapDescription: '正式脱凡，可御器飞行。降临凡人国度，足以被帝王尊为"护国仙师"。',
-    stages: createStandardStages(2)
-  },
-  {
-    level: 3,
-    name: '金丹',
-    title: '真人',
-    coreFeature: '灵液结丹，法力自生',
-    lifespan: '500-800载',
-    activityScope: '元气清都',
-    gapDescription: '在修行界可开宗立派，为一派老祖。其名号在凡间流传，已是神话人物。',
-    stages: createStandardStages(3)
-  },
-  {
-    level: 4,
-    name: '元婴',
-    title: '真君',
-    coreFeature: '丹碎婴生，神魂寄托',
-    lifespan: '1500-2000载',
-    activityScope: '元气清都',
-    gapDescription: '元婴不灭，真灵不死。是修行界的绝对霸主，其一言可定一域宗门兴废。',
-    stages: createStandardStages(4)
-  },
-  {
-    level: 5,
-    name: '化神',
-    title: '道君',
-    coreFeature: '神游太虚，感悟法则',
-    lifespan: '约5000载',
-    activityScope: '元气清都与法则天域之间',
-    gapDescription: '神识即领域，意念可干涉现实。凡尘之事于他已如观掌纹，不再入眼。',
-    stages: createStandardStages(5)
-  },
-  {
-    level: 6,
-    name: '炼虚',
-    title: '尊者',
-    coreFeature: '身融虚空，掌握空间',
-    lifespan: '万载以上',
-    activityScope: '法则天域',
-    gapDescription: '咫尺天涯，可短暂撕裂空间。对低阶修士而言如同神罚。',
-    stages: createStandardStages(6)
-  },
-  {
-    level: 7,
-    name: '合体',
-    title: '大能',
-    coreFeature: '法则归体，身即是道',
-    lifespan: '与世同君',
-    activityScope: '法则天域',
-    gapDescription: '一举一动皆引动大道共鸣，其存在本身就是一种天地法则，稳定着一方天域。',
-    stages: createStandardStages(7)
-  },
-  {
-    level: 8,
-    name: '渡劫',
-    title: '问天者',
-    coreFeature: '超脱世界，叩问天道',
-    lifespan: '不定（劫数）',
-    activityScope: '道之巅峰',
-    gapDescription: '已是人间道之极致，引动天劫，准备超脱此界。每一次渡劫都是天地盛景。',
-    stages: createStandardStages(8)
-  }
+const RANK_TO_LEVEL: Record<string, number> = {
+  D: 0,
+  C: 1,
+  B: 2,
+  A: 3,
+  S: 4,
+  SS: 5,
+  SSS: 6,
+};
+
+const LEGACY_REALM_TO_LEVEL: Array<{ matcher: RegExp; level: number }> = [
+  { matcher: /(凡人|新人|候选)/i, level: 0 },
+  { matcher: /(练气|见习|初级轮回者)/i, level: 1 },
+  { matcher: /(筑基|正式|中级轮回者)/i, level: 2 },
+  { matcher: /(金丹|资深|高级轮回者)/i, level: 3 },
+  { matcher: /(元婴|精英轮回者)/i, level: 4 },
+  { matcher: /(化神|传说轮回者)/i, level: 5 },
+  { matcher: /(炼虚|合体|渡劫|超越者|终局)/i, level: 6 },
 ];
 
-/**
- * 获取特定境界的定义
- */
-export function getRealmDefinition(level: number): RealmDefinition | undefined {
-  return REALM_DEFINITIONS.find(realm => realm.level === level);
+const STAGE_ALIAS_TO_CANONICAL: Record<string, RealmStage> = {
+  初期: '一星',
+  中期: '二星',
+  后期: '三星',
+  圆满: '四星',
+  极境: '五星',
+  一星: '一星',
+  二星: '二星',
+  三星: '三星',
+  四星: '四星',
+  五星: '五星',
+};
+
+function normalizeRankLevel(input: unknown): number | null {
+  if (typeof input === 'number' && Number.isFinite(input)) {
+    const level = Math.floor(input);
+    return level >= 0 && level < RANK_LABELS.length ? level : null;
+  }
+
+  if (typeof input === 'string') {
+    const raw = input.trim();
+    if (!raw) return null;
+
+    const upper = raw.toUpperCase().replace('级', '');
+    if (upper in RANK_TO_LEVEL) return RANK_TO_LEVEL[upper];
+
+    for (const item of LEGACY_REALM_TO_LEVEL) {
+      if (item.matcher.test(raw)) return item.level;
+    }
+    return null;
+  }
+
+  if (input && typeof input === 'object') {
+    const anyInput = input as Record<string, unknown>;
+    return (
+      normalizeRankLevel(anyInput.level)
+      ?? normalizeRankLevel(anyInput.rank)
+      ?? normalizeRankLevel(anyInput.等级)
+      ?? normalizeRankLevel(anyInput.名称)
+      ?? normalizeRankLevel(anyInput.name)
+      ?? normalizeRankLevel(anyInput.realm)
+      ?? null
+    );
+  }
+
+  return null;
 }
 
-/**
- * 获取境界子阶段信息
- */
+function normalizeStage(stage: RealmStage): RealmStage {
+  return STAGE_ALIAS_TO_CANONICAL[stage] || stage;
+}
+
+function createRankStages(rankName: string, rankLevel: number): RealmStageDefinition[] {
+  const base = 1 + rankLevel * 0.2;
+
+  return STAGE_ORDER.map((stage, idx) => {
+    const meta = STAGE_META[stage];
+    return {
+      stage,
+      title: `${meta.title}（灵魂进度 ${meta.progressRange}）`,
+      breakthrough_difficulty: meta.breakthrough,
+      resource_multiplier: Number((base + idx * 0.15).toFixed(2)),
+      lifespan_bonus: Math.floor((rankLevel + 1) * (idx + 1) * 6),
+      special_abilities: [
+        `${rankName}阶段掌控`,
+        idx >= 2 ? '副本内抗压增强' : '基础执行稳定',
+        idx >= 3 ? '晋升试炼前置条件已满足' : '灵魂强度持续积累',
+      ],
+      can_cross_realm_battle: idx >= 4,
+    };
+  });
+}
+
+function buildRealmDefinitions(): RealmDefinition[] {
+  const data: Array<Pick<RealmDefinition, 'title' | 'coreFeature' | 'lifespan' | 'activityScope' | 'gapDescription'>> = [
+    {
+      title: '任务新人',
+      coreFeature: '刚被主神登记，依赖基础求生能力。',
+      lifespan: '常规人类寿命',
+      activityScope: 'D级副本',
+      gapDescription: '缺乏副本经验，面对高压事件容错极低。',
+    },
+    {
+      title: '稳定执行者',
+      coreFeature: '已形成基础能力循环，可完成常规目标。',
+      lifespan: '经结算强化略有提升',
+      activityScope: 'C级副本',
+      gapDescription: '能独立作战，但在复杂博弈中上限有限。',
+    },
+    {
+      title: '战术骨干',
+      coreFeature: '具备稳定能力体系，可承担小队核心职责。',
+      lifespan: '显著延长',
+      activityScope: 'B级副本',
+      gapDescription: '能处理多线任务，但面对跨规则副本仍有风险。',
+    },
+    {
+      title: '高压核心',
+      coreFeature: '能在高威胁环境下完成主线并兼顾支线收益。',
+      lifespan: '长期维持高活性',
+      activityScope: 'A级副本',
+      gapDescription: '具备强战术能力，但对真相类试炼抗性不足。',
+    },
+    {
+      title: '副本王者',
+      coreFeature: '拥有改写局势的能力，生还率和完成度都很高。',
+      lifespan: '跨周期稳定',
+      activityScope: 'S级副本',
+      gapDescription: '可主导团队命运，但仍受主神规则强约束。',
+    },
+    {
+      title: '真相追猎者',
+      coreFeature: '接近主神秘密，具备高阶规则干预能力。',
+      lifespan: '极长寿并高度稳定',
+      activityScope: 'SS级副本',
+      gapDescription: '拥有强干预能力，但终局试炼失败代价极高。',
+    },
+    {
+      title: '终局挑战者',
+      coreFeature: '可挑战主神终局规则，拥有超常跨域能力。',
+      lifespan: '接近规则体',
+      activityScope: 'SSS级与终局任务',
+      gapDescription: '已是世界级变量，任何失误都可能导致彻底湮灭。',
+    },
+  ];
+
+  return data.map((item, idx) => ({
+    level: idx,
+    name: RANK_LABELS[idx],
+    ...item,
+    stages: createRankStages(RANK_LABELS[idx], idx),
+  }));
+}
+
+export function getRealmName(level: unknown): string {
+  const normalized = normalizeRankLevel(level);
+  return normalized == null ? '未知评级' : RANK_LABELS[normalized];
+}
+
+export const REALM_DEFINITIONS: RealmDefinition[] = buildRealmDefinitions();
+
+export function getRealmDefinition(level: number): RealmDefinition | undefined {
+  return REALM_DEFINITIONS.find((realm) => realm.level === level);
+}
+
 export function getRealmStageInfo(realmLevel: number, stage: RealmStage) {
   const realm = getRealmDefinition(realmLevel);
-  const stageInfo = realm?.stages?.find(s => s.stage === stage);
+  const normalizedStage = normalizeStage(stage);
+  const stageInfo = realm?.stages?.find((entry) => normalizeStage(entry.stage) === normalizedStage);
 
   return {
-    realmName: realm?.name || '未知境界',
+    realmName: realm?.name || '未知评级',
     stageInfo,
-    fullTitle: stageInfo ? `${realm?.name}${stage}·${stageInfo.title}` : `${realm?.name || '未知'}${stage}`
+    fullTitle: stageInfo ? `${realm?.name}${normalizedStage}·${stageInfo.title}` : `${realm?.name || '未知'}${normalizedStage}`,
   };
 }

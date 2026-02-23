@@ -9,6 +9,10 @@
         <Clock :size="14" class="time-icon" />
         <span>{{ currentRealTime }}</span>
       </div>
+      <div class="phase-chip">
+        <span class="phase-label">当前阶段</span>
+        <span class="phase-value">{{ phaseLabel }}</span>
+      </div>
     </div>
 
     <div class="sidebar-content">
@@ -22,7 +26,7 @@
             </div>
             <div class="btn-content">
               <span class="btn-text">{{ t('人物属性') }}</span>
-              <span class="btn-desc">{{ t('修为境界状态') }}</span>
+              <span class="btn-desc">等级与生存状态</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
@@ -40,17 +44,17 @@
         </div>
       </div>
 
-      <!-- 修炼系统区 -->
+      <!-- 能力系统区 -->
       <div class="function-section">
-        <div class="section-title">{{ t('修炼系统') }}</div>
+        <div class="section-title">能力系统</div>
         <div class="function-group">
           <button class="function-btn cultivation" @click="handleTechniques">
             <div class="btn-icon">
               <BookOpen :size="18" />
             </div>
             <div class="btn-content">
-              <span class="btn-text">{{ t('功法技能') }}</span>
-              <span class="btn-desc">{{ t('修炼突破晋级') }}</span>
+              <span class="btn-text">能力管理</span>
+              <span class="btn-desc">携带配置与冷却</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
@@ -60,8 +64,8 @@
               <Zap :size="18" />
             </div>
             <div class="btn-content">
-              <span class="btn-text">{{ t('大道感悟') }}</span>
-              <span class="btn-desc">{{ t('领悟天地法则') }}</span>
+              <span class="btn-text">能力树总览</span>
+              <span class="btn-desc">规划永久成长</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
@@ -71,8 +75,8 @@
               <Hammer :size="18" />
             </div>
             <div class="btn-content">
-              <span class="btn-text">{{ t('炼制工坊') }}</span>
-              <span class="btn-desc">{{ t('炼丹炼器炼天地') }}</span>
+              <span class="btn-text">改装工坊</span>
+              <span class="btn-desc">制作补给与道具</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
@@ -118,9 +122,9 @@
         </div>
       </div>
 
-      <!-- 社交势力区 -->
+      <!-- 社交网络区 -->
       <div class="function-section">
-        <div class="section-title">{{ t('社交势力') }}</div>
+        <div class="section-title">社交网络</div>
         <div class="function-group">
           <button class="function-btn secondary" @click="handleRelationships">
             <div class="btn-icon">
@@ -138,8 +142,8 @@
               <Home :size="18" />
             </div>
             <div class="btn-content">
-              <span class="btn-text">{{ t('宗门') }}</span>
-              <span class="btn-desc">{{ t('门派事务管理') }}</span>
+              <span class="btn-text">阵营档案</span>
+              <span class="btn-desc">阵营关系与据点情报</span>
             </div>
             <ChevronRight :size="14" class="btn-arrow" />
           </button>
@@ -158,6 +162,99 @@
       </div>
 
       <div class="divider"></div>
+
+      <div class="function-section">
+        <div class="section-title">{{ t('主神空间') }}</div>
+        <div class="function-group">
+          <button class="function-btn quest" @click="handleMissionSelect">
+            <div class="btn-icon">
+              <ClipboardList :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">{{ t('副本传送门') }}</span>
+              <span class="btn-desc">{{ t('选择下一个副本') }}</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" />
+          </button>
+
+          <button class="function-btn quest" @click="handleMissionBriefing">
+            <div class="btn-icon">
+              <ScrollText :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">{{ t('副本简报') }}</span>
+              <span class="btn-desc">{{ t('查看任务目标') }}</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" />
+          </button>
+
+          <button class="function-btn quest" @click="handleMissionSettlement">
+            <div class="btn-icon">
+              <BarChart3 :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">{{ t('副本结算') }}</span>
+              <span class="btn-desc">{{ t('结算奖励与评价') }}</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" />
+          </button>
+
+          <button class="function-btn quest" @click="handleHubMap">
+            <div class="btn-icon">
+              <Compass :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">{{ t('空间地图') }}</span>
+              <span class="btn-desc">{{ t('查看已解锁功能区') }}</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" />
+          </button>
+
+          <button class="function-btn quest" @click="handleExchange">
+            <div class="btn-icon">
+              <Coins :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">{{ t('兑换大厅') }}</span>
+              <span class="btn-desc">{{ t('消耗神点兑换资源') }}</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" />
+          </button>
+
+          <button class="function-btn quest" @click="handleTeamPanel">
+            <div class="btn-icon">
+              <UsersRound :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">{{ t('队伍管理') }}</span>
+              <span class="btn-desc">{{ t('管理轮回者成员信任') }}</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" />
+          </button>
+
+          <button class="function-btn quest" @click="handleAbilityTree">
+            <div class="btn-icon">
+              <Network :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">{{ t('能力树') }}</span>
+              <span class="btn-desc">{{ t('解锁永久能力节点') }}</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" />
+          </button>
+
+          <button class="function-btn quest" @click="handleMissionHistory">
+            <div class="btn-icon">
+              <History :size="18" />
+            </div>
+            <div class="btn-content">
+              <span class="btn-text">{{ t('副本记录') }}</span>
+              <span class="btn-desc">{{ t('查看历史结算与评价') }}</span>
+            </div>
+            <ChevronRight :size="14" class="btn-arrow" />
+          </button>
+        </div>
+      </div>
 
       <!-- 系统功能区 -->
       <div class="system-section">
@@ -234,7 +331,7 @@
               <LogOut :size="18" />
             </div>
             <div class="btn-content">
-              <span class="btn-text">{{ t('返回道途') }}</span>
+              <span class="btn-text">返回主菜单</span>
               <span class="btn-desc">{{ t('退出当前游戏') }}</span>
             </div>
           </button>
@@ -283,15 +380,17 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { Package, User, Users, BookOpen, Zap, Brain, Map, Globe, Save, Settings, LogOut, Compass, Home, Bell, ChevronRight, Database, Clock, FileText, Plug, LayoutGrid, Heart, Shield, Hammer } from 'lucide-vue-next';
+import { Package, User, Users, UsersRound, BookOpen, Zap, Brain, Map, Globe, Save, Settings, LogOut, Compass, Home, Bell, ChevronRight, Database, Clock, FileText, Plug, LayoutGrid, Heart, Shield, Hammer, ScrollText, BarChart3, ClipboardList, Coins, Network, History } from 'lucide-vue-next';
 import { useCharacterStore } from '@/stores/characterStore';
 import { toast } from '@/utils/toast';
 import { useUIStore } from '@/stores/uiStore';
 import { useI18n } from '@/i18n';
 import { isBackendConfigured, fetchBackendVersion } from '@/services/backendConfig';
+import { useGameStateStore } from '@/stores/gameStateStore';
 
 const router = useRouter();
 const characterStore = useCharacterStore();
+const gameStateStore = useGameStateStore();
 const uiStore = useUIStore();
 const { t, currentLanguage } = useI18n();
 
@@ -343,6 +442,14 @@ onUnmounted(() => {
 const activeCharacter = computed(() => characterStore.activeCharacterProfile);
 const isOnlineMode = computed(() => activeCharacter.value?.模式 === '联机');
 const isAdmin = computed(() => localStorage.getItem('is_admin') === 'true');
+const phaseLabel = computed(() => {
+  const map: Record<string, string> = {
+    hub: '主神空间',
+    mission: '副本进行中',
+    settlement: '副本结算',
+  };
+  return map[gameStateStore.gamePhase] ?? '主神空间';
+});
 
 const handleSaveGame = async () => {
   router.push('/game/save');
@@ -369,11 +476,11 @@ const handleRelationships = () => {
 };
 
 const handleTechniques = () => {
-  router.push('/game/techniques');
+  router.push('/game/abilities');
 };
 
 const handleThousandDao = () => {
-  router.push('/game/thousand-dao');
+  router.push('/game/ability-overview');
 };
 
 const handleCrafting = () => {
@@ -390,6 +497,43 @@ const handleWorldMap = () => {
 
 const handleOnlinePlay = () => {
   router.push('/game/travel');
+};
+
+const handleMissionSelect = () => {
+  gameStateStore.setGamePhase('hub');
+  router.push('/game/mission-select');
+};
+
+const handleMissionBriefing = () => {
+  router.push('/game/mission-briefing');
+};
+
+const handleMissionSettlement = () => {
+  gameStateStore.setGamePhase('settlement');
+  router.push('/game/mission-settlement');
+};
+
+const handleHubMap = () => {
+  router.push('/game/hub-map');
+};
+
+const handleExchange = () => {
+  gameStateStore.setGamePhase('hub');
+  router.push('/game/exchange');
+};
+
+const handleTeamPanel = () => {
+  gameStateStore.setGamePhase('hub');
+  router.push('/game/team');
+};
+
+const handleAbilityTree = () => {
+  gameStateStore.setGamePhase('hub');
+  router.push('/game/ability-tree');
+};
+
+const handleMissionHistory = () => {
+  router.push('/game/mission-history');
 };
 
 const handlePrompts = () => {
@@ -414,7 +558,7 @@ const handleBackendAdmin = () => {
 
 const handleBackToMenu = () => {
   uiStore.showRetryDialog({
-    title: t('返回道途'),
+    title: '返回主菜单',
     message: t('您想如何退出当前游戏？'),
     confirmText: t('保存并退出'),
     cancelText: t('取消'),
@@ -706,6 +850,26 @@ const exitToMenu = async () => {
   color: var(--color-primary);
 }
 
+.phase-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--sidebar-pill-radius);
+  border: 1px solid rgba(var(--color-primary-rgb), 0.35);
+  background: rgba(var(--color-primary-rgb), 0.08);
+  font-size: 12px;
+}
+
+.phase-label {
+  color: var(--color-text-secondary);
+}
+
+.phase-value {
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
 .title-icon {
   color: var(--color-primary);
 }
@@ -899,7 +1063,7 @@ const exitToMenu = async () => {
   background: rgba(16, 185, 129, 0.12);
 }
 
-/* 修炼系统 - 金色 */
+/* 能力系统 - 金色 */
 .function-btn.cultivation .btn-icon {
   background: rgba(245, 158, 11, 0.08);
   color: rgb(245, 158, 11);

@@ -1,7 +1,7 @@
 <template>
   <div class="preview-container">
     <h2 class="title">{{ $t('最终预览') }}</h2>
-    <p class="subtitle">{{ $t('请确认你的选择，此为踏入仙途的最后一步。') }}</p>
+    <p class="subtitle">{{ $t('请确认你的选择，此为进入主神空间前的最后一步。') }}</p>
 
     <div class="preview-grid">
       <!-- Character Name -->
@@ -104,58 +104,40 @@
         </p>
       </div>
 
-      <!-- World -->
+      <!-- 金手指 -->
       <div class="preview-item">
-        <h3>{{ $t('所选世界') }}</h3>
-        <h4>{{ store.selectedWorld?.name || $t('未选择') }}</h4>
-        <p class="item-description">{{ store.selectedWorld?.description || $t('暂无描述') }}</p>
+        <h3>{{ $t('金手指') }}</h3>
+        <h4>{{ store.selectedGoldenFinger?.name || $t('未选择') }}</h4>
+        <p class="item-description">{{ store.selectedGoldenFinger?.description || $t('暂无描述') }}</p>
+        <span class="item-meta">{{ $t('初期') }}: {{ store.selectedGoldenFinger?.initialLevel || '-' }}</span>
       </div>
 
-      <!-- Talent Tier -->
-      <div class="preview-item">
-        <h3>{{ $t('天资') }}</h3>
-        <h4 :style="{ color: store.selectedTalentTier?.color || 'inherit' }">
-          {{ store.selectedTalentTier?.name || $t('未选择') }}
-        </h4>
-        <p class="item-description">{{ store.selectedTalentTier?.description || $t('暂无描述') }}</p>
-      </div>
-
-      <!-- Origin -->
-      <div class="preview-item">
-        <h3>{{ $t('出身') }}</h3>
-        <h4>{{ store.selectedOrigin?.name || $t('随机出身') }}</h4>
-        <p class="item-description">{{ store.selectedOrigin?.description || $t('暂无描述') }}</p>
-      </div>
-
-      <!-- Spirit Root -->
-      <div class="preview-item">
-        <h3>{{ $t('灵根') }}</h3>
-        <h4>{{ store.selectedSpiritRoot?.name || $t('随机灵根') }}</h4>
-        <p class="item-description">{{ store.selectedSpiritRoot?.description || $t('暂无描述') }}</p>
-      </div>
-
-      <!-- Talents -->
-      <div class="preview-item talents-item">
-        <h3>{{ $t('天赋') }}</h3>
-        <ul v-if="store.selectedTalents.length">
-          <li v-for="talent in store.selectedTalents" :key="talent.id">
-            <strong>{{ talent.name }}</strong>
-            <p class="item-description">{{ talent.description }}</p>
-          </li>
-        </ul>
-        <p v-else>{{ $t('未选择任何天赋') }}</p>
+      <!-- 穿越前身份（选填，纯叙事） -->
+      <div class="preview-item identity-item">
+        <h3>{{ $t('穿越前身份') }} <span class="optional-tag">{{ $t('选填') }}</span></h3>
+        <p class="identity-hint">
+          {{ $t('简单描述穿越前的职业或经历，AI 会据此为你赋予合理的初始能力。留空则完全随机。') }}
+        </p>
+        <textarea
+          class="identity-input"
+          v-model="store.characterPayload.pre_reincarnation_identity"
+          :placeholder="$t('例如：急诊科医生，做事冷静，有医学基础')"
+          maxlength="200"
+          rows="3"
+        />
+        <span class="char-count">{{ store.characterPayload.pre_reincarnation_identity.length }}/200</span>
       </div>
 
       <!-- Attributes -->
       <div v-if="props.isLocalCreation" class="preview-item attributes-item">
-        <h3>{{ $t('先天六司') }}</h3>
+        <h3>{{ $t('基础六维属性') }}</h3>
         <ul>
-          <li>{{ $t('根骨') }}: {{ store.attributes.root_bone }}</li>
-          <li>{{ $t('灵性') }}: {{ store.attributes.spirituality }}</li>
-          <li>{{ $t('悟性') }}: {{ store.attributes.comprehension }}</li>
-          <li>{{ $t('气运') }}: {{ store.attributes.fortune }}</li>
-          <li>{{ $t('魅力') }}: {{ store.attributes.charm }}</li>
-          <li>{{ $t('心性') }}: {{ store.attributes.temperament }}</li>
+          <li>{{ $t('力量 (STR)') }}: {{ store.infiniteAttributes.strength }}</li>
+          <li>{{ $t('感知 (PER)') }}: {{ store.infiniteAttributes.perception }}</li>
+          <li>{{ $t('智力 (INT)') }}: {{ store.infiniteAttributes.intelligence }}</li>
+          <li>{{ $t('幸运 (LUK)') }}: {{ store.infiniteAttributes.luck }}</li>
+          <li>{{ $t('魅力 (CHA)') }}: {{ store.infiniteAttributes.charisma }}</li>
+          <li>{{ $t('意志 (WIL)') }}: {{ store.infiniteAttributes.willpower }}</li>
         </ul>
       </div>
 
@@ -163,7 +145,7 @@
       <div v-else class="preview-item cloud-info-item">
         <h3>{{ $t('命格天定') }}</h3>
         <p class="cloud-info-text">
-          {{ $t('联机模式下，角色的初始命格将由所选世界的天道法则在云端生成，以确保公平与平衡。') }}
+          {{ $t('联机模式下，角色初始参数将由服务器统一生成，以确保公平与平衡。') }}
         </p>
       </div>
     </div>
@@ -358,10 +340,65 @@ const validateAge = () => {
   color: #bfdbfe;
 }
 
+.item-meta {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  font-style: italic;
+}
+
 .item-description {
   font-size: 0.9rem !important;
   color: #94a3b8 !important;
   margin-top: 0.5rem !important;
+}
+
+.identity-item {
+  grid-column: 1 / -1;
+}
+
+.optional-tag {
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 400;
+  margin-left: 0.5rem;
+}
+
+.identity-hint {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  margin: 0.25rem 0 0.75rem;
+  line-height: 1.5;
+}
+
+.identity-input {
+  width: 100%;
+  padding: 0.75rem;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  color: #e2e8f0;
+  font-size: 0.9rem;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.5;
+  transition: border-color 0.2s;
+}
+
+.identity-input:focus {
+  outline: none;
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.identity-input::placeholder {
+  color: #475569;
+}
+
+.char-count {
+  display: block;
+  text-align: right;
+  font-size: 0.75rem;
+  color: #475569;
+  margin-top: 0.25rem;
 }
 
 .talents-item li .item-description {

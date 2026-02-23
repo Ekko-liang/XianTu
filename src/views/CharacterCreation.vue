@@ -43,34 +43,10 @@
       <div class="step-content">
         <transition name="fade-step" mode="out-in">
           <div :key="store.currentStep" class="step-wrapper">
-            <Step1_WorldSelection
-              v-if="store.currentStep === 1"
-              ref="step1Ref"
-              @ai-generate="handleAIGenerateClick"
-            />
-            <Step2_TalentTierSelection
-              v-else-if="store.currentStep === 2"
-              ref="step2Ref"
-              @ai-generate="handleAIGenerateClick"
-            />
-            <Step3_OriginSelection
-              v-else-if="store.currentStep === 3"
-              ref="step3Ref"
-              @ai-generate="handleAIGenerateClick"
-            />
-            <Step4_SpiritRootSelection
-              v-else-if="store.currentStep === 4"
-              ref="step4Ref"
-              @ai-generate="handleAIGenerateClick"
-            />
-            <Step5_TalentSelection
-              v-else-if="store.currentStep === 5"
-              ref="step5Ref"
-              @ai-generate="handleAIGenerateClick"
-            />
-            <Step6_AttributeAllocation v-else-if="store.currentStep === 6" />
+            <Step2_GoldenFingerSelection v-if="store.currentStep === 1" />
+            <Step6_AttributeAllocation v-else-if="store.currentStep === 2" />
             <Step7_Preview
-              v-else-if="store.currentStep === 7"
+              v-else-if="store.currentStep === 3"
               :is-local-creation="store.isLocalCreation"
             />
           </div>
@@ -80,13 +56,13 @@
       <!-- 导航 -->
       <div class="navigation-buttons">
         <button @click.prevent="handleBack" type="button" class="btn btn-secondary">
-          {{ store.currentStep === 1 ? $t('返回道途') : $t('上一步') }}
+          {{ store.currentStep === 1 ? $t('返回主菜单') : $t('上一步') }}
         </button>
 
         <!-- 剩余点数显示 -->
         <div class="points-display">
-          <div v-if="store.currentStep >= 3 && store.currentStep <= 7" class="destiny-points">
-            <span class="points-label">{{ $t('剩余天道点') }}:</span>
+          <div v-if="store.currentStep === 2" class="destiny-points">
+            <span class="points-label">{{ $t('剩余属性点') }}:</span>
             <span class="points-value" :class="{ low: store.remainingTalentPoints < 0 }">
               {{ store.remainingTalentPoints }}
             </span>
@@ -95,7 +71,7 @@
 
         <button
           type="button"
-          @click.prevent="(event: Event) => { console.log('[DEBUG] 开启仙途按钮被点击!'); handleNext(event); }"
+          @click.prevent="(event: Event) => { console.log('[DEBUG] 创建轮回者按钮被点击!'); handleNext(event); }"
           :disabled="
             store.isCreating ||
             isNextDisabled ||
@@ -107,7 +83,7 @@
             'disabled': store.isCreating || isNextDisabled || (store.currentStep === store.totalSteps && store.remainingTalentPoints < 0)
           }"
         >
-          {{ store.currentStep === store.totalSteps ? $t('开启仙途') : $t('下一步') }}
+          {{ store.currentStep === store.totalSteps ? $t('进入主神空间') : $t('下一步') }}
         </button>
       </div>
     </div>
@@ -117,7 +93,7 @@
     <RedemptionCodeModal
       :visible="isCodeModalVisible"
       :type="currentAIType"
-      title="使用仙缘信物"
+      title="使用轮回信标"
       @close="isCodeModalVisible = false"
       @submit="handleCodeSubmit"
     />
@@ -133,11 +109,7 @@ import DataClearButtons from '@/components/common/DataClearButtons.vue';
 import StorePreSeting from '@/components/common/StorePreSeting.vue';
 import LoadingPreSeting from '@/components/common/LoadingPreSeting.vue';
 import { useCharacterCreationStore } from '../stores/characterCreationStore';
-import Step1_WorldSelection from '../components/character-creation/Step1_WorldSelection.vue'
-import Step2_TalentTierSelection from '../components/character-creation/Step2_TalentTierSelection.vue'
-import Step3_OriginSelection from '../components/character-creation/Step3_OriginSelection.vue'
-import Step4_SpiritRootSelection from '../components/character-creation/Step4_SpiritRootSelection.vue'
-import Step5_TalentSelection from '../components/character-creation/Step5_TalentSelection.vue'
+import Step2_GoldenFingerSelection from '../components/character-creation/Step2_GoldenFingerSelection.vue'
 import Step6_AttributeAllocation from '../components/character-creation/Step6_AttributeAllocation.vue'
 import Step7_Preview from '../components/character-creation/Step7_Preview.vue'
 import RedemptionCodeModal from '../components/character-creation/RedemptionCodeModal.vue'
@@ -178,23 +150,10 @@ onMounted(async () => {
   // 2. 初始化创世神殿，确保本地和云端数据都加载
   await store.initializeStore(store.isLocalCreation ? 'single' : 'cloud');
 
-  // 检查是否需要补充云端数据（检查总数据量而不是source标记）
-  const totalWorlds = store.creationData.worlds.length;
-  const totalTalents = store.creationData.talents.length;
-
-  console.log('【角色创建】当前数据量:');
-  console.log('- 总世界数量:', totalWorlds);
-  console.log('- 总天赋数量:', totalTalents);
-
-  // 在联机模式下，如果数据量明显不足（小于等于本地数据量），尝试获取云端数据
-  if (!store.isLocalCreation && (totalWorlds <= 3 || totalTalents <= 5)) {
-    console.log('【角色创建】联机模式下数据量不足，尝试获取云端数据...');
-
+  const totalGoldenFingers = store.creationData.goldenFingers.length;
+  console.log('【角色创建】金手指数量:', totalGoldenFingers);
+  if (totalGoldenFingers === 0) {
     await store.fetchAllCloudData();
-
-    console.log('【角色创建】云端数据获取完成，最终数据量:');
-    console.log('- 总世界数量:', store.creationData.worlds.length);
-    console.log('- 总天赋数量:', store.creationData.talents.length);
   }
 
   // 2. 获取角色名字 - 自动从酒馆获取，无需用户输入
@@ -357,30 +316,18 @@ defineExpose({
 })
 
 const stepLabels = computed(() => [
-  t('诸天问道'),
-  t('仙缘初定'),
-  t('转世因果'),
-  t('测灵问道'),
-  t('神通择定'),
-  t('命格天成'),
-  t('窥天算命'),
+  t('金手指'),
+  t('基础属性'),
+  t('最终确认'),
 ])
 
 const characterDataForPreset = computed(() => ({
-  // 基础信息
   character_name: store.characterPayload.character_name,
   gender: store.characterPayload.gender,
   race: store.characterPayload.race,
   current_age: store.characterPayload.current_age,
-
-  // 创角选择（完整对象）
-  world: store.selectedWorld,
-  talentTier: store.selectedTalentTier,
-  origin: store.selectedOrigin,
-  spiritRoot: store.selectedSpiritRoot,
-  talents: store.selectedTalents,
-
-  // 先天六司
+  goldenFinger: store.selectedGoldenFinger,
+  preReincarnationIdentity: store.preReincarnationIdentity,
   baseAttributes: {
     root_bone: store.attributes.root_bone,
     spirituality: store.attributes.spirituality,
@@ -401,29 +348,12 @@ const handleBack = () => {
 
 const isNextDisabled = computed(() => {
   const currentStep = store.currentStep;
-  const totalSteps = store.totalSteps;
-  const selectedWorld = store.selectedWorld;
-  const selectedTalentTier = store.selectedTalentTier;
+  const selectedGoldenFinger = store.selectedGoldenFinger;
   const remainingPoints = store.remainingTalentPoints;
-  const generating = store.isCreating;
 
-  console.log('[DEBUG] 按钮状态检查 - 当前步骤:', currentStep, '/', totalSteps);
-  console.log('[DEBUG] 按钮状态检查 - isCreating:', generating);
-  console.log('[DEBUG] 按钮状态检查 - 选中的世界:', selectedWorld?.name);
-  console.log('[DEBUG] 按钮状态检查 - 选中的天资:', selectedTalentTier?.name);
-  console.log('[DEBUG] 按钮状态检查 - 剩余天赋点:', remainingPoints);
+  if (currentStep === 1 && !selectedGoldenFinger) return true;
+  if (currentStep === 2 && remainingPoints !== 0) return true;
 
-  // You can add validation logic here for each step
-  if (currentStep === 1 && !selectedWorld) {
-    console.log('[DEBUG] 按钮被禁用：第1步未选择世界');
-    return true;
-  }
-  if (currentStep === 2 && !selectedTalentTier) {
-    console.log('[DEBUG] 按钮被禁用：第2步未选择天资');
-    return true;
-  }
-
-  console.log('[DEBUG] 按钮状态：启用');
   return false;
 })
 
@@ -446,11 +376,6 @@ async function handleNext(event?: Event) {
   }
 }
 
-const step1Ref = ref<InstanceType<typeof Step1_WorldSelection> | null>(null)
-const step2Ref = ref<InstanceType<typeof Step2_TalentTierSelection> | null>(null)
-const step3Ref = ref<InstanceType<typeof Step3_OriginSelection> | null>(null)
-const step4Ref = ref<InstanceType<typeof Step4_SpiritRootSelection> | null>(null)
-const step5Ref = ref<InstanceType<typeof Step5_TalentSelection> | null>(null)
 
 // 处理仙缘信物提交 (仅联机模式)
 async function handleCodeSubmit(data: { code: string; prompt?: string }) {
@@ -493,17 +418,10 @@ async function createCharacter() {
     console.log('[DEBUG] 角色名为空，使用默认值');
     store.characterPayload.character_name = '修士';
   }
-  if (!store.selectedWorld || !store.selectedTalentTier) {
-    console.log('[DEBUG] 验证失败：缺少必需选择项');
-    console.log('[DEBUG] selectedWorld:', store.selectedWorld);
-    console.log('[DEBUG] selectedTalentTier:', store.selectedTalentTier);
-    toast.error('创建数据不完整，请检查世界和天资选择！');
+  if (!store.selectedGoldenFinger) {
+    toast.error('创建数据不完整，请选择金手指！');
     return;
   }
-
-  // 出身和灵根可以为空（表示随机选择）
-  console.log('[DEBUG] selectedOrigin:', store.selectedOrigin, '(可为空，表示随机出生)');
-  console.log('[DEBUG] selectedSpiritRoot:', store.selectedSpiritRoot, '(可为空，表示随机灵根)');
 
   // 进入创建流程后锁定按钮，防止重复点击/重复请求
   store.startCreation();
@@ -527,19 +445,16 @@ async function createCharacter() {
   try {
     // 2. 角色名由酒馆助手的角色管理功能编辑，此处不同步
 
-    // 3. 构造 CharacterBaseInfo
-    // 3. 构造 CharacterBaseInfo，确保所有选择都使用完整的对象结构
+    // 3. 构造 CharacterBaseInfo（无限流简化：无模版，初始技能由 AI 根据身份生成）
     const _baseInfo = {
       名字: store.characterPayload.character_name,
       性别: store.characterPayload.gender,
       种族: store.characterPayload.race,
-      // 🔥 关键修复：确保所有核心选择都传递完整对象，而不仅仅是名称或ID
-      // 这解决了下游服务（如AI提示生成）无法获取详细描述的问题
-      世界: store.selectedWorld,
+      世界: store.selectedWorld!,
       天资: store.selectedTalentTier,
-      出生: store.selectedOrigin || '随机出身', // service层会处理字符串
-      灵根: store.selectedSpiritRoot || '随机灵根', // service层会处理字符串
-      天赋: store.selectedTalents,
+      出生: store.preReincarnationIdentity || '随机出身',
+      灵根: '随机灵根',
+      天赋: [],
       先天六司: {
         根骨: store.attributes.root_bone,
         灵性: store.attributes.spirituality,
@@ -548,26 +463,20 @@ async function createCharacter() {
         魅力: store.attributes.charm,
         心性: store.attributes.temperament,
       },
-      后天六司: {
-        根骨: 0,
-        灵性: 0,
-        悟性: 0,
-        气运: 0,
-        魅力: 0,
-        心性: 0,
-      },
-      // 移除冗余的 "详情" 字段，因为主字段现在就是完整对象
+      后天六司: { 根骨: 0, 灵性: 0, 悟性: 0, 气运: 0, 魅力: 0, 心性: 0 },
     };
 
-    // 4. 构造完整的创建载荷并发射creation-complete事件
+    // 4. 构造创建载荷
     const creationPayload = {
       charId: `char_${Date.now()}`,
       characterName: store.characterPayload.character_name,
-      world: store.selectedWorld,
+      world: store.selectedWorld!,
       talentTier: store.selectedTalentTier,
-      origin: store.selectedOrigin,
-      spiritRoot: store.selectedSpiritRoot,
-      talents: store.selectedTalents,
+      origin: null,
+      spiritRoot: null,
+      talents: [],
+      goldenFinger: store.selectedGoldenFinger!,
+      preReincarnationIdentity: store.preReincarnationIdentity,
       baseAttributes: {
         root_bone: store.attributes.root_bone,
         spirituality: store.attributes.spirituality,
@@ -579,7 +488,7 @@ async function createCharacter() {
       mode: (store.isLocalCreation ? '单机' : '联机') as '单机' | '联机',
       age: store.characterPayload.current_age,
       gender: store.characterPayload.gender,
-      race: store.characterPayload.race, // 🔥 添加种族字段
+      race: store.characterPayload.race,
     };
 
     console.log('🔥 [角色创建] 当前选择的开局年龄:', store.characterPayload.current_age);
@@ -636,11 +545,8 @@ async function onStoreCompleted(result: { success: boolean; message: string; pre
           gender: normalizeGender(store.characterPayload.gender),
           race: store.characterPayload.race,
           current_age: store.characterPayload.current_age,
-          world: store.selectedWorld ?? null,
-          talentTier: store.selectedTalentTier ?? null,
-          origin: store.selectedOrigin ?? null,
-          spiritRoot: store.selectedSpiritRoot ?? null,
-          talents: store.selectedTalents ?? [],
+          goldenFinger: store.selectedGoldenFinger ?? null,
+          preReincarnationIdentity: store.preReincarnationIdentity || '',
           baseAttributes: {
             root_bone: store.attributes.root_bone,
             spirituality: store.attributes.spirituality,
@@ -680,39 +586,20 @@ async function onLoadCompleted(result: { success: boolean; message: string; pres
 
   console.log('[角色创建] 准备使用预设数据创建角色:', result.presetData);
   
-  // 使用预设数据恢复store状态
   try {
     const presetData = result.presetData.data;
+    const goldenFinger = presetData.goldenFinger
+      ? store.creationData.goldenFingers.find((g) => g.id === presetData.goldenFinger?.id || g.name === presetData.goldenFinger?.name)
+      : null;
 
-    // 1. 查找对象
-    const world = store.creationData.worlds.find(w => w.name === presetData.world?.name);
-    const talentTier = store.creationData.talentTiers.find(t => t.name === presetData.talentTier?.name);
-    const origin = store.creationData.origins.find(o => o.name === presetData.origin?.name);
-    const spiritRoot = store.creationData.spiritRoots.find(s => s.name === presetData.spiritRoot?.name);
-    
-    // 2. 显式注解类型来解决 TypeScript 推断问题
-    const worldId: number | '' = world ? world.id : '';
-    const talentTierId: number | '' = talentTier ? talentTier.id : '';
-
-    const talentIds = (presetData.talents && Array.isArray(presetData.talents))
-      ? presetData.talents
-          .map((presetTalent: any) => store.creationData.talents.find(t => t.name === presetTalent.name)?.id)
-          // 显式为 'id' 参数添加类型注解
-          .filter((id: number | undefined): id is number => id !== undefined)
-      : [];
-
-    // 3. 构建新的 payload 对象
     const newPayload = {
       ...store.characterPayload,
       character_name: presetData.character_name || '无名者',
       gender: presetData.gender || '男',
       race: presetData.race || '人族',
       current_age: presetData.current_age ?? 16,
-      world_id: worldId,
-      talent_tier_id: talentTierId,
-      origin_id: origin ? origin.id : null,
-      spirit_root_id: spiritRoot ? spiritRoot.id : null,
-      selected_talent_ids: talentIds,
+      golden_finger_id: goldenFinger ? goldenFinger.id : '',
+      pre_reincarnation_identity: (presetData as any).preReincarnationIdentity || '',
       root_bone: presetData.baseAttributes?.root_bone ?? 0,
       spirituality: presetData.baseAttributes?.spirituality ?? 0,
       comprehension: presetData.baseAttributes?.comprehension ?? 0,
@@ -721,17 +608,11 @@ async function onLoadCompleted(result: { success: boolean; message: string; pres
       temperament: presetData.baseAttributes?.temperament ?? 0,
     };
 
-    // 4. 一次性更新整个 payload
     store.characterPayload = newPayload;
-    
-    console.log('[角色创建] 预设数据已原子性恢复, 新的Payload:', newPayload);
-
-    // 5. 验证恢复后的状态
     await nextTick();
 
-    if (!store.selectedWorld || !store.selectedTalentTier) {
-      console.error('[角色创建] 预设恢复后检查失败，核心数据缺失。');
-      toast.error('预设数据不完整或已失效，请重新选择。');
+    if (!store.selectedGoldenFinger) {
+      toast.error('预设数据不完整或已失效，请重新选择金手指。');
       store.currentStep = 1;
       return;
     }

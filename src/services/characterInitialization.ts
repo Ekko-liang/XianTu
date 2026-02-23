@@ -13,7 +13,7 @@ import type { GM_Response, TavernCommand } from '@/types/AIGameMaster';
 import { AIBidirectionalSystem } from '@/utils/AIBidirectionalSystem';
 import { isTavernEnv } from '@/utils/tavern';
 import { getNsfwSettingsFromStorage, ensureSystemConfigHasNsfw } from '@/utils/nsfw';
-import { createEmptyThousandDaoSystem } from '@/data/thousandDaoData';
+import { createDefaultInfiniteAbilityTree } from '@/data/thousandDaoData';
 import { buildCharacterInitializationPrompt, buildCharacterSelectionsSummary } from '@/utils/prompts/tasks/characterInitializationPrompts';
 import { validateGameData } from '@/utils/dataValidation';
 import { repairSaveData } from '@/utils/dataRepair';
@@ -29,7 +29,7 @@ import { LOCAL_SPIRIT_ROOTS, LOCAL_ORIGINS } from '@/data/creationData';
  */
 function isRandomSpiritRoot(spiritRoot: string | object): boolean {
   if (typeof spiritRoot === 'string') {
-    return spiritRoot === '随机灵根' || spiritRoot.includes('随机');
+    return spiritRoot === '随机灵根' || spiritRoot === '随机潜能' || spiritRoot.includes('随机');
   }
   return false;
 }
@@ -116,7 +116,7 @@ export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: num
   const 灵性 = Number(先天六司?.灵性 ?? 0);
   const 悟性 = Number(先天六司?.悟性 ?? 0);
 
-  // 基础属性计算公式
+  // 基础体征计算（无限流语义下仍保留旧字段名以兼容）
   const 初始气血 = 100 + 根骨 * 10;
   const 初始灵气 = 50 + 灵性 * 5;
   const 初始神识 = 30 + 悟性 * 3;
@@ -131,20 +131,89 @@ export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: num
 
   return {
     境界: {
-      名称: "凡人",
-      阶段: "",
+      名称: "新人",
+      阶段: "D",
       当前进度: 0,
       下一级所需: 100,
-      突破描述: "引气入体，感悟天地灵气，踏上修仙第一步"
+      突破描述: "完成首个副本并满足四星条件后可触发晋升试炼"
     },
     声望: 0, // 声望应该是数字类型
     位置: {
-      描述: "位置生成失败" // 标记为错误状态而不是默认值
+      描述: "主神空间·待分配区域" // 标记为默认安全区，等待AI覆盖
     },
     气血: { 当前: 初始气血, 上限: 初始气血 },
     灵气: { 当前: 初始灵气, 上限: 初始灵气 },
     神识: { 当前: 初始神识, 上限: 初始神识 },
     寿命: { 当前: age, 上限: 最大寿命 }
+  };
+}
+
+function createInitialInfiniteFlowState(
+  baseInfo: CharacterBaseInfo,
+  playerStatus: PlayerStatus,
+  goldenFinger?: { id: number; name: string; initialLevel: string; advancePath: string[] } | null
+) {
+  const six = baseInfo?.先天六司 || ({} as any);
+
+  return {
+    当前阶段: 'hub',
+    轮回者: {
+      level: 'D',
+      soulStrength: 0,
+      soulStrengthCapMultiplier: 1,
+      star: 1,
+      missionCount: 0,
+      effectiveMissionCountByDifficulty: { D: 0, C: 0, B: 0, A: 0, S: 0, SS: 0, SSS: 0 },
+      survivalRate: 1,
+      promotionPoints: 0,
+      promotionFailureStreak: 0,
+      promotionTrialFailures: 0,
+      promotionTrialPending: false,
+      pendingPromotionTarget: null,
+      godPoints: 0,
+      abilities: (baseInfo.天赋 || []).map((t: any) => (typeof t === 'object' && t?.name ? t.name : String(t))),
+      goldenFinger: goldenFinger
+        ? {
+            id: goldenFinger.id,
+            name: goldenFinger.name,
+            currentLevel: goldenFinger.initialLevel as '未激活' | 'D',
+            advancePath: goldenFinger.advancePath,
+          }
+        : null,
+      attributes: {
+        STR: Number((six as any).根骨 ?? 5),
+        PER: Number((six as any).灵性 ?? 5),
+        INT: Number((six as any).悟性 ?? 5),
+        LUK: Number((six as any).气运 ?? 5),
+        CHA: Number((six as any).魅力 ?? 5),
+        WIL: Number((six as any).心性 ?? 5),
+      },
+      vitals: {
+        HP: { current: Number(playerStatus.气血.当前), max: Number(playerStatus.气血.上限) },
+        EP: { current: Number(playerStatus.灵气.当前), max: Number(playerStatus.灵气.上限) },
+        MP: { current: Number(playerStatus.神识.当前), max: Number(playerStatus.神识.上限) },
+      },
+    },
+    主神空间: {
+      unlockedAreas: ['exchange', 'training', 'social', 'terminal', 'portal'],
+      shopInventory: [
+        {
+          id: 'shop_basic_medkit',
+          name: '应急治疗包',
+          category: 'item',
+          price: 120,
+          stock: 10,
+          description: '副本内快速恢复生命值。',
+        },
+      ],
+      availableMissions: [],
+      npcs: [
+        { id: 'hub_guide', name: '引导者', role: '空间接待员', favor: 0 },
+      ],
+    },
+    当前副本: null,
+    副本记录: [],
+    团队: { members: [], sharedResources: [], teamLevel: 1, collaborationLogs: [], teamEvents: [] },
   };
 }
 
@@ -156,9 +225,13 @@ export function calculateInitialAttributes(baseInfo: CharacterBaseInfo, age: num
  * 准备初始存档数据结构
  * @param baseInfo - 角色
  * @param age - 角色年龄
- * @returns 初始化后的存档数据和经过处理的baseInfo
+ * @param goldenFinger - 金手指（创角时选择，可选）
  */
-function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveData: SaveData; processedBaseInfo: CharacterBaseInfo } {
+function prepareInitialData(
+  baseInfo: CharacterBaseInfo,
+  age: number,
+  goldenFinger?: { id: number; name: string; initialLevel: string; advancePath: string[] } | null
+): { saveData: SaveData; processedBaseInfo: CharacterBaseInfo } {
   console.log('[初始化流程] 1. 准备初始存档数据');
   console.log('[初始化流程] prepareInitialData 接收到的 baseInfo.先天六司:', baseInfo.先天六司);
 
@@ -210,10 +283,10 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
   }
 
   if (isRandomSpiritRoot(processedBaseInfo.灵根)) {
-    console.log('[灵根生成] 检测到随机灵根，将由 AI 创造性生成');
-    // 保留"随机灵根"字符串，让 AI 处理
+    console.log('[潜能生成] 检测到随机潜能，将由 AI 创造性生成');
+    // 保留"随机灵根/随机潜能"字符串，让 AI 处理
   } else {
-    console.log('[灵根生成] 检测到玩家已选择特定灵根，将直接使用该灵根，不进行随机化处理。');
+    console.log('[潜能生成] 检测到玩家已选择特定潜能，将直接使用该潜能，不进行随机化处理。');
   }
 
   if (typeof processedBaseInfo.出生 === 'string' &&
@@ -236,14 +309,20 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
 
   // 创建基础存档结构
   const tavernEnv = isTavernEnv();
-  const legacySaveData: SaveData = {
+  const legacySaveData: any = {
     角色: processedBaseInfo,
     属性: attributes as any,
     位置: location as any,
     效果: [],
     // 🔥 时间：使用age作为初始年份，AI可以通过tavern_commands修改
     时间: { 年: age, 月: 1, 日: 1, 小时: Math.floor(Math.random() * 12) + 6, 分钟: Math.floor(Math.random() * 60) },
-    背包: { 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 }, 物品: {} },
+    背包: {
+      灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 },
+      货币: {
+        神点: { 币种: '神点', 名称: '神点', 数量: 0, 价值度: 1, 描述: '主神空间通用积分货币' },
+      },
+      物品: {},
+    },
     装备: { 装备1: null, 装备2: null, 装备3: null, 装备4: null, 装备5: null, 装备6: null },
     功法: {
       当前功法ID: null,
@@ -252,8 +331,10 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
     },
     修炼: {
       修炼功法: null,
+      修炼能力: null,
+      修炼状态: { 模式: '待机' },
     },
-    大道: createEmptyThousandDaoSystem(),
+    大道: createDefaultInfiniteAbilityTree(),
     技能: { 掌握技能: [], 装备栏: [], 冷却: {} },
     宗门: undefined,
     事件: {
@@ -274,7 +355,7 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
         属性上限: { 先天六司: { 每项上限: 10 } },
         // 装备系统
         装备系统: '装备存储引用{物品ID,名称}，完整数据在背包.物品中',
-        品质控制: '严格遵守境界对应品质范围，仙品世界上几乎没有，每一个都是令世界动荡的存在，神品不存在'
+        品质控制: '严格遵守评级对应的能力稀有度范围，避免越级掉落破坏平衡'
       },
       提示: [
         '⚠️ 先创建后修改：修改数据前必须确保数据已存在',
@@ -292,13 +373,54 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
   // AI 会根据提示词在初始化时填充基础体格数据（身高/体重/三围等）
   // 敏感字段（胸部描述/私处描述等）仅在 nsfwMode=true 时由 AI 生成
   if (tavernEnv) {
-    console.log('[角色初始化] 酒馆端检测：初始化角色.身体骨架（等待AI生成法身数据）');
+    console.log('[角色初始化] 酒馆端检测：初始化角色.身体骨架（等待AI生成外观骨架数据）');
     legacySaveData.身体 = { 部位开发: {}, 部位: {} } as any;
   }
 
   // 开局阶段统一返回 V3 五域结构，保证后续提示词/指令使用短路径生效
   const { migrated } = migrateSaveDataToLatest(legacySaveData as any);
-  return { saveData: migrated as any, processedBaseInfo };
+  const migratedSave = migrated as any;
+  const infiniteFlowState = createInitialInfiniteFlowState(processedBaseInfo, playerStatus, goldenFinger);
+  migratedSave.元数据 = migratedSave.元数据 || {};
+  migratedSave.元数据.当前阶段 = infiniteFlowState.当前阶段;
+  migratedSave.轮回者 = {
+    ...(migratedSave.轮回者 || {}),
+    ...(infiniteFlowState.轮回者 || {}),
+    // 保持迁移后角色主数据同步到轮回者主结构
+    身份: migratedSave?.角色?.身份 ?? migratedSave?.轮回者?.身份,
+    属性: migratedSave?.角色?.属性 ?? migratedSave?.轮回者?.属性,
+    位置: migratedSave?.角色?.位置 ?? migratedSave?.轮回者?.位置,
+    效果: migratedSave?.角色?.效果 ?? migratedSave?.轮回者?.效果,
+    身体: migratedSave?.角色?.身体 ?? migratedSave?.轮回者?.身体,
+    背包: migratedSave?.角色?.背包 ?? migratedSave?.轮回者?.背包,
+    装备: migratedSave?.角色?.装备 ?? migratedSave?.轮回者?.装备,
+    功法: migratedSave?.角色?.功法 ?? migratedSave?.轮回者?.功法,
+    修炼: migratedSave?.角色?.修炼 ?? migratedSave?.轮回者?.修炼,
+    大道: migratedSave?.角色?.大道 ?? migratedSave?.轮回者?.大道,
+    技能: migratedSave?.角色?.技能 ?? migratedSave?.轮回者?.技能,
+  };
+  migratedSave.主神空间 = infiniteFlowState.主神空间;
+  migratedSave.当前副本 = infiniteFlowState.当前副本;
+  migratedSave.副本记录 = infiniteFlowState.副本记录;
+  migratedSave.团队 = infiniteFlowState.团队;
+  // 兼容旧模块：保留角色镜像并移除已废弃扩展层
+  migratedSave.角色 = migratedSave.角色 || {
+    身份: migratedSave?.轮回者?.身份,
+    属性: migratedSave?.轮回者?.属性,
+    位置: migratedSave?.轮回者?.位置,
+    效果: migratedSave?.轮回者?.效果 ?? [],
+    身体: migratedSave?.轮回者?.身体,
+    背包: migratedSave?.轮回者?.背包,
+    装备: migratedSave?.轮回者?.装备,
+    功法: migratedSave?.轮回者?.功法,
+    修炼: migratedSave?.轮回者?.修炼,
+    大道: migratedSave?.轮回者?.大道,
+    技能: migratedSave?.轮回者?.技能,
+  };
+  if (migratedSave?.系统?.扩展?.无限流) {
+    delete migratedSave.系统.扩展.无限流;
+  }
+  return { saveData: migratedSave as any, processedBaseInfo };
 }
 
 /**
@@ -400,8 +522,8 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
   const tavernEnv = isTavernEnv();
   const nsfwEnabled = tavernEnv && Boolean((saveData as any).系统?.配置?.nsfwMode);
   const loadingHeaderHtml = nsfwEnabled
-    ? '天道正在为你书写命运之章...<br/><span style="font-size: 0.85em; opacity: 0.8;">（法身数据生成中…）</span>'
-    : '天道正在为你书写命运之章...';
+    ? '主神正在为你校准开局档案...<br/><span style="font-size: 0.85em; opacity: 0.8;">（外观骨架数据生成中…）</span>'
+    : '主神正在为你校准开局档案...';
   uiStore.updateLoadingText(loadingHeaderHtml);
 
   // 🔥 现在baseInfo中的字段已经是完整对象了
@@ -425,7 +547,7 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
   console.log('  - 种族:', baseInfo.种族, '->', userSelections.race);
   console.log('  - 天资:', userSelections.talentTier);
   console.log('  - 出身:', userSelections.origin);
-  console.log('  - 灵根:', userSelections.spiritRoot);
+  console.log('  - 潜能:', userSelections.spiritRoot);
   console.log('  - 天赋数量:', userSelections.talents?.length);
   console.log('  - 难度:', characterCreationStore.gameDifficulty);
 
@@ -468,7 +590,7 @@ ${selectionsSummary}
 
 **重要提示**：
 - 严格按照我的角色设定来生成内容
-- 我选择的是什么样的出身、天赋、灵根，你就如实展现
+- 我选择的是什么样的出身、天赋、潜能，你就如实展现
 - 不要强加任何预设的剧情方向或生活方式
 - 这只是一个开始，我的人生我做主`;
 
@@ -623,7 +745,7 @@ async () => {
       return true;
     },
     3,
-    '天道正在书写命运之章'
+    '主神正在校准开局档案'
   );
 
   // =================================================================
@@ -636,10 +758,12 @@ async () => {
 
   // 🔥 [关键修复] 用AI生成的具体内容替换"随机"选项
   const creationStore = useCharacterCreationStore();
+  const selectedSpiritRootName = String((creationStore.selectedSpiritRoot as any)?.name ?? (creationStore.selectedSpiritRoot as any)?.名称 ?? '');
+  const selectedOriginName = String((creationStore.selectedOrigin as any)?.name ?? (creationStore.selectedOrigin as any)?.名称 ?? '');
 
   // [Roo] 强制TS重新评估类型
   // 如果用户选择了随机灵根，用AI生成的具体灵根替换
-  if (creationStore.selectedSpiritRoot?.name === '随机灵根' && (saveDataAfterCommands as any).角色?.身份?.灵根) {
+  if (selectedSpiritRootName === '随机灵根' && (saveDataAfterCommands as any).角色?.身份?.灵根) {
     const aiSpiritRoot = (saveDataAfterCommands as any).角色.身份.灵根;
     if (typeof aiSpiritRoot === 'object') {
       creationStore.setAIGeneratedSpiritRoot(aiSpiritRoot as SpiritRoot);
@@ -647,7 +771,7 @@ async () => {
   }
 
   // 如果用户选择了随机出生，用AI生成的具体出生替换
-  if (creationStore.selectedOrigin?.name === '随机出身' && (saveDataAfterCommands as any).角色?.身份?.出生) {
+  if (selectedOriginName === '随机出身' && (saveDataAfterCommands as any).角色?.身份?.出生) {
     const aiOrigin = (saveDataAfterCommands as any).角色.身份.出生;
     if (typeof aiOrigin === 'object') {
       creationStore.setAIGeneratedOrigin(aiOrigin as Origin);
@@ -666,7 +790,7 @@ async () => {
           return typeof key === 'string' && (key.startsWith('角色.身体') || key.startsWith('身体.'));
         })
       : false;
-    if (hasBodyCommands) toast.success('已生成法身数据（酒馆）');
+    if (hasBodyCommands) toast.success('已生成外观骨架数据（酒馆）');
   }
 
   const openingStory = String(initialMessageResponse.text || '');
@@ -696,6 +820,16 @@ async () => {
 function deriveBaseFieldsFromDetails(baseInfo: CharacterBaseInfo): CharacterBaseInfo {
   const derivedInfo = { ...baseInfo };
   const creationStore = useCharacterCreationStore();
+  const resolveOptionName = (value: unknown): string => {
+    if (!value || typeof value !== 'object') return '';
+    const anyValue = value as any;
+    return String(anyValue.name || anyValue.名称 || '').trim();
+  };
+  const resolveSpiritRootTier = (value: unknown): string => {
+    if (!value || typeof value !== 'object') return '';
+    const anyValue = value as any;
+    return String(anyValue.tier || anyValue.品阶 || anyValue.品质 || '').trim();
+  };
 
   console.log('[数据校准] 开始从创角仓库同步所有权威数据...');
   console.log('[数据校准] 【重要】所有用户手动选择的数据都将被保护，不被AI或代码修改');
@@ -706,7 +840,7 @@ function deriveBaseFieldsFromDetails(baseInfo: CharacterBaseInfo): CharacterBase
   // 2. 天资 (Talent Tier) - 用户必选
   const authoritativeTalentTier = creationStore.selectedTalentTier;
   if (authoritativeTalentTier) {
-    console.log(`[数据校准] ✅ 同步用户选择的天资: ${authoritativeTalentTier.name}`);
+    console.log(`[数据校准] ✅ 同步用户选择的天资: ${resolveOptionName(authoritativeTalentTier) || '未命名天资'}`);
     derivedInfo.天资 = authoritativeTalentTier;
   } else {
     console.warn('[数据校准] 警告: 无法找到权威的天资数据。');
@@ -717,11 +851,11 @@ function deriveBaseFieldsFromDetails(baseInfo: CharacterBaseInfo): CharacterBase
   const hasAIGeneratedOrigin = derivedInfo.出生 && typeof derivedInfo.出生 === 'object' && (derivedInfo.出生 as any).名称 !== '随机出身';
 
   if (authoritativeOrigin && !hasAIGeneratedOrigin) {
-    console.log(`[数据校准] ✅ 同步用户选择的出身: ${authoritativeOrigin.name}`);
+    console.log(`[数据校准] ✅ 同步用户选择的出身: ${resolveOptionName(authoritativeOrigin) || '未命名出身'}`);
     derivedInfo.出生 = authoritativeOrigin;
   } else if (hasAIGeneratedOrigin) {
     // 如果用户选择随机，并且一个具体的对象已经存在（由AI或后备逻辑生成），则直接信任和保留它。
-    console.log('[数据校准] ✅ 保留已生成的具体出身:', (derivedInfo.出生 as Origin).name);
+    console.log('[数据校准] ✅ 保留已生成的具体出身:', resolveOptionName(derivedInfo.出生) || '未命名出身');
   } else if (creationStore.characterPayload.origin_id === null) {
     // 仅当没有生成任何具体出身时，才可能需要标记回随机（作为最后的保险措施）
     console.log('[数据校准] 🎲 用户选择随机出身，但无有效生成值，标记为随机');
@@ -735,11 +869,13 @@ function deriveBaseFieldsFromDetails(baseInfo: CharacterBaseInfo): CharacterBase
   const hasAIGeneratedSpiritRoot = derivedInfo.灵根 && typeof derivedInfo.灵根 === 'object' && (derivedInfo.灵根 as any).名称 !== '随机灵根';
 
   if (authoritativeSpiritRoot && !hasAIGeneratedSpiritRoot) {
-    console.log(`[数据校准] ✅ 同步用户选择的灵根: ${authoritativeSpiritRoot.name} (${authoritativeSpiritRoot.tier})`);
+    console.log(
+      `[数据校准] ✅ 同步用户选择的灵根: ${resolveOptionName(authoritativeSpiritRoot) || '未命名灵根'} (${resolveSpiritRootTier(authoritativeSpiritRoot) || '未知品阶'})`,
+    );
     derivedInfo.灵根 = authoritativeSpiritRoot;
   } else if (hasAIGeneratedSpiritRoot) {
     // 如果用户选择随机，并且一个具体的对象已经存在（由AI或后备逻辑生成），则直接信任和保留它。
-    console.log('[数据校准] ✅ 保留已生成的具体灵根:', (derivedInfo.灵根 as SpiritRoot).name);
+    console.log('[数据校准] ✅ 保留已生成的具体灵根:', resolveOptionName(derivedInfo.灵根) || '未命名灵根');
   } else if (creationStore.characterPayload.spirit_root_id === null) {
     // 仅当没有生成任何具体灵根时，才可能需要标记回随机（作为最后的保险措施）
     console.log('[数据校准] 🎲 用户选择随机灵根，但无有效生成值，标记为随机');
@@ -788,7 +924,7 @@ function deriveBaseFieldsFromDetails(baseInfo: CharacterBaseInfo): CharacterBase
 async function finalizeAndSyncData(saveData: SaveData, baseInfo: CharacterBaseInfo, world: World, age: number): Promise<SaveData> {
   console.log('[初始化流程] 4. 合并、验证并同步最终数据');
   const uiStore = useUIStore();
-  uiStore.updateLoadingText(`正在同步数据，即将进入${baseInfo.名字}的修仙世界...`);
+  uiStore.updateLoadingText(`正在同步数据，即将进入${baseInfo.名字}的副本世界...`);
 
   // 1. 合并AI生成的数据和用户选择的原始数据，并保护核心字段
   const mergedBaseInfo: CharacterBaseInfo = {
@@ -1094,9 +1230,11 @@ export async function initializeCharacter(
   }
 
   console.log('[初始化流程] 接收到的 baseInfo.先天六司:', baseInfo.先天六司);
+  const gf = creationStore.selectedGoldenFinger;
+  const goldenFinger = gf ? { id: gf.id, name: gf.name, initialLevel: gf.initialLevel, advancePath: gf.advancePath } : null;
   try {
     // 步骤 1: 准备初始数据
-    const { saveData: initialSaveData, processedBaseInfo } = prepareInitialData(baseInfo, age);
+    const { saveData: initialSaveData, processedBaseInfo } = prepareInitialData(baseInfo, age, goldenFinger);
 
     // 步骤 2: 生成世界
     const worldInfo = await generateWorld(processedBaseInfo, world);
@@ -1119,7 +1257,7 @@ export async function initializeCharacter(
           : ({} as any);
 
       if (!nextLeadership.宗主) nextLeadership.宗主 = '合欢老魔';
-      if (!nextLeadership.最强修为) nextLeadership.最强修为 = nextLeadership.宗主修为 || '化神期';
+      if (!nextLeadership.最强修为) nextLeadership.最强修为 = nextLeadership.宗主修为 || 'S级';
 
       if (!nextLeadership.圣女) {
         nextLeadership.圣女 = '灰夫人(合欢圣女)';
@@ -1139,20 +1277,20 @@ export async function initializeCharacter(
         const greyLady: NpcProfile = {
           名字: "灰夫人(合欢圣女)",
           性别: "女",
-          出生日期: { 年: currentYear - 200, 月: 1, 日: 1 }, // 金丹圆满约200岁
+          出生日期: { 年: currentYear - 120, 月: 1, 日: 1 },
           种族: "人族",
           出生: "合欢宗",
           外貌描述: "身材极度丰满，拥有夸张的丰乳肥臀，腰肢纤细如蛇。面容妖媚，眼神含春，举手投足间散发着惊人的魅惑力。身着轻薄纱衣，曼妙身姿若隐若现。",
           性格特征: ["平易近人", "开放", "双性恋", "M体质", "S体质", "痴女(潜在)"],
-          境界: { 名称: "金丹", 阶段: "圆满", 当前进度: 0, 下一级所需: 100, 突破描述: "阴阳调和，丹破婴生" },
-          灵根: { name: "天阴灵根", tier: "天品" } as any,
+          境界: { 名称: "A", 阶段: "三星", 当前进度: 0, 下一级所需: 100, 突破描述: "多次高压副本结算后可冲击四星门槛" },
+          灵根: { name: "天阴潜能", tier: "传奇" } as any,
           天赋: [{ name: "合欢圣体", description: "天生媚骨，极适合双修，采补效果翻倍" }] as any,
           先天六司: { 根骨: 8, 灵性: 9, 悟性: 8, 气运: 7, 魅力: 10, 心性: 5 },
           属性: {
-            气血: { 当前: 5000, 上限: 5000 }, // 金丹圆满
-            灵气: { 当前: 8000, 上限: 8000 },
-            神识: { 当前: 3000, 上限: 3000 },
-            寿元上限: 500 // 金丹期寿命约500年
+            气血: { 当前: 1200, 上限: 1200 },
+            灵气: { 当前: 1400, 上限: 1400 },
+            神识: { 当前: 1200, 上限: 1200 },
+            寿元上限: 220
           },
           与玩家关系: "陌生人", // 初始关系
           好感度: 10, // 初始好感略高
@@ -1166,7 +1304,14 @@ export async function initializeCharacter(
           ],
           当前外貌状态: "衣衫半解，媚眼如丝",
           当前内心想法: "观察着周围的人，寻找能让我感兴趣的猎物",
-          背包: { 灵石: { 下品: 5000, 中品: 500, 上品: 50, 极品: 0 }, 物品: {} },
+          背包: {
+            灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 },
+            货币: {
+              神点: { 币种: '神点', 名称: '神点', 数量: 1200, 价值度: 1, 描述: '主神空间通用积分货币' },
+            },
+            货币设置: { 禁用币种: [], 基准币种: '神点' },
+            物品: {},
+          },
           实时关注: true, // 关键：让AI主动关注此NPC
           私密信息: {
             是否为处女: true,
