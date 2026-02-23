@@ -157,6 +157,19 @@
             </div>
           </div>
 
+          <div class="setting-item">
+            <div class="setting-info">
+              <label class="setting-name">{{ t('境界分层地图') }}</label>
+              <span class="setting-desc">{{ t('按角色境界分别记录世界地图，旧存档开启后将自动迁移') }}</span>
+            </div>
+            <div class="setting-control">
+              <label class="setting-switch">
+                <input type="checkbox" v-model="settings.realmLayeredMap" @change="onSettingChange" />
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+          </div>
+
           <div class="setting-item setting-item-full">
             <div class="setting-info">
               <label class="setting-name">{{ t('自定义行动选项提示词') }}</label>
@@ -380,6 +393,7 @@ const settings = reactive({
   // 游戏设置
   fastAnimations: false,
   splitResponseGeneration: false,  // 默认关闭分步生成
+  realmLayeredMap: false, // 境界分层地图开关
 
   // 🔞 成人内容（仅酒馆环境可用；非酒馆环境将被忽略/隐藏）
   enableNsfwMode: true,
@@ -470,6 +484,19 @@ const loadSettings = async () => {
       debug.log('设置面板', '使用默认设置');
     }
 
+    // 初始化时同步到 gameStateStore
+    let currentStoreSettings = gameStateStore.userSettings as Record<string, any>;
+    if (typeof currentStoreSettings !== 'object' || currentStoreSettings === null) {
+      currentStoreSettings = {};
+    }
+    // 注意这里如果不加触发，可能会导致 UI 不渲染，强刷保证赋值
+    if (currentStoreSettings['境界分层地图'] !== settings.realmLayeredMap) {
+      gameStateStore.userSettings = {
+        ...currentStoreSettings,
+        '境界分层地图': settings.realmLayeredMap,
+      };
+    }
+
   } catch (error) {
     debug.error('设置面板', '加载设置失败', error);
     toast.error('加载设置失败，将使用默认设置');
@@ -491,6 +518,16 @@ const saveSettings = async () => {
 
     // 保存到localStorage
     localStorage.setItem('dad_game_settings', JSON.stringify(settings));
+
+    // 同步到 gameStateStore
+    let currentStoreSettings = gameStateStore.userSettings as Record<string, any>;
+    if (typeof currentStoreSettings !== 'object' || currentStoreSettings === null) {
+      currentStoreSettings = {};
+    }
+    gameStateStore.userSettings = {
+      ...currentStoreSettings,
+      '境界分层地图': settings.realmLayeredMap,
+    };
 
     debug.log('设置面板', '设置已保存到localStorage', settings);
 
