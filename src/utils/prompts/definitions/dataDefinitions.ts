@@ -1,144 +1,214 @@
 /**
- * @fileoverview SaveData 数据结构定义（主神空间无限流）
- * 说明：保留旧导出函数签名，供 prompt 系统复用。
+ * @fileoverview SaveData数据结构定义（AI友好格式）
+ *
+ * 【设计原则】
+ * - 使用紧凑的类型标注格式，压缩后仍可读
+ * - 路径用 . 分隔，如 角色.属性.境界
+ * - 类型标注：T? 可选，T[] 数组，{K:V} 对象
+ * - 约束用 [范围] 标注，如 [1-100]
  */
 
-const META_STRUCTURE = `
-[元数据]
-版本号:num=3;存档ID:str;存档名:str;创建时间:str(ISO8601);更新时间:str(ISO8601);游戏时长秒:num;时间:{年,月,日,小时,分钟};当前阶段:"hub"|"mission"|"settlement"
-`.trim();
+const CHARACTER_STRUCTURE = `
+[角色数据]
+路径:角色.身份(只读)|角色.属性(可改)|角色.位置|角色.效果|角色.装备|角色.身体|角色.背包|角色.修炼|角色.功法|角色.技能
 
-const REINCARNATOR_STRUCTURE = `
-[轮回者]
-身份:{名字,性别,种族?,背景,出生日期?,标签[]}
-等级:{level:"D"|"C"|"B"|"A"|"S"|"SS"|"SSS",star:1-5,soulStrength:num}
-attributes:{STR,PER,INT,LUK,CHA,WIL}
-vitals:{HP:{current,max},EP:{current,max},MP:{current,max}}
-成长:{missionCount:num;survivalRate:num[0-1];promotionPoints:num;godPoints:num}
-晋升:{promotionTrialPending:bool;pendingPromotionTarget?:str|null;promotionTrialFailures:num;连续失败次数?:num;上限惩罚?:{启用:bool,惩罚倍率:num,说明?:str}}
-能力:{已解锁能力:str[];能力树?:{分支ID:{节点ID:{等级:num,已解锁:bool}}};携带配置?:{主槽:str[],副槽:str[]}}
-装备:{槽位:{slot1?:str|null,slot2?:str|null,slot3?:str|null,slot4?:str|null};护甲?:str|null;饰品?:str[]}
-背包:{货币?:{币种ID:{币种,名称,数量,价值度,描述?,图标?}};货币设置?:{禁用币种:[],基准币种?:str};物品:{物品ID:Item}}
-状态?:{永久buff?:[],负面状态?:[]}
-`.trim();
+[角色.身份](只读,系统自动计算年龄)
+名字:str;性别:"男"|"女"|"其他";年龄:num(自动);出生日期:{年,月,日,小时?,分钟?};世界:str;种族:str="人族";天资:str;出生:str|{名称,描述};灵根:str|{名称,品级,描述,属性[],修炼加成};天赋:[{名称,描述}];先天六司:{根骨,灵性,悟性,气运,魅力,心性}[1-10,加成占70%];后天六司:{根骨,灵性,悟性,气运,魅力,心性}[0-20,可改,单次+1~3,加成占30%]
+后天六司获取:装备增幅/天赋效果/丹药/机缘奇遇(最多+5)/大道感悟/境界突破;先天1点≈后天2.33点
 
-const HUB_STRUCTURE = `
-[主神空间]
-当前位置:{区域:str;子区域?:str}
-已解锁区域:str[]
-商店库存:[{id,name,category,price,stock,description}]
-可选副本:[Mission]
-常驻NPC:[{id,name,role,favor,备注?}]
-服务状态?:{治疗冷却?:num;重置次数?:num;上次结算时间?:str}
-`.trim();
+[角色.属性](可改)
+境界:{名称,阶段,当前进度,下一级所需,突破描述}(突破时必更新突破描述);声望:num;气血:{当前,上限};灵气:{当前,上限};神识:{当前,上限};寿命:{当前,上限}
 
-const TEAM_STRUCTURE = `
-[团队]
-成员:[{id,name,role?,trust[0-100],status:"active"|"injured"|"dead"|"missing"|"betrayed",能力标签?:str[],个人贡献?:num}]
-共享资源:[{id,name,quantity,description?}]
-teamLevel:num
-collaborationLogs?:[{id,missionId?,time,members[],action,result,trustDelta?:num,note?:str}]
-teamEvents?:[{id,missionId?,memberId?,type:"cooperate"|"betray"|"death"|"rescue"|"conflict",description,weight?:num,time}]
-`.trim();
+[角色.位置]
+描述:str(格式"大陆·世界地图地点·区域建筑",精确说明见下);x:num[0-10000];y:num[0-10000];灵气浓度:num[1-100]
+位置描述三层格式:
+  字段1=大陆名(对应world.大陆信息中的名称);字段2=世界地图上的独立地点(城市/宗门/山脉/坊市等,对应world.地点信息);字段3=字段2所在区域地图内的具体建筑(可选,入宗门后才填)
+  ⚠️宗门/坊市/城市等独立势力地点直接作为字段2,禁止挂在地形地标下(错误示例:苍冥·七玄山脉·青云门,正确:苍冥·青云门)
+  ⚠️字段3为区域地图内的建筑id或建筑名,不在世界地图上显示
+  示例(在宗门外):苍冥灵境·青云门;示例(在宗门内某建筑):苍冥灵境·青云门·藏经阁
+灵气浓度参考:1-20稀薄(凡间)/21-40普通/41-60充沛(宗门福地)/61-80浓郁(秘境)/81-100极盛(仙迹)
 
-const MISSION_HISTORY_STRUCTURE = `
-[副本记录]
-[{missionId,name?,difficulty,worldType,success,pointsGained,soulGrowth,rating,finishedAt,teamImpact?:{deathCount?:num,betrayCount?:num,cooperateBonus?:num},summary?:str}]
-`.trim();
+[角色.效果](buff/debuff数组)
+[{状态名称,类型:"buff"|"debuff",生成时间:{年,月,日,小时,分钟},持续时间分钟,状态描述,强度?,来源?}]
+生成时间必填,使用元数据.时间的完整对象
 
-const CURRENT_MISSION_STRUCTURE = `
-[当前副本]
-null | {
-  id,name,worldType,difficulty,description,status:"briefing"|"active"|"completed"|"failed",day:num,
-  worldRules:{powerSystem,techLevel,socialOrder,specialRules[]},
-  mainQuest:{id,title,description,objectives:[{id,description,completed:bool,progress?:num,target?:num,note?:str}],reward:{points,num?},isHidden?:bool,completed:bool},
-  sideQuests:[{id,title,description,objectives:[{id,description,completed:bool,progress?:num,target?:num}],reward,isHidden,completed}],
-  survivalCondition:str,
-  rewards:{basePoints,bonusPoints,items:[],abilities:[],evaluationBonus},
-  penalties:{death,failure},
-  participants:[{id,name,role,status}],
-  specialEvents:[{type,description,weight,timestamp}],
-  临时状态:{
-    位置?:{区域,子区域?,x?,y?,风险等级?},
-    临时能力?:str[],
-    临时物品?:{id:{...}},
-    临时货币?:Record<string,number>,
-    statusEffects?:[{名称,类型,来源,剩余回合,描述}],
-    objectiveLog?:[{objectiveId,progress,target,updatedAt,note?}],
-    副本关系?:{NPC名:{关系,好感?,立场?,状态?}}
-  },
-  地图?:{nodes?:[],edges?:[],fog?:[],legend?:[]}
-}
-`.trim();
+[角色.装备]
+装备1~6:str|null(装备ID或null)
 
-const SOCIAL_STRUCTURE = `
-[社交]
-关系:{NPC名:{名字,身份,立场,与玩家关系,好感度,记忆[],当前位置?,实时关注?,扩展?}}
-关系矩阵?:{version?:num,nodes?:str[],edges?:[{from,to,relation?,score?,tags?,updatedAt?}]}
-事件:{配置:{启用随机事件,最小间隔年,最大间隔年,事件提示词},下次事件时间,事件记录[]}
-记忆:{短期记忆?:[],中期记忆:[],长期记忆:[],隐式中期记忆?:[]}
-`.trim();
+[角色.身体](酒馆端法身,NSFW敏感字段需nsfwMode=true)
+基础体格:身高:num(cm),体重:num(kg),体脂率?:num(%),三围:{胸围:num,腰围:num,臀围:num}
+外观细节:肤色?:str,发色?:str,瞳色?:str,纹身与印记?:[str],穿刺?:[str]
+敏感字段(仅NSFW):胸部描述?:str,私处描述?:str,生殖器描述?:str,敏感点?:[str],开发度?:{部位名:num[0-100]}
+扩展:其它?:{任意键:任意值}
 
-const WORLD_STRUCTURE = `
-[世界]
-信息:{世界名称,大陆信息[],势力信息[],地点信息[],经济?,生成时间?,世界背景?,世界纪元?,特殊设定?,版本?}
-状态?:{全局事件?:[],动态规则?:[]}
-`.trim();
+`
 
-const SYSTEM_STRUCTURE = `
-[系统]
-配置?:{nsfwMode?:bool,nsfwGenderFilter?:"all"|"male"|"female",isTavernEnv?:bool}
-设置?:{timeBasedSaveEnabled?:bool,timeBasedSaveInterval?:num,conversationAutoSaveEnabled?:bool}
-缓存?:{掌握技能?:[]}
-历史?:{叙事?:[{type,content,time,actionOptions[],metadata?}]}
-联机:{模式:"单机"|"联机",房间ID?:str|null,玩家ID?:str|null,只读路径:str[],世界曝光?:bool,冲突策略?:str}
-`.trim();
+const DAO_STRUCTURE = `
+[大道数据](路径:角色.大道,可改)
+大道列表:{道名:DaoData}
 
-const ITEM_STRUCTURE = `
-[Item]
-物品ID:str;名称:str;类型:"装备"|"能力芯片"|"消耗品"|"材料"|"任务道具"|"其他";品质:{quality:str,grade:num};数量:num;描述:str
-可选字段:已装备?:bool;可带入副本?:bool;来源?:"hub"|"mission";效果?:str|obj;标签?:str[]
-`.trim();
+[DaoData结构]
+道名:str;描述:str;阶段列表:DaoStage[];是否解锁:bool;当前阶段:num(从0开始,对应阶段列表[0]);当前经验:num;总经验:num
+
+[DaoStage结构]
+名称:str(⚠️必须根据该大道特性生成独特名称,禁用"第N阶/第N重"等通用名);描述:str(该阶段的感悟描述);突破经验:num(递增)
+
+[⚠️大道生成质量要求]
+阶段列表:必填!4-8个阶段,每条大道的阶段名称必须独特且符合该道的意境
+示例-剑道:持剑/御剑/剑意/剑心/人剑合一/万剑归宗
+示例-火之道:星火/燎原/焚天/浴火/涅槃/太阳真火
+示例-因果道:因果初识/因果洞察/因果逆溯/因果掌控/因果超脱/因果归一
+突破经验:必须递增,如100/300/600/1000/1500/2100
+
+`
+
+const INVENTORY_STRUCTURE = `
+[背包数据](路径:角色.背包,可改)
+货币?:{币种ID:CurrencyAsset};货币设置?:{禁用币种:[],基准币种?:str};灵石:{下品,中品,上品,极品}(兼容旧存档);物品:{物品ID:Item}
+
+[CurrencyAsset]
+币种:str;名称:str;数量:num;价值度:num(基准=下品灵石=1);描述?:str;图标?:str(lucide名)
+地区波动记录于:世界.信息.经济.地区波动.<地点>.货币波动[0.6-1.6]
+
+[物品通用字段]
+物品ID:str(格式:{类型}_时间戳_随机数);名称:str;类型:"装备"|"功法"|"丹药"|"材料"|"其他";品质:{quality:"凡"|"黄"|"玄"|"地"|"天"|"仙"|"神",grade:0-10};数量:num=1;描述:str
+品级说明:0残缺,1-3下品,4-6中品,7-9上品,10极品
+
+[装备物品]
+物品ID:equip_时间戳_随机数;类型:"装备";装备增幅?:{后天六司?:{根骨?,灵性?,...},气血上限?,灵气上限?,神识上限?};特殊效果?:str;已装备:bool
+
+[功法物品]
+物品ID:gongfa_时间戳_随机数;类型:"功法";功法效果:str;功法技能:[{技能名称,技能描述,熟练度要求,消耗?}](至少1个,第1个熟练度要求=0);修炼进度:num[0-100];已解锁技能:[];已装备:bool;修炼中?:bool
+消耗格式:只允许灵气/神识/气血/寿元,用百分比如"灵气20%+神识10%",寿元用"寿元5年"
+修炼进度/已解锁技能为镜像字段(兼容旧存档),权威路径:角色.功法.功法进度.<功法ID>.熟练度/已解锁技能
+
+[丹药/材料/其他]
+物品ID:item_时间戳_随机数;类型:"丹药"|"材料"|"其他";使用效果?:str(丹药建议填写)
+
+[角色.修炼.修炼功法](当前修炼引用)
+物品ID:str;名称:str
+
+[角色.修炼.修炼状态](可选)
+模式:str(打坐/闭关/实战/自修/未修炼);开始时间?:str(ISO8601);消耗?:{资源名:num}
+
+[角色.技能.掌握技能](只读)
+[{技能名称,技能描述,来源,消耗,熟练度,使用次数}]
+
+`
+
+const TECHNIQUE_PROGRESS_STRUCTURE = `
+[角色.功法](可改)
+当前功法ID:str|null;功法进度:{功法ID:{熟练度:num[0-100],已解锁技能:[]}};功法套装:{主修:str|null,辅修:[]}
+功法进度为唯一权威数据源;背包功法物品的修炼进度/已解锁技能仅作镜像(可不填)
+
+`
+const RELATIONS_STRUCTURE = `
+[社交.关系](NPC档案字典,可改)
+格式:{NPC名:NPCData}
+
+[NPCData结构]
+名字:str;性别:"男"|"女"|"其他";种族:str="人族";出生:str(出身背景,如"散修"/"世家子弟"/"宗门弟子",⚠️非年龄!);出生日期:{年,月,日}(必填,用于计算年龄,⚠️禁止生成"年龄"字段);外貌描述:str(必须详细,至少50字);性格特征:[](至少3个);境界:{名称,阶段}(NPC简化结构,无需当前进度);灵根:{名称,品级};天赋:[{名称,描述}](至少1个);先天六司:{根骨,灵性,悟性,气运,魅力,心性}[1-10,⚠️每个属性必须独立生成,禁止全部相同];属性:{气血:{当前,上限},灵气:{当前,上限},神识:{当前,上限},寿元上限:num};与玩家关系:str(陌生人/朋友/师徒/道侣/仇敌);好感度:num[-100~100];人格底线:[];记忆:[];记忆总结:[];当前位置:{描述(格式同角色.位置描述三层规则,字段2=世界地图地点,字段3=区域内建筑可选,宗门等独立地点直接作字段2),x?,y?,灵气浓度?};势力归属:str;当前外貌状态:str;当前内心想法:str;背包:{货币:{币种ID:{数量,名称,单位}},物品:{}};实时关注:bool(true时每回合推演其动态)
+
+[⚠️NPC生成质量要求]
+出生:str,必填!出身背景描述(如"散修"/"世家子弟"/"山野猎户之子"),⚠️这不是年龄!禁止生成"年龄"字段!
+出生日期:{年,月,日},必填!用于系统自动计算年龄,年份必须合理(当前时间年份-NPC年龄)
+先天六司:根骨(体魄)/灵性(灵气亲和)/悟性(理解力)/气运(机缘)/魅力(外在吸引)/心性(意志),各1-10,严禁全同,至少3项不同
+外貌描述:str,至少50字,必含身材体态+面容五官+气质神韵+衣着打扮
+性格特征:[str],至少3个,需有表里层次
+天赋:[{名称,描述}],至少1个,根据身份设计
+记忆:[str],至少2条,与当前处境相关
+境界:{名称,阶段},名称=凡人/练气/筑基/金丹/元婴/化神,阶段=初期/中期/后期/圆满
+属性:气血/灵气/神识的当前和上限必须与境界匹配,禁用占位符数值
+
+[社交.关系矩阵](可选)
+edges:[{from,to,relation?,score?,tags?,updatedAt?}]
+
+[NSFW:PrivacyProfile](路径:社交.关系.{NPC名}.私密信息)
+私密信息字段:是否为处女:bool;性格倾向/性取向/当前性状态/性经验等级/亲密节奏/亲密需求/安全偏好/体液分泌状态/避孕措施:str;性渴望程度/性交总次数:num;最近一次性行为时间:str;亲密偏好/禁忌清单/性癖好/性伴侣名单/特殊体质:[];生育状态:{是否可孕:bool;当前状态:str;妊娠月数?:num;预计分娩时间?:str};身体部位:BodyPartDevelopment[]
+
+[NSFW:BodyPartDevelopment]
+私密信息身体部位字段:部位名称:str(胸部/小穴/菊穴/嘴唇/耳朵等);敏感度:num[0-100];开发度:num[0-100];特殊印记?:str;特征描述:str;反应描述?:str;偏好刺激?:str;禁忌?:str
+
+`
+
+const MEMORY_STRUCTURE = `
+[社交.记忆](只读)
+短期记忆?:[](不在精简存档,由系统注入);中期记忆:[];长期记忆:[]
+
+`
+
+const WORLD_INFO_STRUCTURE = `
+[世界数据](可改,联机模式只读)
+地图:{continents[],factions[],features[]};大陆信息:[{名称,描述,地理特征,...}](只读)
+
+[世界.信息.势力信息](可改)
+id?:str|num;名称:str;类型:"修仙宗门"|"魔道宗门"|"修仙世家"|...;等级:"超级"|"一流"|"二流"|"三流";位置:str|{x,y};描述:str;特色:[];与玩家关系:"敌对"|"中立"|"友好";声望值:num[-100~100];可否加入:bool;加入条件:[];加入好处:[];成员数量:{总数,按境界:{练气:num,...},按职位:{外门弟子:num,...}};领导层:{宗主,宗主修为,副宗主?,长老数量?,最强修为?,综合战力?[1-100]};势力范围详情:{控制区域:[],影响范围:str,战略价值[1-10]}
+
+[世界.信息.地点信息](可改)
+名称:str;类型:str;位置:str;coordinates:{x,y};描述:str;安全等级?:str;开放状态?:str
+
+`
+
+const GAME_STATE_STRUCTURE = `
+[元数据.时间]
+年:num;月:num[1-12];日:num[1-31];小时:num[0-23];分钟:num[0-59]
+
+[社交.宗门]
+版本:num;当前宗门:str;成员信息:{宗门名称,宗门类型,职位,贡献,关系,声望,加入日期,描述};宗门档案:{宗门名:WorldFaction};宗门成员:{宗门名:[]};宗门藏经阁:{宗门名:功法[]};宗门贡献商店:{宗门名:商品[]};宗门任务:{宗门名:SectTaskItem[]};宗门任务状态:{宗门名:{已初始化,最后更新时间,演变次数}};宗门经营?:{宗门名:SectManagementState};宗门战争?:SectWarSystem
+
+[SectTaskItem]
+任务ID:str;任务名称:str;任务描述:str;任务类型:str(采集/狩猎/护送/探索/炼制);难度:str(简单/普通/困难/极难);贡献奖励:num;额外奖励?:str;状态:str(可接取/进行中/已完成);期限?:str;发布人?:str;要求?:str
+
+[SectManagementState](宗主面板)
+宗门名称:str;战力?:num[0-100];安定?:num[0-100];外门训练度?:num[0-100];府库?:{灵石,灵材,丹药?,阵材?};设施?:{练功房?,藏经阁?,炼丹房?,护山大阵?}(等级0-10);最近结算?:str;月报?:[{时间,摘要,变化?}]
+
+[SectWarSystem]
+当前?:SectWarState|null;历史?:SectWarState[]
+
+[SectWarState]
+战争ID:str;状态:备战|进行中|停战|胜利|失败;发起方:str;守方:str;阶段列表:[侦察,交锋,破阵,攻山,善后];阶段索引:num;当前阶段:str;我方:{宗门名称,战力,外门,内门,核心,士气?};敌方:{宗门名称,战力,外门,内门,核心,士气?};累计伤亡?:{我方?,敌方?};战报?:[{时间,阶段,摘要,我方变化?,敌方变化?}];上一次?:obj
+
+`
+
+const EVENT_SYSTEM_STRUCTURE = `
+[社交.事件]
+配置:{启用随机事件,最小间隔年,最大间隔年,事件提示词};下次事件时间:GameTime|null;事件记录:[GameEvent]
+
+[GameEvent]
+事件ID:str(event_时间戳_随机数);事件名称:str;事件类型:str(宗门大战/世界变革/异宝降世/秘境现世/人物风波);事件描述:str;影响等级?:"轻微"|"中等"|"重大"|"灾难";影响范围?:str;相关人物?:[];相关势力?:[];事件来源:"随机"|"玩家影响"|"系统";发生时间:{年,月,日,小时,分钟}
+
+`
+
+const SYSTEM_CONFIG_STRUCTURE = `
+[系统.配置](只读)
+nsfwMode:bool;nsfwGenderFilter:"all"|"female"|"male"
+
+`
 
 export const SAVE_DATA_STRUCTURE = `
-[主神空间无限流 SaveData 结构]
-只允许以上顶层:
-元数据 / 轮回者 / 主神空间 / 团队 / 副本记录 / 当前副本 / 社交 / 世界 / 系统
+[精简版SaveData结构说明]
+格式约定:T?可选;T[]数组;{K:V}对象;[范围]约束;路径用.分隔
+精简存档包含:元数据(仅时间)|角色(完整)|社交(关系/宗门/事件/中长期记忆)|世界(完整)
+不包含:系统域(配置/缓存/历史)|短期记忆(单独注入)
 
-禁止写入:系统.扩展.无限流.*
+${CHARACTER_STRUCTURE}
+${DAO_STRUCTURE}
+${INVENTORY_STRUCTURE}
+${TECHNIQUE_PROGRESS_STRUCTURE}
+${RELATIONS_STRUCTURE}
+${MEMORY_STRUCTURE}
+${WORLD_INFO_STRUCTURE}
+${GAME_STATE_STRUCTURE}
+${EVENT_SYSTEM_STRUCTURE}
+${SYSTEM_CONFIG_STRUCTURE}
+`.trim()
 
-${META_STRUCTURE}
-${REINCARNATOR_STRUCTURE}
-${HUB_STRUCTURE}
-${TEAM_STRUCTURE}
-${MISSION_HISTORY_STRUCTURE}
-${CURRENT_MISSION_STRUCTURE}
-${SOCIAL_STRUCTURE}
-${WORLD_STRUCTURE}
-${SYSTEM_STRUCTURE}
-${ITEM_STRUCTURE}
-`.trim();
-
-export const DATA_STRUCTURE_EXAMPLES = `
-[示例:标记目标进度]
-{"action":"set","key":"当前副本.mainQuest.objectives[0].progress","value":2}
-{"action":"set","key":"当前副本.mainQuest.objectives[0].completed","value":true}
-
-[示例:队友背叛]
-{"action":"set","key":"团队.成员.tm_2.status","value":"betrayed"}
-{"action":"add","key":"团队.成员.tm_2.trust","value":-25}
-{"action":"push","key":"当前副本.specialEvents","value":{"type":"betrayal","description":"队友临阵倒戈","weight":1.25,"timestamp":"2026-01-01T00:00:00.000Z"}}
-
-[示例:结算归档]
-{"action":"push","key":"副本记录","value":{"missionId":"m_001","success":true,"pointsGained":320,"soulGrowth":68,"rating":87,"finishedAt":"2026-01-01T00:00:00.000Z"}}
-{"action":"set","key":"当前副本","value":null}
-{"action":"set","key":"元数据.当前阶段","value":"hub"}
-`.trim();
+export const DATA_STRUCTURE_EXAMPLES = ``
 
 export function stripNsfwContent(input: string): string {
   return input
     .split('\n')
-    .filter((line) => !/nsfw|私密信息|身体部位开发|法身|privacy/i.test(line))
+    .filter((line) => !/nsfw|私密信息|身体部位开发|法身|角色\.身体|privacy/i.test(line))
     .join('\n')
     .trim();
 }

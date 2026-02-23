@@ -8,10 +8,8 @@ import type { LocalStorageRoot, SaveData } from '@/types/game';
  * @author 千夜 (qianye60) | CC BY-NC-SA 4.0
  */
 
-// 为当前项目使用独立存储命名空间，避免与其他同源项目串档
-const STORAGE_NAMESPACE = 'wuxianliu';
-const DB_NAME: string = 'WUXIANLIU_SAVES_DB';
-const LEGACY_DB_NAME: string = 'DAD_SAVES_DB';
+// XianTu by qianye60 - https://github.com/qianye60
+const DB_NAME = 'DAD_SAVES_DB';
 const DB_VERSION = 1;
 const STORE_NAME = 'saves';
 const ROOT_KEY = 'root_data'; // 兼容旧数据，但未来会被逐步取代
@@ -23,59 +21,6 @@ const SAVEDATA_KEY_PREFIX = 'savedata_'; // savedata_{characterId}_{slotId}
 
 // IndexedDB 实例缓存
 let dbInstance: IDBDatabase | null = null;
-
-const LS_SAVE_KEY = `${STORAGE_NAMESPACE}:DAD_SAVES_V3`;
-const LEGACY_LS_SAVE_KEY = 'DAD_SAVES_V3';
-const LS_SAVE_BACKUP_KEY = `${STORAGE_NAMESPACE}:DAD_SAVES_V3_BACKUP`;
-
-type SaveRecord = { id: string; data: any; timestamp?: string };
-
-function openNamedDatabase(dbName: string, ensureStore: boolean): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(dbName, DB_VERSION);
-
-    request.onerror = () => {
-      reject(request.error);
-    };
-
-    request.onsuccess = () => {
-      resolve(request.result);
-    };
-
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      if (ensureStore && !db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-      }
-    };
-  });
-}
-
-function getStoreCount(db: IDBDatabase): Promise<number> {
-  if (!db.objectStoreNames.contains(STORE_NAME)) {
-    return Promise.resolve(0);
-  }
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction([STORE_NAME], 'readonly');
-    const store = tx.objectStore(STORE_NAME);
-    const req = store.count();
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-function getAllRecords(db: IDBDatabase): Promise<SaveRecord[]> {
-  if (!db.objectStoreNames.contains(STORE_NAME)) {
-    return Promise.resolve([]);
-  }
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction([STORE_NAME], 'readonly');
-    const store = tx.objectStore(STORE_NAME);
-    const req = store.getAll();
-    req.onsuccess = () => resolve((req.result || []) as SaveRecord[]);
-    req.onerror = () => reject(req.error);
-  });
-}
 
 /**
  * 打开/创建 IndexedDB 数据库
@@ -106,7 +51,7 @@ function openDatabase(): Promise<IDBDatabase> {
 
       // 创建对象存储（类似于表）
       if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+        const objectStore = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
         console.log('【乾坤宝库-IDB】对象存储已创建:', STORE_NAME);
       }
     };
@@ -262,36 +207,15 @@ export async function clearAllLocalData(): Promise<void> {
  */
 export async function migrateData(): Promise<boolean> {
   try {
-    // 0. 旧共享库 => 当前项目独立库（仅当新库为空时）
-    if (DB_NAME !== LEGACY_DB_NAME) {
-      const currentDb = await openDatabase();
-      const currentCount = await getStoreCount(currentDb);
-      if (currentCount === 0) {
-        const legacyDb = await openNamedDatabase(LEGACY_DB_NAME, false);
-        try {
-          const legacyRecords = await getAllRecords(legacyDb);
-          if (legacyRecords.length > 0) {
-            for (const record of legacyRecords) {
-              await saveData(record.id, record.data);
-            }
-            console.log(`【乾坤宝库-IDB】✅ 已从旧库导入 ${legacyRecords.length} 条记录到独立存档库`);
-            return true;
-          }
-        } finally {
-          legacyDb.close();
-        }
-      }
-    }
-
-    // 1. 从 localStorage 迁移（优先项目独立键，兼容旧共享键）
-    const oldLSData = localStorage.getItem(LS_SAVE_KEY) || localStorage.getItem(LEGACY_LS_SAVE_KEY);
+    // 1. 从 localStorage 迁移
+    const OLD_LS_KEY = 'DAD_SAVES_V3';
+    const oldLSData = localStorage.getItem(OLD_LS_KEY);
     if (oldLSData) {
       console.log('【乾坤宝库-IDB】检测到localStorage数据，开始迁移...');
       const parsedData = JSON.parse(oldLSData) as LocalStorageRoot;
       await saveRootData(parsedData);
-      localStorage.setItem(LS_SAVE_BACKUP_KEY, oldLSData);
-      localStorage.removeItem(LS_SAVE_KEY);
-      localStorage.removeItem(LEGACY_LS_SAVE_KEY);
+      localStorage.setItem('DAD_SAVES_V3_BACKUP', oldLSData);
+      localStorage.removeItem(OLD_LS_KEY);
       console.log('【乾坤宝库-IDB】✅ localStorage 数据迁移完成！');
       return true;
     }

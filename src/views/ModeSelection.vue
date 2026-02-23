@@ -15,15 +15,15 @@
 
       <!-- 标题区域 -->
       <div class="header-section">
-        <h1 class="main-title"><span class="header-title">主神</span> 空间</h1>
-        <p class="sub-title">{{ $t('副本轮回，生存至上') }}</p>
+        <h1 class="main-title"><span class="header-title">{{ $t('仙') }}</span> {{ $t('途') }}</h1>
+        <p class="sub-title">{{ $t('闲时坐看涛生灭，千秋不过酒一壶') }}</p>
       </div>
 
-      <!-- 模式选择 -->
+      <!-- 道途选择 -->
       <div class="paths-section">
         <div class="section-header">
           <span class="line"></span>
-          <span class="text">{{ $t('选择模式') }}</span>
+          <span class="text">{{ $t('择一道途') }}</span>
           <span class="line"></span>
         </div>
 
@@ -39,9 +39,9 @@
               <User :size="36" :stroke-width="1.5" />
             </div>
             <div class="gate-info">
-              <h2 class="gate-title">{{ $t('单机闯关') }}</h2>
-              <p class="gate-desc">{{ $t('本地体验 · 稳定优先') }}</p>
-              <p class="gate-detail">{{ $t('本地存档，独立推进副本与成长路线') }}</p>
+              <h2 class="gate-title">{{ $t('独自修行') }}</h2>
+              <p class="gate-desc">{{ $t('避世清修 · 心无旁骛') }}</p>
+              <p class="gate-detail">{{ $t('独居洞府，专心修炼，所有进度本地存储') }}</p>
               <div class="gate-tags">
                 <span class="tag-local">{{ $t('本地存储') }}</span>
                 <span class="tag-offline">{{ $t('离线可用') }}</span>
@@ -63,9 +63,9 @@
               <Users :size="36" :stroke-width="1.5" />
             </div>
             <div class="gate-info">
-              <h2 class="gate-title">{{ $t('联机协作') }}</h2>
-              <p class="gate-desc">{{ backendReady ? $t('多人配合 · 共闯副本') : $t('联机服务未就绪') }}</p>
-              <p class="gate-detail">{{ $t('云端存档，多端同步，与队友共同推进任务') }}</p>
+              <h2 class="gate-title">{{ $t('联机共修') }}</h2>
+              <p class="gate-desc">{{ backendReady ? $t('道友相伴 · 共证大道') : $t('仙门未启 · 暂不可入') }}</p>
+              <p class="gate-detail">{{ $t('云端存档，多端同步，与道友共闯仙途') }}</p>
               <div class="gate-tags">
                 <span class="tag-cloud">{{ $t('云端同步') }}</span>
                 <span class="tag-secure">{{ $t('数据安全') }}</span>
@@ -88,17 +88,17 @@
           <div v-if="selectedMode" class="action-group">
             <button class="btn-primary" @click="startNewGame">
               <Sparkles :size="18" />
-              <span>{{ $t('开启轮回') }}</span>
+              <span>{{ $t('初入仙途') }}</span>
             </button>
             <button class="btn-secondary" @click="enterCharacterSelection">
               <History :size="18" />
-              <span>{{ $t('角色档案') }}</span>
+              <span>{{ $t('续前世因缘') }}</span>
             </button>
           </div>
         </transition>
         <button v-if="!selectedMode" class="btn-ghost" @click="enterCharacterSelection">
           <History :size="18" />
-          <span>{{ $t('角色档案') }}</span>
+          <span>{{ $t('续前世因缘') }}</span>
         </button>
       </div>
     </div>
@@ -153,7 +153,7 @@ const selectPath = async (mode: 'single' | 'cloud') => {
   if (mode === 'cloud' && !backendReady.value) {
     uiStore.showRetryDialog({
       title: t('联机未启用'),
-      message: t('未配置后端服务器，无法使用联机协作与登录功能。请先选择"单机闯关"。'),
+      message: t('未配置后端服务器，无法使用联机共修与登录功能。请先选择"单机闯关"。'),
       confirmText: t('知道了'),
       cancelText: t('取消'),
       onConfirm: () => {},

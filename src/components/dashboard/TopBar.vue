@@ -1,7 +1,10 @@
 <template>
   <div class="top-bar">
     <div class="left-section">
-      <h1 class="game-title">主神空间</h1>
+      <h1 class="game-title" v-if="t('仙途') === '仙途'">
+        <span class="title-xian">仙</span><span class="title-tu">途</span>
+      </h1>
+      <h1 class="game-title" v-else>{{ t('仙途') }}</h1>
       <div class="character-quick-info" v-if="characterName">
         <span class="character-name">{{ characterName }}</span>
         <span class="character-realm">{{ characterRealm }}</span>
@@ -10,17 +13,16 @@
 
     <div class="center-section">
       <div class="location-time-info">
-        <span class="phase-badge">{{ gamePhaseLabel }}</span>
         <span class="location-text">{{ currentLocation }}</span>
-        <span class="spirit-density" v-if="riskIndex > 0" :class="riskIndexClass" :title="riskIndexTooltip">
+        <span class="spirit-density" v-if="spiritDensity > 0" :class="spiritDensityClass" :title="spiritDensityTooltip">
           <span class="spirit-icon-wrapper">
             <span class="spirit-icon">✧</span>
             <span class="spirit-glow"></span>
           </span>
-          <span class="spirit-label">风险</span>
-          <span class="spirit-value">{{ riskIndex }}</span>
+          <span class="spirit-label">{{ t('灵气') }}</span>
+          <span class="spirit-value">{{ spiritDensity }}</span>
           <span class="spirit-bar">
-            <span class="spirit-bar-fill" :style="{ width: riskIndex + '%' }"></span>
+            <span class="spirit-bar-fill" :style="{ width: spiritDensity + '%' }"></span>
           </span>
         </span>
         <span class="separator">|</span>
@@ -42,9 +44,11 @@ import { computed, ref, onMounted } from 'vue'
 import { Maximize, Minimize } from 'lucide-vue-next'
 import { useGameStateStore } from '@/stores/gameStateStore'
 import { formatRealmWithStage } from '@/utils/realmUtils'
+import { useI18n } from '@/i18n'
 import { getFullscreenElement, requestFullscreen, exitFullscreen, explainFullscreenError } from '@/utils/fullscreen'
 import type { GameTime } from '@/types/game'
-import { formatStarText } from '@/utils/reincarnatorProgress'
+
+const { t } = useI18n()
 
 /**
  * 从GameTime获取分钟数
@@ -68,66 +72,32 @@ const characterName = computed(() => {
 
 const characterRealm = computed(() => {
   try {
-    if (gameStateStore.reincarnator) {
-      const r = gameStateStore.reincarnator
-      const trialHint =
-        r.promotionTrialPending && r.pendingPromotionTarget
-          ? ` · 待晋升${r.pendingPromotionTarget}`
-          : ''
-      return `${r.level}级 ${formatStarText(r.star)}${trialHint}`
-    }
-    return formatRealmWithStage((gameStateStore.attributes as any)?.境界 || (gameStateStore.attributes as any)?.评级)
+    return formatRealmWithStage(gameStateStore.attributes?.境界)
   } catch (e) {
     console.error('[TopBar] Error getting characterRealm:', e)
-    return '未评级'
+    return t('凡人')
   }
-})
-
-const gamePhaseLabel = computed(() => {
-  const map: Record<string, string> = {
-    hub: '主神空间',
-    mission: '副本中',
-    settlement: '结算中',
-  };
-  return map[gameStateStore.gamePhase] ?? '主神空间';
 })
 
 const currentLocation = computed(() => {
   try {
-    return gameStateStore.location?.描述 || '主神空间·休息区'
+    return gameStateStore.location?.描述 || t('初始地')
   } catch (e) {
     console.error('[TopBar] Error getting currentLocation:', e)
-    return '主神空间·休息区'
+    return t('初始地')
   }
 })
 
-const riskIndex = computed(() => {
+const spiritDensity = computed(() => {
   try {
-    const location = gameStateStore.location as any
-    const raw = location?.风险指数 ?? location?.危险度 ?? location?.威胁等级 ?? location?.灵气浓度
-    if (typeof raw === 'number' && Number.isFinite(raw)) {
-      return Math.max(0, Math.min(100, Math.round(raw)))
-    }
-    if (typeof raw === 'string') {
-      const mapped: Record<string, number> = {
-        安全: 10,
-        低: 25,
-        中: 50,
-        高: 75,
-        极高: 95,
-      }
-      if (raw in mapped) return mapped[raw]
-      const parsed = Number(raw)
-      if (Number.isFinite(parsed)) return Math.max(0, Math.min(100, Math.round(parsed)))
-    }
-    return 0
+    return gameStateStore.location?.灵气浓度 || 0
   } catch (e) {
     return 0
   }
 })
 
-const riskIndexClass = computed(() => {
-  const density = riskIndex.value
+const spiritDensityClass = computed(() => {
+  const density = spiritDensity.value
   if (density >= 80) return 'density-very-high'
   if (density >= 60) return 'density-high'
   if (density >= 40) return 'density-medium'
@@ -135,13 +105,13 @@ const riskIndexClass = computed(() => {
   return 'density-very-low'
 })
 
-const riskIndexTooltip = computed(() => {
-  const density = riskIndex.value
-  if (density >= 80) return '环境高危 - 建议高配队伍'
-  if (density >= 60) return '环境偏高危 - 需谨慎推进'
-  if (density >= 40) return '环境中危 - 可控但有波动'
-  if (density >= 20) return '环境低危 - 常规行动区'
-  return '环境安全 - 低威胁区域'
+const spiritDensityTooltip = computed(() => {
+  const density = spiritDensity.value
+  if (density >= 80) return t('灵气充沛 - 极佳修炼环境')
+  if (density >= 60) return t('灵气浓郁 - 良好修炼环境')
+  if (density >= 40) return t('灵气适中 - 普通修炼环境')
+  if (density >= 20) return t('灵气稀薄 - 修炼困难')
+  return t('灵气枯竭 - 难以修炼')
 })
 
 const gameTime = computed(() => {
@@ -151,12 +121,12 @@ const gameTime = computed(() => {
       const minutes = getMinutes(time)
       const formattedMinutes = minutes.toString().padStart(2, '0')
       const formattedHours = time.小时.toString().padStart(2, '0')
-      return `第${time.年}轮 · ${time.月}/${time.日} ${formattedHours}:${formattedMinutes}`
+      return `${t('仙道')}${time.年}${t('年')}${time.月}${t('月')}${time.日}${t('日')} ${formattedHours}:${formattedMinutes}`
     }
-    return '第1轮 · 1/1 00:00'
+    return `${t('仙道')}${t('元年')}1${t('月')}1${t('日')} 00:00`
   } catch (e) {
     console.error('[TopBar] Error getting gameTime:', e)
-    return '第1轮 · 1/1 00:00'
+    return `${t('仙道')}${t('元年')}1${t('月')}1${t('日')} 00:00`
   }
 })
 
@@ -269,16 +239,6 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-.phase-badge {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--color-primary);
-  padding: 3px 8px;
-  border-radius: 999px;
-  border: 1px solid rgba(var(--color-primary-rgb), 0.35);
-  background: rgba(var(--color-primary-rgb), 0.12);
-}
-
 .location-text {
   font-size: 0.9rem;
   font-weight: 600;
@@ -369,7 +329,7 @@ onMounted(() => {
   box-shadow: 0 0 8px rgba(59, 130, 246, 0.6);
 }
 
-/* 风险指数等级样式 */
+/* 灵气浓度等级样式 */
 .spirit-density.density-very-high {
   background: linear-gradient(135deg, rgba(168, 85, 247, 0.12) 0%, rgba(192, 132, 252, 0.16) 100%);
   border-color: rgba(168, 85, 247, 0.35);

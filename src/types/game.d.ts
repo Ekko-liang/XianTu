@@ -9,8 +9,6 @@
 
 import type { QualityType, GradeType } from '@/data/itemQuality';
 import type { World, TalentTier, Origin, SpiritRoot, Talent } from './index';
-import type { HubState, Mission, MissionResult, TeamState, GamePhase } from './mission';
-import type { ReincarnatorProfile } from './reincarnator';
 export type { WorldMapConfig } from './worldMap';
 
 // --- AI 元数据通用接口 ---
@@ -627,17 +625,7 @@ export interface Realm {
   突破描述: string;    // 突破到下一阶段的描述
 }
 // 境界子阶段类型
-export type RealmStage =
-  | '初期'
-  | '中期'
-  | '后期'
-  | '圆满'
-  | '极境'
-  | '一星'
-  | '二星'
-  | '三星'
-  | '四星'
-  | '五星';
+export type RealmStage = '初期' | '中期' | '后期' | '圆满' | '极境';
 
 // 境界子阶段定义
 export interface RealmStageDefinition {
@@ -1102,119 +1090,7 @@ export interface GameMessage {
 
 // 保持人物关系为严格的字典，键为NPC名称/ID，值为NpcProfile
 
-export interface ReincarnatorState extends ReincarnatorProfile {
-  身份: CharacterBaseInfo;
-  属性: PlayerAttributes;
-  位置: PlayerLocation;
-  效果: StatusEffect[];
-  身体?: BodyStats;
-  背包: Inventory;
-  装备: Equipment;
-  /** @deprecated 旧命名，建议改用 能力 */
-  功法: {
-    当前功法ID: string | null;
-    功法进度: Record<string, { 熟练度: number; 已解锁技能: string[] }>;
-    功法套装: { 主修: string | null; 辅修: string[] };
-  };
-  /** @deprecated 旧命名，建议改用 能力状态 */
-  修炼: {
-    修炼功法: CultivationTechniqueReference | null;
-    修炼状态?: { 模式: string; 开始时间?: string; 消耗?: Record<string, unknown> };
-    [key: string]: any;
-  };
-  能力?: {
-    当前能力ID?: string | null;
-    能力进度?: Record<string, { 熟练度: number; 已解锁技能: string[] }>;
-    能力配置?: { 主槽: string | null; 副槽: string[] };
-  };
-  能力状态?: {
-    当前能力?: CultivationTechniqueReference | null;
-    状态?: { 模式: string; 开始时间?: string; 消耗?: Record<string, unknown> };
-    [key: string]: any;
-  };
-  大道: ThousandDaoSystem;
-  技能: {
-    掌握技能: MasteredSkill[];
-    装备栏: string[];
-    冷却: Record<string, unknown>;
-  };
-}
-
-/**
- * 顶层主结构（无限流）
- * 兼容说明：角色 字段保留为镜像，便于旧模块继续运行。
- */
 export interface SaveData {
-  元数据: {
-    版本号: 3;
-    存档ID: string;
-    存档名: string;
-    游戏版本?: string;
-    创建时间: string;
-    更新时间: string;
-    游戏时长秒: number;
-    时间: GameTime;
-    当前阶段: GamePhase;
-    [key: string]: any;
-  };
-  轮回者: ReincarnatorState;
-  主神空间: HubState;
-  团队: TeamState;
-  副本记录: MissionResult[];
-  当前副本: Mission | null;
-  社交: {
-    关系: Record<string, NpcProfile>;
-    关系矩阵?: {
-      version?: number;
-      nodes?: string[];
-      edges?: Array<{ from: string; to: string; relation?: string; score?: number; tags?: string[]; updatedAt?: string }>;
-    };
-    宗门?: (SectSystemV2 & { 成员信息?: SectMemberInfo }) | null;
-    事件: EventSystem;
-    记忆: Memory;
-    [key: string]: any;
-  };
-  世界: {
-    信息: WorldInfo;
-    状态?: any;
-    [key: string]: any;
-  };
-  系统: {
-    配置?: SystemConfig;
-    设置?: Record<string, unknown>;
-    缓存?: Record<string, unknown>;
-    行动队列?: ActionQueue;
-    历史?: { 叙事?: GameMessage[] };
-    联机: {
-      模式: '单机' | '联机';
-      房间ID?: string | null;
-      玩家ID?: string | null;
-      只读路径: string[];
-      世界曝光?: boolean;
-      冲突策略?: string;
-      [key: string]: any;
-    };
-    /** @deprecated 已废弃：不要再写入系统.扩展.无限流 */
-    扩展?: Record<string, unknown>;
-    [key: string]: any;
-  };
-  /** @deprecated 角色镜像字段，仅用于兼容旧模块 */
-  角色?: {
-    身份: CharacterBaseInfo;
-    属性: PlayerAttributes;
-    位置: PlayerLocation;
-    效果: StatusEffect[];
-    身体?: BodyStats;
-    背包: Inventory;
-    装备: Equipment;
-    功法: ReincarnatorState['功法'];
-    修炼: ReincarnatorState['修炼'];
-    能力?: ReincarnatorState['能力'];
-    能力状态?: ReincarnatorState['能力状态'];
-    大道: ReincarnatorState['大道'];
-    技能: ReincarnatorState['技能'];
-    [key: string]: any;
-  };
   [key: string]: any;
 }
 
@@ -1229,9 +1105,9 @@ export interface SaveSlot {
   游戏内时间?: string;
   游戏时长?: number; // 游戏时长（秒）
   角色名字?: string; // 角色名字
-  境界?: string; // 兼容字段：当前评级（如 D级三星）
+  境界?: string; // 当前境界
   位置?: string; // 当前位置
-  修为进度?: number; // 兼容字段：成长进度
+  修为进度?: number; // 修为进度
   世界地图?: WorldMap;
   存档数据?: SaveData | null;
   // 联机模式专属字段

@@ -1,9 +1,8 @@
 import type { CurrencyAsset, CurrencySettings, Inventory } from '@/types/game';
 
-export const DEFAULT_BASE_CURRENCY_ID = '神点';
+export const DEFAULT_BASE_CURRENCY_ID = '灵石_下品';
 
 export type DefaultCurrencyId =
-  | '神点'
   | '灵石_下品'
   | '灵石_中品'
   | '灵石_上品'
@@ -12,14 +11,11 @@ export type DefaultCurrencyId =
   | '银两'
   | '金锭';
 
-const AUTO_INITIALIZED_CURRENCIES: DefaultCurrencyId[] = ['神点'];
-
 export const DEFAULT_CURRENCIES: Record<DefaultCurrencyId, Omit<CurrencyAsset, '数量'>> = {
-  神点: { 币种: '神点', 名称: '神点', 价值度: 1, 描述: '主神空间通用积分货币', 图标: 'Coins' },
-  灵石_下品: { 币种: '灵石_下品', 名称: '下品灵石', 价值度: 0.001, 描述: '旧体系兼容货币（非主流）', 图标: 'Gem' },
-  灵石_中品: { 币种: '灵石_中品', 名称: '中品灵石', 价值度: 0.1, 描述: '旧体系兼容货币（非主流）', 图标: 'Gem' },
-  灵石_上品: { 币种: '灵石_上品', 名称: '上品灵石', 价值度: 10, 描述: '旧体系兼容货币（非主流）', 图标: 'Gem' },
-  灵石_极品: { 币种: '灵石_极品', 名称: '极品灵石', 价值度: 1000, 描述: '旧体系兼容货币（非主流）', 图标: 'Gem' },
+  灵石_下品: { 币种: '灵石_下品', 名称: '下品灵石', 价值度: 1, 描述: '修士通用货币（基准单位）', 图标: 'Gem' },
+  灵石_中品: { 币种: '灵石_中品', 名称: '中品灵石', 价值度: 100, 描述: '约等于 100 下品灵石', 图标: 'Gem' },
+  灵石_上品: { 币种: '灵石_上品', 名称: '上品灵石', 价值度: 10000, 描述: '约等于 100 中品灵石', 图标: 'Gem' },
+  灵石_极品: { 币种: '灵石_极品', 名称: '极品灵石', 价值度: 1000000, 描述: '约等于 100 上品灵石', 图标: 'Gem' },
   铜币: { 币种: '铜币', 名称: '铜币', 价值度: 0.00001, 描述: '凡俗常用小额货币', 图标: 'Coins' },
   银两: { 币种: '银两', 名称: '银两', 价值度: 0.001, 描述: '凡俗常用中额货币（约等于 100 铜币）', 图标: 'HandCoins' },
   金锭: { 币种: '金锭', 名称: '金锭', 价值度: 0.1, 描述: '凡俗常用大额货币（约等于 100 银两）', 图标: 'BadgeDollarSign' },
@@ -46,8 +42,7 @@ export function ensureCurrencySettings(backpack: any): CurrencySettings {
   }
   if (!Array.isArray(raw.禁用币种)) raw.禁用币种 = [];
   raw.禁用币种 = raw.禁用币种.filter((v: any) => typeof v === 'string' && v.trim());
-  // 无限流主结构下强制神点为基准币种
-  raw.基准币种 = DEFAULT_BASE_CURRENCY_ID;
+  if (typeof raw.基准币种 !== 'string' || !raw.基准币种.trim()) raw.基准币种 = DEFAULT_BASE_CURRENCY_ID;
   return raw as CurrencySettings;
 }
 
@@ -83,8 +78,6 @@ export function ensureDefaultCurrencies(backpack: any) {
   for (const [id, def] of Object.entries(DEFAULT_CURRENCIES)) {
     const existing = wallet[id];
     if (existing == null || typeof existing !== 'object') {
-      // 神点之外的默认币种不再主动注入，仅保留已有数据或兼容迁移数据
-      if (!AUTO_INITIALIZED_CURRENCIES.includes(id as DefaultCurrencyId)) continue;
       if (disabled.has(id)) continue;
       wallet[id] = { ...def, 数量: 0 };
     } else {
@@ -182,39 +175,4 @@ export function normalizeBackpackCurrencies(backpack: any) {
 export function normalizeInventoryCurrencies(inventory: Inventory | null | undefined) {
   if (!inventory || typeof inventory !== 'object') return;
   normalizeBackpackCurrencies(inventory as any);
-}
-
-export function ensureGodPointCurrency(backpack: any): number {
-  if (!backpack || typeof backpack !== 'object') return 0;
-  ensureCurrencySettings(backpack);
-  const wallet = ensureCurrencyWallet(backpack);
-  if (!wallet.神点 || typeof wallet.神点 !== 'object') {
-    wallet.神点 = { ...(DEFAULT_CURRENCIES.神点 as any), 数量: 0 };
-  } else {
-    const normalized = normalizeCurrencyAsset('神点', wallet.神点);
-    wallet.神点 = normalized ? { ...(DEFAULT_CURRENCIES.神点 as any), ...normalized } : { ...(DEFAULT_CURRENCIES.神点 as any), 数量: 0 };
-  }
-  return clampNumber(wallet.神点.数量, 0, 9e15, 0);
-}
-
-export function setGodPointCurrency(backpack: any, amount: number): number {
-  if (!backpack || typeof backpack !== 'object') return 0;
-  const safeAmount = clampNumber(amount, 0, 9e15, 0);
-  ensureCurrencySettings(backpack);
-  const wallet = ensureCurrencyWallet(backpack);
-  wallet.神点 = { ...(DEFAULT_CURRENCIES.神点 as any), ...(wallet.神点 || {}), 数量: safeAmount };
-  return safeAmount;
-}
-
-export function syncGodPointsBetweenProfileAndInventory(
-  backpack: any,
-  godPointsInProfile: number,
-  preferProfile = true,
-): number {
-  if (!backpack || typeof backpack !== 'object') return clampNumber(godPointsInProfile, 0, 9e15, 0);
-  const profileValue = clampNumber(godPointsInProfile, 0, 9e15, 0);
-  const walletValue = ensureGodPointCurrency(backpack);
-  const finalValue = preferProfile ? profileValue : walletValue;
-  setGodPointCurrency(backpack, finalValue);
-  return finalValue;
 }

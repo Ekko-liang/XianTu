@@ -330,7 +330,7 @@ const downloadConverted = () => {
   const link = document.createElement('a')
   link.href = URL.createObjectURL(blob)
   const dateStr = new Date().toISOString().split('T')[0]
-  link.download = `主神空间-旧存档转化-${dateStr}.json`
+  link.download = `仙途-旧存档转化-${dateStr}.json`
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)

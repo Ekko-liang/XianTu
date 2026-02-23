@@ -2,14 +2,14 @@
   <div v-if="visible" class="modal-overlay" @click.self="handleClose">
     <div class="deep-cultivation-modal">
       <div class="modal-header">
-        <h3>{{ $t('深度训练') }}</h3>
+        <h3>{{ $t('深度修炼') }}</h3>
         <button class="close-btn" @click="handleClose">
           <X :size="20" />
         </button>
       </div>
 
       <div class="modal-content">
-        <!-- 能力模块信息 -->
+        <!-- 功法信息 -->
         <div v-if="technique" class="technique-info-section">
           <div class="info-header">
             <div class="technique-icon" :class="getTechniqueQualityClass">📖</div>
@@ -21,10 +21,10 @@
             </div>
           </div>
 
-          <!-- 当前模块熟练度 -->
+          <!-- 当前修炼进度 -->
           <div class="progress-section">
             <div class="progress-label">
-              <span>{{ $t('当前模块熟练度') }}</span>
+              <span>{{ $t('当前修炼进度') }}</span>
               <span class="progress-percent">{{ currentProgress }}%</span>
             </div>
             <div class="progress-bar-bg">
@@ -32,13 +32,13 @@
             </div>
           </div>
 
-          <!-- 能力效果 -->
+          <!-- 功法效果 -->
           <div v-if="technique.功法效果" class="effects-section">
-            <h5>{{ $t('能力效果') }}</h5>
+            <h5>{{ $t('功法效果') }}</h5>
             <ul class="effects-list">
               <li v-if="technique.功法效果.修炼速度加成">
                 <span class="effect-icon">🚀</span>
-                {{ $t('熟练度增长: +{0}%').replace('{0}', ((technique.功法效果.修炼速度加成 - 1) * 100).toFixed(0)) }}
+                {{ $t('修炼速度: +{0}%').replace('{0}', ((technique.功法效果.修炼速度加成 - 1) * 100).toFixed(0)) }}
               </li>
               <li v-if="technique.功法效果.属性加成">
                 <span class="effect-icon">💪</span>
@@ -51,10 +51,10 @@
           </div>
         </div>
 
-        <!-- 训练天数选择 -->
+        <!-- 修炼天数选择 -->
         <div class="cultivation-days-section">
-          <label class="section-label">{{ $t('选择训练天数') }}</label>
-          <p class="section-hint">{{ $t('AI将根据训练天数生成详细的行动过程和结果') }}</p>
+          <label class="section-label">{{ $t('选择修炼天数') }}</label>
+          <p class="section-hint">{{ $t('AI将根据修炼天数生成详细的修炼过程和结果') }}</p>
 
           <div class="input-group">
             <input
@@ -91,7 +91,7 @@
           :disabled="!isValidDays"
           @click="handleConfirm"
         >
-          {{ $t('开始训练') }}
+          {{ $t('开始修炼') }}
         </button>
       </div>
     </div>

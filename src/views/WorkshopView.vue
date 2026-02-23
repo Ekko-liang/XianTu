@@ -648,7 +648,7 @@ const downloadAsFile = () => {
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
   const dateStr = new Date().toISOString().split('T')[0];
-  link.download = `主神空间-工坊-${downloadModal.value.item.type}-${dateStr}.json`;
+  link.download = `仙途-工坊-${downloadModal.value.item.type}-${dateStr}.json`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -839,7 +839,7 @@ const loadLocalSettings = () => {
     const settings = JSON.parse(raw);
     uploadPayload.value = {
       settings,
-      exportInfo: { timestamp: new Date().toISOString(), version: versionLabel.value, gameVersion: `主神空间 v${versionLabel.value}` },
+      exportInfo: { timestamp: new Date().toISOString(), version: versionLabel.value, gameVersion: `仙途 v${versionLabel.value}` },
     };
     payloadHint.value = '已从本地读取 dad_game_settings';
     if (!uploadTitle.value) uploadTitle.value = `设置-${versionLabel.value}`;
@@ -952,7 +952,7 @@ const submitUpload = async () => {
       description: uploadDesc.value.trim() || undefined,
       tags: parseTags(uploadTagsText.value),
       payload: normalized.bundle,
-      game_version: `主神空间 v${versionLabel.value}`,
+      game_version: `仙途 v${versionLabel.value}`,
       data_version: '1',
     });
     toast.success('上传成功');

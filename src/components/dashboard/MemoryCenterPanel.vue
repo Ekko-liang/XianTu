@@ -1176,8 +1176,8 @@ const deleteMemory = async (memory: Memory) => {
  */
 const exportMemoriesAsNovel = () => {
   try {
-    const characterName = gameStateStore.character?.名字 || t('轮回者');
-    const worldName = gameStateStore.worldInfo?.世界名称 || t('副本世界');
+    const characterName = gameStateStore.character?.名字 || t('修仙者');
+    const worldName = gameStateStore.worldInfo?.世界名称 || t('修仙世界');
     const narrativeHistory = gameStateStore.narrativeHistory || [];
 
     if (narrativeHistory.length === 0) {
@@ -1218,7 +1218,7 @@ const exportMemoriesAsNovel = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${characterName}_轮回历程_${Date.now()}.txt`;
+    link.download = `${characterName}_修仙历程_${Date.now()}.txt`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

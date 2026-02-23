@@ -23,36 +23,26 @@ type SpecialNpcEventAiResponse = {
   event_type?: string;
 };
 
-function inferSpecialNpcSceneTags(args: {
-  worldInfo?: WorldInfo | null;
-  locationDesc?: string;
-  worldName?: string;
-  missionWorldType?: string;
-  missionDescription?: string;
-}): string[] {
+function inferSpecialNpcSceneTags(args: { worldInfo?: WorldInfo | null; locationDesc?: string; worldName?: string }): string[] {
   const worldBackground = String(args.worldInfo?.世界背景 ?? '');
   const worldEra = String(args.worldInfo?.世界纪元 ?? '');
   const worldName = String(args.worldName ?? args.worldInfo?.世界名称 ?? '');
   const loc = String(args.locationDesc ?? '');
-  const missionWorldType = String(args.missionWorldType ?? '');
-  const missionDescription = String(args.missionDescription ?? '');
-  const text = `${worldBackground}\n${worldEra}\n${worldName}\n${loc}\n${missionWorldType}\n${missionDescription}`;
+  const text = `${worldBackground}\n${worldEra}\n${worldName}\n${loc}`;
 
   const tags = new Set<string>();
 
   const has = (...keys: string[]) => keys.some((k) => text.includes(k));
-  if (has('主神', '空间', '枢纽', '中转', 'Hub')) tags.add('hub');
-  if (has('站', '月台', '车站', '传送门', '交通节点')) tags.add('station');
   if (has('地球', '现代', '都市', '学校', '大学', '高中')) {
     tags.add('earth');
     tags.add('modern');
   }
   if (has('学校', '大学', '高中', '校园')) tags.add('campus');
-  if (has('城', '市', '街区', '商业区', '商会')) tags.add('city');
-  if (has('末日', '废土', '核冬天', '辐射', '补给站', '感染区', '沦陷')) tags.add('wasteland');
-  if (has('恐怖', '诡异', '污染', '怪谈', '失踪', '封闭公寓')) tags.add('horror');
-  if (has('科幻', '星际', '舰', 'AI', '实验体', '赛博', '机械')) tags.add('sci_fi');
-  if (has('奇幻', '魔法', '龙', '精灵', '神殿')) tags.add('fantasy');
+  if (has('城', '坊市', '市', '街', '商会')) tags.add('city');
+
+  if (has('修仙', '灵气', '宗门', '秘境', '洞府', '坊市', '仙', '道')) tags.add('xianxia');
+  if (has('宗门', '山门', '内门', '外门', '长老')) tags.add('sect');
+  if (has('江湖', '游侠', '散修', '客栈')) tags.add('jianghu');
 
   return Array.from(tags);
 }
@@ -70,14 +60,8 @@ function pickCandidates(args: { saveData: SaveData; now: GameTime }): typeof SPE
   }
 
   const worldInfo = (saveData?.世界?.信息 ?? null) as WorldInfo | null;
-  const mission = saveData?.当前副本 as any;
-  const locationDesc = String(saveData?.轮回者?.位置?.描述 ?? saveData?.角色?.位置?.描述 ?? '');
-  const tags = inferSpecialNpcSceneTags({
-    worldInfo,
-    locationDesc,
-    missionWorldType: mission?.worldType,
-    missionDescription: mission?.description,
-  });
+  const locationDesc = String(saveData?.角色?.位置?.描述 ?? '');
+  const tags = inferSpecialNpcSceneTags({ worldInfo, locationDesc });
 
   const available = SPECIAL_NPCS.filter((d) => !usedIds.has(d.id) && !usedNames.has(d.displayName));
   if (available.length === 0) return [];
@@ -107,18 +91,13 @@ export async function generateSpecialNpcEvent(args: {
     }
 
     const playerName =
-      anySave?.轮回者?.身份?.名字 ||
       anySave?.角色?.身份?.名字 ||
       anySave?.角色?.名字 ||
-      '无名轮回者';
+      '无名修士';
 
-    const realmName = anySave?.轮回者?.level ? `${String(anySave.轮回者.level)}级` : (anySave?.角色?.属性?.境界?.名称 || 'D级');
-    const realmStage = anySave?.轮回者?.star ? `${Number(anySave.轮回者.star)}星` : (anySave?.角色?.属性?.境界?.阶段 || '');
-    const locationDesc = String(
-      anySave?.角色?.位置?.描述
-      || (anySave?.当前副本?.name ? `副本·${anySave.当前副本.name}` : '')
-      || '未知'
-    );
+    const realmName = anySave?.角色?.属性?.境界?.名称 || '凡人';
+    const realmStage = anySave?.角色?.属性?.境界?.阶段 || '';
+    const locationDesc = String(anySave?.角色?.位置?.描述 || '未知');
     const worldInfo = (anySave?.世界?.信息 ?? null) as WorldInfo | null;
 
     const candidateText = candidates
@@ -216,19 +195,13 @@ export async function generateWorldEvent(args: {
     const { saveData, now, customPrompt } = args;
 
     const playerName =
-      (saveData as any)?.轮回者?.身份?.名字 ||
       (saveData as any)?.角色?.身份?.名字 ||
       (saveData as any)?.角色?.名字 ||
-      '无名轮回者';
+      '无名修士';
 
-    const realmName = (saveData as any)?.轮回者?.level
-      ? `${String((saveData as any)?.轮回者?.level)}级`
-      : ((saveData as any)?.角色?.属性?.境界?.名称 || 'D级');
-    const realmStage = (saveData as any)?.轮回者?.star
-      ? `${Number((saveData as any)?.轮回者?.star)}星`
-      : ((saveData as any)?.角色?.属性?.境界?.阶段 || '');
-    const locationDesc = (saveData as any)?.角色?.位置?.描述
-      || ((saveData as any)?.当前副本?.name ? `副本·${(saveData as any).当前副本.name}` : '未知');
+    const realmName = (saveData as any)?.角色?.属性?.境界?.名称 || '凡人';
+    const realmStage = (saveData as any)?.角色?.属性?.境界?.阶段 || '';
+    const locationDesc = (saveData as any)?.角色?.位置?.描述 || '未知';
     const reputation = Number((saveData as any)?.角色?.属性?.声望 ?? 0);
 
     const relations = (saveData as any)?.社交?.关系 || {};

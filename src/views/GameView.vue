@@ -119,12 +119,12 @@
           <div class="loading-spinner"></div>
           <div class="spinner-glow"></div>
         </div>
-        <h2 class="loading-title">主神空间连接中</h2>
-        <p class="loading-message">正在加载主神空间...</p>
+        <h2 class="loading-title">{{ $t('道法自然，天地初开') }}</h2>
+        <p class="loading-message">{{ $t('正在加载修仙世界...') }}</p>
         <div class="loading-steps">
           <div class="loading-step">
             <span class="step-icon">✓</span>
-            <span class="step-text">连接主神核心</span>
+            <span class="step-text">{{ $t('连接天道') }}</span>
           </div>
           <div class="loading-step">
             <span class="step-icon">✓</span>
@@ -147,7 +147,7 @@ import { useCharacterStore } from '@/stores/characterStore';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useRouter, useRoute } from 'vue-router';
-import { X, Package, User, Brain, Users, BookOpen, Zap, Settings, Save, Map, Scroll, Bell, Home, Box, Users2, Database, RefreshCw, FlaskConical, Trash2, BarChart3, Coins, FileText, Plug, Globe, Hammer, Building2, Swords, ClipboardList, Shield, History as HistoryIcon, Network } from 'lucide-vue-next';
+import { X, Package, User, Brain, Users, BookOpen, Zap, Settings, Save, Map, Scroll, Bell, Home, Box, Users2, Database, RefreshCw, FlaskConical, Trash2, BarChart3, Coins, FileText, Plug, Globe, Hammer, Building2, Swords, ClipboardList, Shield } from 'lucide-vue-next';
 import { panelBus, type PanelAction } from '@/utils/panelBus';
 import { detectSectMigration } from '@/utils/sectMigration';
 import TopBar from '@/components/dashboard/TopBar.vue'
@@ -207,7 +207,7 @@ const maybePromptSectMigration = () => {
 
   lastMigrationPromptKey.value = saveKey;
   uiStore.showDetailModal({
-    title: '阵营存档迁移',
+    title: '宗门存档迁移',
     component: SectMigrationModal,
     props: {
       reasons: check.reasons,
@@ -222,9 +222,7 @@ const panelRoutes = new Set([
   'Inventory', 'CharacterDetails', 'Memory', 'Relationships',
   'Cultivation', 'Techniques', 'ThousandDao', 'Settings', 'Save', 'WorldMap',
   'Events', 'Crafting', 'Sect', 'SectOverview', 'SectMembers', 'SectManagement', 'SectLibrary', 'SectTasks', 'SectContribution', 'SectWar', 'GameVariables',
-  'Prompts', 'APIManagement', 'Travel', 'BackendAdminPanel',
-  'MissionSelect', 'MissionBriefing', 'MissionSettlement', 'HubMap',
-  'Exchange', 'TeamPanel', 'AbilityTree', 'MissionHistory'
+  'Prompts', 'APIManagement', 'Travel', 'BackendAdminPanel'
 ]);
 
 // 不需要角色数据就能访问的面板（设置类）
@@ -245,35 +243,27 @@ const panelTitles: Record<string, { title: string; icon: IconComponent }> = {
   CharacterDetails: { title: '人物详情', icon: User },
   Memory: { title: '记忆中心', icon: Brain },
   Relationships: { title: '人物关系', icon: Users },
-  Cultivation: { title: '能力系统', icon: BookOpen },
-  Techniques: { title: '能力管理', icon: Zap },
-  ThousandDao: { title: '能力树总览', icon: Scroll },
+  Cultivation: { title: '修炼系统', icon: BookOpen },
+  Techniques: { title: '修炼功法', icon: Zap },
+  ThousandDao: { title: '三千大道', icon: Scroll },
   Settings: { title: '系统设置', icon: Settings },
   Save: { title: '保存游戏', icon: Save },
   WorldMap: { title: '世界地图', icon: Map },
   Events: { title: '世界事件', icon: Bell },
   Crafting: { title: '炼制工坊', icon: Hammer },
-  Sect: { title: '阵营势力', icon: Home },
-  SectOverview: { title: '阵营概览', icon: Home },
-  SectMembers: { title: '阵营成员', icon: Users },
-  SectManagement: { title: '阵营经营', icon: Building2 },
-  SectLibrary: { title: '阵营档案库', icon: BookOpen },
-  SectTasks: { title: '阵营任务', icon: ClipboardList },
+  Sect: { title: '宗门势力', icon: Home },
+  SectOverview: { title: '宗门概览', icon: Home },
+  SectMembers: { title: '宗门成员', icon: Users },
+  SectManagement: { title: '宗门经营', icon: Building2 },
+  SectLibrary: { title: '宗门藏经', icon: BookOpen },
+  SectTasks: { title: '宗门任务', icon: ClipboardList },
   SectContribution: { title: '贡献兑换', icon: Coins },
-  SectWar: { title: '阵营冲突', icon: Swords },
+  SectWar: { title: '宗门大战', icon: Swords },
   GameVariables: { title: '游戏变量', icon: Database },
   Prompts: { title: '提示词管理', icon: FileText },
   APIManagement: { title: 'API管理', icon: Plug },
   Travel: { title: '联机穿越', icon: Globe },
-  MissionSelect: { title: '副本选择', icon: ClipboardList },
-  MissionBriefing: { title: '副本简报', icon: FileText },
-  MissionSettlement: { title: '副本结算', icon: BarChart3 },
-  HubMap: { title: '主神空间地图', icon: Map },
-  Exchange: { title: '兑换大厅', icon: Coins },
-  TeamPanel: { title: '队伍管理', icon: Users },
-  AbilityTree: { title: '能力树', icon: Network },
-  MissionHistory: { title: '副本记录', icon: HistoryIcon },
-  BackendAdminPanel: { title: '管理后台', icon: Shield }
+  BackendAdminPanel: { title: '仙官后台', icon: Shield }
 };
 
 const isPanelOpen = computed(() => {

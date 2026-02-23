@@ -1,9 +1,9 @@
 <template>
   <div class="attribute-allocation-container">
     <div class="header">
-      <h2>{{ $t('基础属性分配') }}</h2>
+      <h2>{{ $t('先天六命分配') }}</h2>
       <div class="points-display">
-        {{ $t('剩余属性点:') }}
+        {{ $t('剩余天道点:') }}
         <span :class="{ negative: store.remainingTalentPoints < 0 }">{{
           store.remainingTalentPoints
         }}</span>
@@ -11,18 +11,18 @@
     </div>
 
     <div class="attributes-list">
-      <div v-for="item in attributeItems" :key="item.key" class="attribute-item">
+      <div v-for="(value, key) in store.attributes" :key="key" class="attribute-item">
         <div class="attribute-info">
-          <span class="attribute-name">{{ item.name }}</span>
-          <p class="attribute-desc">{{ item.description }}</p>
+          <span class="attribute-name">{{ attributeNames[key as AttributeKey] }}</span>
+          <p class="attribute-desc">{{ attributeDescriptions[key as AttributeKey] }}</p>
         </div>
         <div class="attribute-controls">
-          <button @click="decrement(item.key)" :disabled="item.value <= minValue">-</button>
-          <span class="attribute-value">{{ item.value }}</span>
+          <button @click="decrement(key as AttributeKey)" :disabled="value <= minValue">-</button>
+          <span class="attribute-value">{{ value }}</span>
           <button
-            @click="increment(item.key)"
-            :disabled="store.remainingTalentPoints <= 0 || item.value >= maxValue"
-            :class="{ disabled: store.remainingTalentPoints <= 0 || item.value >= maxValue }"
+            @click="increment(key as AttributeKey)"
+            :disabled="store.remainingTalentPoints <= 0 || value >= maxValue"
+            :class="{ disabled: store.remainingTalentPoints <= 0 || value >= maxValue }"
           >
             +
           </button>
@@ -39,67 +39,50 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { onMounted } from 'vue'
 import { useCharacterCreationStore } from '../../stores/characterCreationStore'
-import type { InfiniteAttributeKey } from '../../stores/characterCreationStore'
 
 const store = useCharacterCreationStore()
 
 const minValue = 0 // 属性基础值
 const maxValue = 10 // 属性最大值
 
-const attributeNames: Record<InfiniteAttributeKey, string> = {
-  strength: '力量 (STR)',
-  perception: '感知 (PER)',
-  intelligence: '智力 (INT)',
-  luck: '幸运 (LUK)',
-  charisma: '魅力 (CHA)',
-  willpower: '意志 (WIL)',
+const attributeNames = {
+  root_bone: '根骨',
+  spirituality: '灵性',
+  comprehension: '悟性',
+  fortune: '气运',
+  charm: '魅力',
+  temperament: '心性',
 }
 
-const attributeDescriptions: Record<InfiniteAttributeKey, string> = {
-  strength: '决定物理攻击与负重能力，影响近战压制力。',
-  perception: '决定观察与预警能力，影响陷阱识别与先手。',
-  intelligence: '决定策略与学习效率，影响复杂技能掌握。',
-  luck: '决定随机事件倾向与掉落质量。',
-  charisma: '决定社交表现，影响交涉、威慑与好感。',
-  willpower: '决定精神抗性，影响恐惧、污染与洗脑抵抗。',
+const attributeDescriptions = {
+  root_bone: '决定气血上限、恢复速度、寿命上限。影响炼体修行、抗打击能力。',
+  spirituality: '决定灵气上限、吸收效率。影响修炼速度、法术威力。',
+  comprehension: '决定神识上限、学习效率。影响功法领悟、技能掌握速度。',
+  fortune: '决定各种概率、物品掉落品质。影响天材地宝获取、贵人相助。',
+  charm: '决定初始好感度、社交加成。影响NPC互动、门派声望获取。',
+  temperament: '决定心魔抗性、意志力。影响走火入魔抵抗、关键抉择。',
 }
 
-const attributeOrder: InfiniteAttributeKey[] = [
-  'strength',
-  'perception',
-  'intelligence',
-  'luck',
-  'charisma',
-  'willpower',
-]
+type AttributeKey = keyof typeof attributeNames
 
-const attributeItems = computed(() => {
-  return attributeOrder.map((key) => ({
-    key,
-    name: attributeNames[key],
-    description: attributeDescriptions[key],
-    value: store.infiniteAttributes[key],
-  }))
-})
-
-function increment(key: InfiniteAttributeKey) {
-  if (store.remainingTalentPoints > 0 && store.infiniteAttributes[key] < maxValue) {
-    store.setInfiniteAttribute(key, store.infiniteAttributes[key] + 1)
+function increment(key: AttributeKey) {
+  if (store.remainingTalentPoints > 0 && store.attributes[key] < maxValue) {
+    store.setAttribute(key, store.attributes[key] + 1)
   }
 }
 
-function decrement(key: InfiniteAttributeKey) {
-  if (store.infiniteAttributes[key] > minValue) {
-    store.setInfiniteAttribute(key, store.infiniteAttributes[key] - 1)
+function decrement(key: AttributeKey) {
+  if (store.attributes[key] > minValue) {
+    store.setAttribute(key, store.attributes[key] - 1)
   }
 }
 
 function resetPoints() {
   // 重置所有属性为最小值 0
-  attributeOrder.forEach((key) => {
-    store.setInfiniteAttribute(key, 0)
+  Object.keys(store.attributes).forEach((key) => {
+    store.setAttribute(key as AttributeKey, 0)
   })
 }
 
@@ -109,20 +92,20 @@ function randomizePoints() {
 
   // 获取可用于分配的点数 (初始天道点)
   let pointsToAllocate = store.remainingTalentPoints
-  const attributeKeys = [...attributeOrder]
+  const attributeKeys = Object.keys(store.attributes) as AttributeKey[]
 
   // 随机分配点数
   while (pointsToAllocate > 0) {
     const randomKey = attributeKeys[Math.floor(Math.random() * attributeKeys.length)]
-    const currentValue = store.infiniteAttributes[randomKey]
+    const currentValue = store.attributes[randomKey]
     
     if (currentValue < maxValue) {
-      store.setInfiniteAttribute(randomKey, currentValue + 1)
+      store.setAttribute(randomKey, currentValue + 1)
       pointsToAllocate--
     }
 
     // 防止死循环：如果所有属性都达到最大值则停止
-    const allMaxed = attributeKeys.every((key) => store.infiniteAttributes[key] >= maxValue)
+    const allMaxed = attributeKeys.every((key) => store.attributes[key] >= maxValue)
     if (allMaxed) {
       break
     }
@@ -138,12 +121,12 @@ function balancePoints() {
   if (availablePoints <= 0) return
 
   // 计算每个属性应分配的基础点数
-  const attributeCount = attributeOrder.length
+  const attributeCount = Object.keys(store.attributes).length
   const pointsPerAttribute = Math.floor(availablePoints / attributeCount)
   let extraPoints = availablePoints % attributeCount
 
   // 均衡分配点数
-  const attributeKeys = [...attributeOrder]
+  const attributeKeys = Object.keys(store.attributes) as AttributeKey[]
   attributeKeys.forEach((key) => {
     // 基础分配
     let pointsToAdd = pointsPerAttribute
@@ -154,7 +137,7 @@ function balancePoints() {
     }
     // 确保不超过最大值
     const finalValue = Math.min(minValue + pointsToAdd, maxValue)
-    store.setInfiniteAttribute(key, finalValue)
+    store.setAttribute(key, finalValue)
   })
 }
 

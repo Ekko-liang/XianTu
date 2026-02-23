@@ -53,11 +53,11 @@
       <div v-if="isFullscreen" class="fullscreen-header">
         <button @click="handleClose" class="fullscreen-back-btn">
           <ArrowLeft :size="20" />
-          <span>{{ $t('返回主神空间') }}</span>
+          <span>{{ $t('返回道途') }}</span>
         </button>
         <div class="fullscreen-title">
-          <h1>{{ $t('轮回者档案') }}</h1>
-          <p>{{ $t('选择角色，继续副本征程') }}</p>
+          <h1>{{ $t('续前世因缘') }}</h1>
+          <p>{{ $t('择一法身，入道重修') }}</p>
         </div>
       </div>
 
@@ -93,10 +93,10 @@
       <!-- 无角色提示 -->
       <div v-if="Object.keys(characterStore.rootState.角色列表).length === 0" class="empty-state">
         <div class="empty-icon"><Star :size="32" /></div>
-        <h2>{{ $t('档案未创建') }}</h2>
-        <p>{{ $t('尚未创建任何轮回者，请返回创角流程开始冒险') }}</p>
+        <h2>{{ $t('道途未启') }}</h2>
+        <p>{{ $t('尚未创建任何法身，请返回道途开启修仙之旅') }}</p>
         <div class="empty-actions">
-          <button @click="goBack" class="btn-create">{{ $t('开始创角') }}</button>
+          <button @click="goBack" class="btn-create">{{ $t('踏入仙途') }}</button>
           <button @click="importCharacter" class="btn-import">{{ $t('导入角色') }}</button>
         </div>
       </div>
@@ -363,7 +363,7 @@
                 <div class="login-icon">🔐</div>
                 <h3>{{ $t('需要登录') }}</h3>
                 <p>{{ $t('请先登录以管理联机角色存档') }}</p>
-                <button @click="handleLogin" class="btn-login">{{ $t('登录账号') }}</button>
+                <button @click="handleLogin" class="btn-login">{{ $t('登入道籍') }}</button>
               </div>
 
               <!-- 加载中状态 -->
@@ -391,7 +391,7 @@
                   <div class="save-stats">
                     <div class="stat-grid">
                       <div class="stat">
-                        <span class="label">HP</span>
+                        <span class="label">气血</span>
                         <span class="value"
                           >{{ normalizeSaveDataV3(selectedCharacter.存档列表['云端修行'].存档数据)?.角色?.属性?.气血?.当前 ?? 0 }}/{{
                             normalizeSaveDataV3(selectedCharacter.存档列表['云端修行'].存档数据)?.角色?.属性?.气血?.上限 ?? 0
@@ -399,7 +399,7 @@
                         >
                       </div>
                       <div class="stat">
-                        <span class="label">EP</span>
+                        <span class="label">灵气</span>
                         <span class="value"
                           >{{ normalizeSaveDataV3(selectedCharacter.存档列表['云端修行'].存档数据)?.角色?.属性?.灵气?.当前 ?? 0 }}/{{
                             normalizeSaveDataV3(selectedCharacter.存档列表['云端修行'].存档数据)?.角色?.属性?.灵气?.上限 ?? 0
@@ -407,7 +407,7 @@
                         >
                       </div>
                       <div class="stat">
-                        <span class="label">MP</span>
+                        <span class="label">神识</span>
                         <span class="value"
                           >{{ normalizeSaveDataV3(selectedCharacter.存档列表['云端修行'].存档数据)?.角色?.属性?.神识?.当前 ?? 0 }}/{{
                             normalizeSaveDataV3(selectedCharacter.存档列表['云端修行'].存档数据)?.角色?.属性?.神识?.上限 ?? 0
@@ -456,8 +456,8 @@
               <div v-else class="online-save-card">
                 <div class="save-empty">
                   <div class="empty-slot-icon">☁️</div>
-                  <span class="empty-text">{{ $t('尚未开始联机冒险') }}</span>
-                  <p class="empty-hint">{{ $t('开始您的联机副本之旅，存档将自动同步到云端') }}</p>
+                  <span class="empty-text">{{ $t('尚未开始修行') }}</span>
+                  <p class="empty-hint">{{ $t('开始您的联机修仙之旅，存档将自动同步到云端') }}</p>
                   <button @click="handleSelect(selectedCharId!, '云端修行', false)" class="btn-start">
                     {{ $t('开始游戏') }}
                   </button>
@@ -491,7 +491,7 @@
               <h4>{{ $t('基础信息') }}</h4>
               <div class="detail-items">
                 <div class="detail-item">
-                  <span class="label">{{ $t('代号') }}</span>
+                  <span class="label">{{ $t('道号') }}</span>
                   <span class="value">{{ detailsCharacter.角色.名字 }}</span>
                 </div>
                 <div class="detail-item">
@@ -507,7 +507,7 @@
                   <span class="value">{{ getFieldName(detailsCharacter.角色.出生) }}</span>
                 </div>
                 <div class="detail-item">
-                  <span class="label">{{ $t('潜能') }}</span>
+                  <span class="label">{{ $t('灵根') }}</span>
                   <span class="value">{{ getFieldName(detailsCharacter.角色.灵根) }}</span>
                 </div>
                 <div class="detail-item">
@@ -518,7 +518,7 @@
             </div>
 
             <div class="detail-section">
-              <h4>{{ $t('基础六维（兼容映射）') }}</h4>
+              <h4>{{ $t('先天六司') }}</h4>
               <div class="attributes-display">
                 <HexagonChart
                   v-if="detailsCharacter.角色.先天六司"
@@ -530,7 +530,7 @@
             </div>
 
             <div class="detail-section">
-              <h4>{{ $t('天赋与专长') }}</h4>
+              <h4>{{ $t('天赋神通') }}</h4>
               <div class="talents-list">
                 <div v-if="detailsCharacter.角色.天赋?.length" class="talent-items">
                   <span
@@ -1182,7 +1182,7 @@ const exportCharacter = async (charId: string) => {
     const link = document.createElement('a');
     link.href = URL.createObjectURL(dataBlob);
     const characterName = character.角色?.名字 || '未命名角色';
-    link.download = `主神空间-角色-${characterName}-${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `仙途-角色-${characterName}-${new Date().toISOString().split('T')[0]}.json`;
 
     document.body.appendChild(link);
     link.click();
@@ -1249,7 +1249,7 @@ const exportSingleSave = async (charId: string, slotKey: string, slot: SaveSlot)
     const link = document.createElement('a');
     link.href = URL.createObjectURL(dataBlob);
     const saveName = slot.存档名 || slotKey;
-    link.download = `主神空间-${saveName}-${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `仙途-${saveName}-${new Date().toISOString().split('T')[0]}.json`;
 
     document.body.appendChild(link);
     link.click();
@@ -1340,7 +1340,7 @@ const _exportSaves = async () => {
 
     const link = document.createElement('a');
     link.href = URL.createObjectURL(dataBlob);
-    link.download = `主神空间-${character.角色.名字}-存档备份-${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `仙途-${character.角色.名字}-存档备份-${new Date().toISOString().split('T')[0]}.json`;
 
     document.body.appendChild(link);
     link.click();

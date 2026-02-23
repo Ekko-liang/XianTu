@@ -58,7 +58,7 @@ export class EnhancedActionQueueManager {
   }
 
   /**
-   * 装备槽位只存物品ID(string|null)；完整物品数据在 轮回者.背包.物品
+   * 装备槽位只存物品ID(string|null)；完整物品数据在 角色.背包.物品
    * 兼容旧槽位存 {物品ID,名称} 的格式，并在此处统一归一化。
    */
   private ensureEquipmentSlots(saveData: SaveData): Record<string, string | null> {
@@ -72,9 +72,8 @@ export class EnhancedActionQueueManager {
     };
 
     const anySave = saveData as any;
-    if (!anySave.轮回者) anySave.轮回者 = {};
     if (!anySave.角色) anySave.角色 = {};
-    const rawSlots = (anySave.轮回者.装备 ?? anySave.角色.装备 ?? defaultSlots) as Record<string, unknown>;
+    const rawSlots = (anySave.角色.装备 ?? defaultSlots) as Record<string, unknown>;
     const normalized: Record<string, string | null> = { ...defaultSlots };
 
     for (let i = 1; i <= 6; i++) {
@@ -82,33 +81,24 @@ export class EnhancedActionQueueManager {
       normalized[key] = this.getEquipmentSlotItemId(rawSlots?.[key]) ?? null;
     }
 
-    anySave.轮回者.装备 = normalized;
-    anySave.角色.装备 = normalized; // 兼容镜像
+    anySave.角色.装备 = normalized;
     return normalized;
   }
 
   private ensureRoleBackpack(saveData: SaveData): any {
     const anySave = saveData as any;
-    if (!anySave.轮回者) anySave.轮回者 = {};
     if (!anySave.角色) anySave.角色 = {};
-    if (!anySave.轮回者.背包) {
-      anySave.轮回者.背包 = anySave.角色.背包 ?? { 物品: {}, 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 } };
-    }
-    if (!anySave.轮回者.背包.物品) anySave.轮回者.背包.物品 = {};
-    if (!anySave.轮回者.背包.灵石) anySave.轮回者.背包.灵石 = { 下品: 0, 中品: 0, 上品: 0, 极品: 0 };
-    anySave.角色.背包 = anySave.轮回者.背包; // 兼容镜像
-    return anySave.轮回者.背包;
+    if (!anySave.角色.背包) anySave.角色.背包 = { 物品: {}, 灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 } };
+    if (!anySave.角色.背包.物品) anySave.角色.背包.物品 = {};
+    if (!anySave.角色.背包.灵石) anySave.角色.背包.灵石 = { 下品: 0, 中品: 0, 上品: 0, 极品: 0 };
+    return anySave.角色.背包;
   }
 
   private ensureRoleCultivation(saveData: SaveData): any {
     const anySave = saveData as any;
-    if (!anySave.轮回者) anySave.轮回者 = {};
     if (!anySave.角色) anySave.角色 = {};
-    if (!anySave.轮回者.修炼) {
-      anySave.轮回者.修炼 = anySave.角色.修炼 ?? { 修炼功法: null, 修炼状态: { 模式: '未修炼' } };
-    }
-    anySave.角色.修炼 = anySave.轮回者.修炼; // 兼容镜像
-    return anySave.轮回者.修炼;
+    if (!anySave.角色.修炼) anySave.角色.修炼 = { 修炼功法: null, 修炼状态: { 模式: '未修炼' } };
+    return anySave.角色.修炼;
   }
   
   /**

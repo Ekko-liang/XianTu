@@ -723,7 +723,7 @@ ${travelStatusPrompt}
 ${coreStatusSummary}
 ${vectorMemorySection ? `\n${vectorMemorySection}\n` : ''}
 # 游戏状态
-你正在主神空间无限流游戏《仙途》中扮演GM。以下是当前完整游戏存档(JSON格式):
+你正在修仙世界《仙途》中扮演GM。以下是当前完整游戏存档(JSON格式):
 ${stateJsonString}
 `.trim();
 
@@ -886,39 +886,8 @@ ${stateJsonString}
         // 🔥 分步生成第1步直接复用 buildNarrativeState（已在上方定义）
         const buildNarrativeStateForStep1 = (): string => JSON.stringify(buildNarrativeState());
 
-        const getInfinitePhasePromptKeys = () => {
-          const phase = String(
-            gameStateStore.gamePhase
-            ?? stateForAI?.元数据?.当前阶段
-            ?? stateForAI?.当前阶段
-            ?? 'hub',
-          );
-          const keys: string[] = ['worldAdaptationRules'];
-
-          if (phase === 'mission') {
-            keys.push('missionNarrativePrompts');
-          } else if (phase === 'settlement') {
-            keys.push('missionSettlementPrompts');
-          } else {
-            keys.push('hubNarrativePrompts');
-            const missionStatus = String(
-              stateForAI?.当前副本?.status
-              ?? stateForAI?.currentMission?.status
-              ?? 'briefing',
-            );
-            if (missionStatus === 'briefing') {
-              keys.push('missionBriefingPrompts');
-            }
-          }
-
-          return keys;
-        };
-
         const buildSplitSystemPrompt = async (step: 1 | 2): Promise<string> => {
           const tavernEnv = !!tavernHelper;
-          const phasePromptContents = (
-            await Promise.all(getInfinitePhasePromptKeys().map(async (key) => (await getPrompt(key)).trim()))
-          ).filter(Boolean);
 
           if (step === 1) {
             // 第1步：只输出正文纯文本，不需要JSON格式和指令相关的提示词
@@ -941,11 +910,6 @@ ${textFormatsPrompt}
 
 # 世界观设定
 ${worldStandardsPrompt}
-
----
-
-# 无限流阶段规则
-${phasePromptContents.join('\n\n')}
 
 ---
 
@@ -973,7 +937,6 @@ ${narrativeStateJson}
 
           const sanitizedBusinessRulesPrompt = tavernEnv ? businessRulesPrompt : stripNsfwContent(businessRulesPrompt);
           sections.push(sanitizedBusinessRulesPrompt, sanitizedDataDefinitionsPrompt, textFormatsPrompt, worldStandardsPrompt);
-          sections.push(...phasePromptContents);
 
           if (uiStore.enableActionOptions) {
             const actionOptionsPrompt = await getPrompt('actionOptions');

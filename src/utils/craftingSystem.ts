@@ -51,30 +51,6 @@ export interface CraftingComputationResult {
 }
 
 const QUALITY_ORDER: QualityType[] = ['凡', '黄', '玄', '地', '天', '仙', '神'];
-const ABILITY_BRANCHES = ['combat', 'survival', 'support', 'social', 'special'] as const;
-type AbilityBranch = (typeof ABILITY_BRANCHES)[number];
-
-const CRAFTING_BRANCH_WEIGHTS: Record<CraftingType, Record<AbilityBranch, number>> = {
-  炼丹: {
-    combat: 0.35,
-    survival: 0.85,
-    support: 1,
-    social: 0.65,
-    special: 0.55,
-  },
-  炼器: {
-    combat: 1,
-    survival: 0.45,
-    support: 0.85,
-    social: 0.3,
-    special: 0.75,
-  },
-};
-
-const LEGACY_DAO_KEYWORDS: Record<CraftingType, string[]> = {
-  炼丹: ['炼丹', '丹'],
-  炼器: ['炼器', '器'],
-};
 
 function clampInt(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, Math.round(value)));
@@ -104,7 +80,7 @@ export function getAverageMaterialQualityScore(materials: Item[]): number {
   return sum / list.length;
 }
 
-function getMaxDaoStageByKeyword(thousandDao: ThousandDaoSystem | null | undefined, keyword: string): number {
+function getMaxDaoStage(thousandDao: ThousandDaoSystem | null | undefined, keyword: string): number {
   const list = thousandDao?.大道列表;
   if (!list || typeof list !== 'object') return 0;
 
@@ -118,42 +94,11 @@ function getMaxDaoStageByKeyword(thousandDao: ThousandDaoSystem | null | undefin
   return maxStage;
 }
 
-function resolveAbilityBranch(abilityId: string): AbilityBranch | null {
-  const id = String(abilityId || '').trim().toLowerCase();
-  if (!id) return null;
-  for (const branch of ABILITY_BRANCHES) {
-    if (id === branch || id.startsWith(`${branch}_`)) return branch;
-  }
-  return null;
-}
-
-function getBranchMappedDaoStage(thousandDao: ThousandDaoSystem | null | undefined, type: CraftingType): number {
-  const list = thousandDao?.大道列表;
-  if (!list || typeof list !== 'object') return 0;
-
-  const weights = CRAFTING_BRANCH_WEIGHTS[type];
-  let maxWeightedStage = 0;
-
-  for (const [abilityId, data] of Object.entries(list)) {
-    if (!data?.是否解锁) continue;
-    const branch = resolveAbilityBranch(abilityId);
-    if (!branch) continue;
-    const stage = Number(data.当前阶段 ?? 0);
-    if (!Number.isFinite(stage) || stage <= 0) continue;
-    maxWeightedStage = Math.max(maxWeightedStage, stage * (weights[branch] ?? 0));
-  }
-
-  return Math.max(0, Math.round(maxWeightedStage));
-}
-
 function getDaoBonusStage(thousandDao: ThousandDaoSystem | null | undefined, type: CraftingType): number {
-  const mappedStage = getBranchMappedDaoStage(thousandDao, type);
-  if (mappedStage > 0) return mappedStage;
-
-  const legacyKeywords = LEGACY_DAO_KEYWORDS[type];
-  return legacyKeywords.reduce((maxStage, keyword) => {
-    return Math.max(maxStage, getMaxDaoStageByKeyword(thousandDao, keyword));
-  }, 0);
+  if (type === '炼丹') {
+    return Math.max(getMaxDaoStage(thousandDao, '炼丹'), getMaxDaoStage(thousandDao, '丹'));
+  }
+  return Math.max(getMaxDaoStage(thousandDao, '炼器'), getMaxDaoStage(thousandDao, '器'));
 }
 
 function getFireMods(fire: FireLevel): { success: number; quality: number } {

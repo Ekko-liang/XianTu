@@ -1,25 +1,5 @@
 <template>
   <div class="main-game-panel">
-    <div class="phase-banner">
-      <div class="phase-text">
-        <span class="phase-label">阶段</span>
-        <strong>{{ gamePhaseLabel }}</strong>
-        <span v-if="phaseMissionName" class="phase-mission">| {{ phaseMissionName }}</span>
-      </div>
-      <div class="phase-actions">
-        <template v-if="isHubPhase">
-          <button class="phase-btn" @click="openMissionSelect">副本选择</button>
-          <button class="phase-btn" @click="openExchange">兑换大厅</button>
-          <button class="phase-btn" @click="openTeamPanel">队伍管理</button>
-        </template>
-        <template v-else>
-          <button class="phase-btn" @click="openMissionBriefing">副本简报</button>
-          <button class="phase-btn" @click="openMissionSettlement">副本结算</button>
-          <button class="phase-btn" @click="openMissionHistory">副本记录</button>
-        </template>
-      </div>
-    </div>
-
     <!-- 短期记忆区域 -->
     <div class="memory-section" v-if="showMemorySection">
       <div class="memory-header" @click="toggleMemory">
@@ -622,49 +602,6 @@ const isOnlineTraveling = computed(() => {
   return online?.模式 === '联机' && !!online?.房间ID;
 });
 
-const gamePhaseLabel = computed(() => {
-  const map: Record<string, string> = {
-    hub: '主神空间',
-    mission: '副本进行中',
-    settlement: '副本结算',
-  };
-  return map[gameStateStore.gamePhase] ?? '主神空间';
-});
-
-const isHubPhase = computed(() => gameStateStore.gamePhase === 'hub');
-
-const phaseMissionName = computed(() => {
-  return gameStateStore.currentMission?.name ?? '';
-});
-
-const openMissionSelect = () => {
-  gameStateStore.setGamePhase('hub');
-  router.push('/game/mission-select');
-};
-
-const openMissionBriefing = () => {
-  router.push('/game/mission-briefing');
-};
-
-const openMissionSettlement = () => {
-  gameStateStore.setGamePhase('settlement');
-  router.push('/game/mission-settlement');
-};
-
-const openExchange = () => {
-  gameStateStore.setGamePhase('hub');
-  router.push('/game/exchange');
-};
-
-const openTeamPanel = () => {
-  gameStateStore.setGamePhase('hub');
-  router.push('/game/team');
-};
-
-const openMissionHistory = () => {
-  router.push('/game/mission-history');
-};
-
 const travelingTooltip = computed(() => {
   if (!isOnlineTraveling.value) return '';
   const online = gameStateStore.onlineState as any;
@@ -811,7 +748,7 @@ const generateSceneImage = async () => {
   try {
     // 构建提示词
     const location = gameStateStore.location?.描述 || '未知地点';
-    const basePrompt = `电影感概念艺术，无限流生存风格，高品质，细节丰富。当前地点：${location}。剧情描述：`;
+    const basePrompt = `中国古风水墨画，修仙玄幻风格，高品质，细节丰富。当前地点：${location}。剧情描述：`;
     // 截取前500字作为提示词
     const prompt = basePrompt + text.substring(0, 500);
 
@@ -2351,56 +2288,6 @@ const syncGameState = async () => {
   background: var(--color-background);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   box-sizing: border-box;
-}
-
-.phase-banner {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-surface-light);
-}
-
-.phase-text {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--color-text);
-  min-width: 0;
-}
-
-.phase-label {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-}
-
-.phase-mission {
-  color: var(--color-text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.phase-actions {
-  display: flex;
-  gap: 6px;
-}
-
-.phase-btn {
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-text);
-  border-radius: 8px;
-  padding: 5px 10px;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.phase-btn:hover {
-  border-color: var(--color-primary);
 }
 
 /* 短期记忆区域 */

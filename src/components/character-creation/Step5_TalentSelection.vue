@@ -1,6 +1,6 @@
 <template>
   <div class="talent-selection-container">
-    <div v-if="store.isLoading" class="loading-state">{{ $t('检索初始技能库...') }}</div>
+    <div v-if="store.isLoading" class="loading-state">{{ $t('于时光长河中搜寻天赋...') }}</div>
     <div v-else-if="store.error" class="error-state">{{ $t('天机紊乱') }}：{{ store.error }}</div>
 
     <div v-else class="talent-layout">
@@ -13,7 +13,7 @@
             @click="isCustomModalVisible = true"
             class="action-item shimmer-on-hover"
           >
-            <span class="action-name">{{ $t('自定义技能') }}</span>
+            <span class="action-name">{{ $t('自定义天赋') }}</span>
           </button>
           <button @click="handleAIGenerate" class="action-item shimmer-on-hover">
             <span class="action-name">{{ $t('AI推演') }}</span>
@@ -51,16 +51,16 @@
         <div v-if="activeTalent" class="talent-details">
           <h2>{{ activeTalent.name }}</h2>
           <div class="description-scroll">
-            <p>{{ activeTalent.description || $t('该技能描述暂未补全。') }}</p>
+            <p>{{ activeTalent.description || $t('此天赋之玄妙，需自行领悟。') }}</p>
           </div>
         </div>
-        <div v-else class="placeholder">{{ $t('请选择初始技能。') }}</div>
+        <div v-else class="placeholder">{{ $t('请选择天赋。') }}</div>
       </div>
     </div>
 
     <CustomCreationModal
       :visible="isCustomModalVisible"
-      :title="$t('自定义技能')"
+      :title="$t('自定义天赋')"
       :fields="customTalentFields"
       :validationFn="validateCustomTalent"
       @close="isCustomModalVisible = false"
@@ -70,7 +70,7 @@
     <!-- 编辑模态框 -->
     <CustomCreationModal
       :visible="isEditModalVisible"
-      :title="$t('编辑技能')"
+      :title="$t('编辑天赋')"
       :fields="customTalentFields"
       :validationFn="validateCustomTalent"
       :initialData="editInitialData"
@@ -135,13 +135,13 @@ const filteredTalents = computed(() => {
 // 自定义天赋字段 - 支持简单描述和结构化格式
 // 根据 types/index.ts 中的 Talent 接口定义字段
 const customTalentFields: ModalField[] = [
-  { key: 'name', label: '技能名称', type: 'text', placeholder: '例如：应急止血' },
-  { key: 'description', label: '技能描述', type: 'textarea', placeholder: '描述该技能的适用场景...' },
-  { key: 'talent_cost', label: '属性点消耗', type: 'number', placeholder: '例如：3' },
+  { key: 'name', label: '天赋名称', type: 'text', placeholder: '例如：道心天成' },
+  { key: 'description', label: '天赋描述', type: 'textarea', placeholder: '描述此天赋的本质...' },
+  { key: 'talent_cost', label: '天道点消耗', type: 'number', placeholder: '例如：3' },
   { key: 'rarity', label: '稀有度', type: 'number', placeholder: '1-10，数值越高越稀有' },
   {
     key: 'effects',
-    label: '技能效果',
+    label: '天赋效果',
     type: 'dynamic-list',
     columns: [
       {
@@ -178,15 +178,15 @@ function validateCustomTalent(data: Partial<CustomTalentData>) {
     const errors: Record<string, string> = {};
 
     // 必填字段验证
-    if (!data.name?.trim()) errors.name = '技能名称不可为空';
-    if (!data.description?.trim()) errors.description = '技能描述不可为空';
+    if (!data.name?.trim()) errors.name = '天赋名称不可为空';
+    if (!data.description?.trim()) errors.description = '天赋描述不可为空';
 
     // 数值字段验证
     const talentCost = Number(data.talent_cost);
     if (data.talent_cost === undefined || data.talent_cost === null || data.talent_cost === '' || isNaN(talentCost)) {
-        errors.talent_cost = '属性点消耗必须填写';
+        errors.talent_cost = '天道点消耗必须填写';
     } else if (talentCost < 0) {
-        errors.talent_cost = '属性点消耗不能为负数';
+        errors.talent_cost = '天道点消耗不能为负数';
     }
 
     const rarity = Number(data.rarity);
@@ -226,10 +226,10 @@ async function handleCustomSubmit(data: CustomTalentData) {
   try {
     store.addTalent(newTalent);
     isCustomModalVisible.value = false;
-    toast.success(`自定义技能 "${newTalent.name}" 已保存！`);
+    toast.success(`自定义天赋 "${newTalent.name}" 已保存！`);
   } catch (e) {
-    console.error('保存自定义技能失败:', e);
-    toast.error('保存自定义技能失败！');
+    console.error('保存自定义天赋失败:', e);
+    toast.error('保存自定义天赋失败！');
   }
 }
 

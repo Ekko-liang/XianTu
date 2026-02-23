@@ -1,32 +1,28 @@
 import type {
   ActionQueue,
-  BodyStats,
   CharacterBaseInfo,
   CultivationTechniqueReference,
   Equipment,
-  EventSystem,
   GameMessage,
   GameTime,
   Inventory,
   MasteredSkill,
   Memory,
   NpcProfile,
-  PlayerAttributes,
-  PlayerLocation,
-  ThousandDaoSystem,
   SectMemberInfo,
   SectSystemV2,
   StatusEffect,
   SystemConfig,
+  PlayerAttributes,
+  PlayerLocation,
   WorldInfo,
+  EventSystem,
+  BodyStats
 } from '@/types/game';
-import type { GamePhase, HubState, Mission, MissionResult, TeamState } from '@/types/mission';
-import type { ReincarnatorProfile } from '@/types/reincarnator';
 
 /**
- * 存档格式 V3（无限流主结构）
- * 顶层主字段：元数据 / 轮回者 / 主神空间 / 团队 / 副本记录 / 当前副本 / 社交 / 世界 / 系统
- * 兼容字段：角色（镜像）
+ * 存档格式 V3（唯一真相）：以 `docs/save-schema-v3.md` 为准。
+ * 顶层只允许：元数据 / 角色 / 社交 / 世界 / 系统
  */
 
 export interface SaveMetaV3 {
@@ -38,7 +34,6 @@ export interface SaveMetaV3 {
   更新时间: string;
   游戏时长秒: number;
   时间: GameTime;
-  当前阶段: GamePhase;
 }
 
 export interface OnlineStateV3 {
@@ -61,6 +56,11 @@ export interface RelationshipEdgeV3 {
   updatedAt?: string;
 }
 
+/**
+ * 关系矩阵/关系网（可选）
+ * - 不作为硬依赖字段：缺失时 UI 可由社交.关系即时推导
+ * - 未来用于 NPC-NPC 关系与实时演变记录
+ */
 export interface RelationshipMatrixV3 {
   version?: number;
   nodes?: string[];
@@ -73,37 +73,17 @@ export interface TechniqueProgressEntryV3 {
 }
 
 export interface TechniqueSystemV3 {
-  /** @deprecated 旧命名，建议改用 当前能力ID */
   当前功法ID: string | null;
-  /** @deprecated 旧命名，建议改用 能力进度 */
   功法进度: Record<string, TechniqueProgressEntryV3>;
-  /** @deprecated 旧命名，建议改用 能力配置 */
   功法套装: {
     主修: string | null;
     辅修: string[];
   };
-  // 无限流主语义字段（与上方兼容字段等价）
-  当前能力ID?: string | null;
-  能力进度?: Record<string, TechniqueProgressEntryV3>;
-  能力配置?: {
-    主槽: string | null;
-    副槽: string[];
-  };
 }
 
 export interface CultivationStateV3 {
-  /** @deprecated 旧命名，建议改用 当前能力 */
   修炼功法: CultivationTechniqueReference | null;
-  /** @deprecated 旧命名，建议改用 能力状态 */
   修炼状态?: {
-    模式: string;
-    开始时间?: string;
-    消耗?: Record<string, unknown>;
-    [key: string]: unknown;
-  };
-  // 无限流主语义字段（与上方兼容字段等价）
-  当前能力?: CultivationTechniqueReference | null;
-  能力状态?: {
     模式: string;
     开始时间?: string;
     消耗?: Record<string, unknown>;
@@ -116,7 +96,7 @@ export interface CultivationStateV3 {
 }
 
 export interface DaoSystemV3 {
-  大道列表: ThousandDaoSystem['大道列表'];
+  大道列表: Record<string, unknown>;
   [key: string]: unknown;
 }
 
@@ -126,52 +106,21 @@ export interface SkillStateV3 {
   冷却: Record<string, unknown>;
 }
 
-export interface ReincarnatorStateV3 extends ReincarnatorProfile {
-  身份: CharacterBaseInfo;
-  属性: PlayerAttributes;
-  位置: PlayerLocation;
-  效果: StatusEffect[];
-  身体?: BodyStats;
-  背包: Inventory;
-  装备: Equipment;
-  /** @deprecated 旧命名，建议改用 能力 */
-  功法: TechniqueSystemV3;
-  /** @deprecated 旧命名，建议改用 能力状态 */
-  修炼: CultivationStateV3;
-  能力?: TechniqueSystemV3;
-  能力状态?: CultivationStateV3;
-  大道: DaoSystemV3;
-  技能: SkillStateV3;
-}
-
-/**
- * 兼容镜像结构（旧模块仍大量读写 角色.*）
- */
-export interface LegacyCharacterMirrorV3 {
-  身份: CharacterBaseInfo;
-  属性: PlayerAttributes;
-  位置: PlayerLocation;
-  效果: StatusEffect[];
-  身体?: BodyStats;
-  背包: Inventory;
-  装备: Equipment;
-  /** @deprecated 旧命名，建议改用 能力 */
-  功法: TechniqueSystemV3;
-  /** @deprecated 旧命名，建议改用 能力状态 */
-  修炼: CultivationStateV3;
-  能力?: TechniqueSystemV3;
-  能力状态?: CultivationStateV3;
-  大道: DaoSystemV3;
-  技能: SkillStateV3;
-}
-
 export interface SaveDataV3 {
   元数据: SaveMetaV3;
-  轮回者: ReincarnatorStateV3;
-  主神空间: HubState;
-  团队: TeamState;
-  副本记录: MissionResult[];
-  当前副本: Mission | null;
+  角色: {
+    身份: CharacterBaseInfo;
+    属性: PlayerAttributes;
+    位置: PlayerLocation;
+    效果: StatusEffect[];
+    身体?: BodyStats;
+    背包: Inventory;
+    装备: Equipment;
+    功法: TechniqueSystemV3;
+    修炼: CultivationStateV3;
+    大道: DaoSystemV3;
+    技能: SkillStateV3;
+  };
   社交: {
     关系: Record<string, NpcProfile>;
     关系矩阵?: RelationshipMatrixV3;
@@ -189,11 +138,7 @@ export interface SaveDataV3 {
     缓存?: Record<string, unknown>;
     行动队列?: ActionQueue;
     历史?: { 叙事?: GameMessage[] };
-    联机: OnlineStateV3;
-    /** @deprecated 仅兼容旧版本读取，不再作为主结构 */
     扩展?: Record<string, unknown>;
+    联机: OnlineStateV3;
   };
-
-  /** @deprecated 兼容旧模块: 等同于“轮回者”的角色镜像 */
-  角色?: LegacyCharacterMirrorV3;
 }

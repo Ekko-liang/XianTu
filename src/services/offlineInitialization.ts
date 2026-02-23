@@ -1,8 +1,6 @@
 import type { CharacterBaseInfo, SaveData, PlayerStatus } from '@/types/game';
 import type { World } from '@/types';
-import { createDefaultInfiniteAbilityTree } from '@/data/thousandDaoData';
-import { migrateSaveDataToLatest } from '@/utils/saveMigration';
-import { normalizeInventoryCurrencies, setGodPointCurrency, syncGodPointsBetweenProfileAndInventory } from '@/utils/currencySystem';
+import { createEmptyThousandDaoSystem } from '@/data/thousandDaoData';
 import { calculateInitialAttributes } from './characterInitialization';
 
 /**
@@ -29,7 +27,7 @@ export async function initializeCharacterOffline(
 
   // 2) 设置一个合理的默认位置（离线模式临时位置，会被AI初始化覆盖）
   playerStatus.位置 = {
-    描述: '主神空间·休整区（离线初始化）',
+    描述: '临时位置（等待AI初始化）',
     x: 115.0,
     y: 35.0,
   };
@@ -38,16 +36,15 @@ export async function initializeCharacterOffline(
   const nowIso = new Date().toISOString();
   const gameTime = { 年: 1000, 月: 1, 日: 1, 小时: 8, 分钟: 0 };
 
-  const legacySaveData: any = {
+  const saveData: SaveData = {
     元数据: {
       版本号: 3,
       存档ID: `save_${charId}_${Date.now()}`,
-      存档名: `${baseInfo.名字}（离线初始化）`,
+      存档名: `${baseInfo.名字}（离线开局）`,
       创建时间: nowIso,
       更新时间: nowIso,
       游戏时长秒: 0,
       时间: gameTime,
-      当前阶段: 'hub',
     },
     角色: {
       身份: baseInfo,
@@ -62,39 +59,30 @@ export async function initializeCharacterOffline(
       位置: playerStatus.位置 as any,
       效果: [],
       背包: {
-        灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 },
-        货币: {
-          神点: {
-            币种: '神点',
-            名称: '神点',
-            数量: 200,
-            价值度: 1,
-            描述: '主神空间通用积分货币',
-          },
-        },
+        灵石: { 下品: 10, 中品: 0, 上品: 0, 极品: 0 },
         物品: {
-          consumable_starter_medkit_01: {
-            物品ID: 'consumable_starter_medkit_01',
-            名称: '应急治疗包',
-            类型: '消耗品',
+          consumable_xinshou_danyao_01: {
+            物品ID: 'consumable_xinshou_danyao_01',
+            名称: '新手丹药',
+            类型: '其他',
             数量: 3,
             品质: { quality: '凡', grade: 1 },
-            描述: '副本中快速恢复生命值的标准补给包。',
+            描述: '一颗普通的丹药，能恢复少量气血。',
           },
-          equipment_starter_vest_01: {
-            物品ID: 'equipment_starter_vest_01',
-            名称: '训练防护背心',
+          equipment_cubuyi_01: {
+            物品ID: 'equipment_cubuyi_01',
+            名称: '粗布衣',
             类型: '装备',
             数量: 1,
             品质: { quality: '凡', grade: 1 },
-            描述: '基础防护装备，可提供轻度伤害减免。',
+            描述: '一件朴素的粗布衣服，能提供微不足道的防御。',
           },
         },
       },
       装备: { 装备1: null, 装备2: null, 装备3: null, 装备4: null, 装备5: null, 装备6: null },
       功法: { 当前功法ID: null, 功法进度: {}, 功法套装: { 主修: null, 辅修: [] } },
-      修炼: { 修炼功法: null, 修炼能力: null, 修炼状态: { 模式: '待机' } },
-      大道: createDefaultInfiniteAbilityTree(),
+      修炼: { 修炼功法: null, 修炼状态: { 模式: '未修炼' } },
+      大道: createEmptyThousandDaoSystem(),
       技能: { 掌握技能: [], 装备栏: [], 冷却: {} },
     },
     社交: {
@@ -130,7 +118,7 @@ export async function initializeCharacterOffline(
       配置: {
         规则: { 属性上限: { 先天六司: { 每项上限: 10 } } },
         提示: [
-          '系统规则：基础六维兼容映射上限为10（NPC同样适用），如超限需裁剪至上限。',
+          '系统规则：先天六司每项上限为10（NPC同样适用），如超限需裁剪至上限。',
           '系统会根据时间自动计算当前年龄，无需手动更新寿命.当前字段。',
         ],
       } as any,
@@ -145,19 +133,6 @@ export async function initializeCharacterOffline(
       联机: { 模式: '单机', 房间ID: null, 玩家ID: null, 只读路径: ['世界'], 世界曝光: false, 冲突策略: '服务器' },
     },
   };
-
-  const { migrated } = migrateSaveDataToLatest(legacySaveData as any);
-  const saveData = migrated as SaveData;
-  saveData.元数据.当前阶段 = 'hub';
-  normalizeInventoryCurrencies((saveData as any)?.角色?.背包);
-  const walletPoints = setGodPointCurrency((saveData as any)?.角色?.背包, 200);
-  if ((saveData as any)?.轮回者) {
-    (saveData as any).轮回者.godPoints = syncGodPointsBetweenProfileAndInventory(
-      (saveData as any)?.角色?.背包,
-      walletPoints,
-      true,
-    );
-  }
 
   console.log('[离线初始化] 本地角色创建完成:', saveData);
   return saveData;

@@ -33,30 +33,28 @@ export function validateAndFixSaveData(saveData: SaveData): SaveData {
   }
 
   const anySave = saveData as any;
-  if (!anySave.轮回者 || typeof anySave.轮回者 !== 'object') anySave.轮回者 = {};
-  if (!anySave.角色 || typeof anySave.角色 !== 'object') anySave.角色 = { ...(anySave.轮回者 || {}) };
-
-  if (!anySave.轮回者.背包 || typeof anySave.轮回者.背包 !== 'object') {
-    anySave.轮回者.背包 = {
+  if (!anySave.角色 || typeof anySave.角色 !== 'object') anySave.角色 = {};
+  if (!anySave.角色.背包 || typeof anySave.角色.背包 !== 'object') {
+    anySave.角色.背包 = {
       灵石: { 下品: 0, 中品: 0, 上品: 0, 极品: 0 },
       物品: {}
     };
   }
 
-  if (!anySave.轮回者.背包.物品 || typeof anySave.轮回者.背包.物品 !== 'object') {
-    anySave.轮回者.背包.物品 = {};
+  if (!anySave.角色.背包.物品 || typeof anySave.角色.背包.物品 !== 'object') {
+    anySave.角色.背包.物品 = {};
   }
 
-  if (!anySave.轮回者.背包.灵石 || typeof anySave.轮回者.背包.灵石 !== 'object') {
-    anySave.轮回者.背包.灵石 = { 下品: 0, 中品: 0, 上品: 0, 极品: 0 };
+  if (!anySave.角色.背包.灵石 || typeof anySave.角色.背包.灵石 !== 'object') {
+    anySave.角色.背包.灵石 = { 下品: 0, 中品: 0, 上品: 0, 极品: 0 };
   }
 
   // 兼容旧存档 + 新货币系统兜底
-  normalizeBackpackCurrencies(anySave.轮回者.背包);
+  normalizeBackpackCurrencies(anySave.角色.背包);
 
   // 清理无效的物品数据
-  if (anySave.轮回者?.背包?.物品) {
-    const items = anySave.轮回者.背包.物品 as Record<string, any>;
+  if (anySave.角色?.背包?.物品) {
+    const items = anySave.角色.背包.物品 as Record<string, any>;
     Object.keys(items).forEach(key => {
       const item = items[key];
       // 移除无效的物品（例如null、undefined或缺少必要字段）
@@ -66,22 +64,6 @@ export function validateAndFixSaveData(saveData: SaveData): SaveData {
       }
     });
   }
-
-  // 兼容旧模块镜像
-  anySave.角色 = {
-    ...(anySave.角色 || {}),
-    身份: anySave.轮回者?.身份 ?? anySave.角色?.身份,
-    属性: anySave.轮回者?.属性 ?? anySave.角色?.属性,
-    位置: anySave.轮回者?.位置 ?? anySave.角色?.位置,
-    效果: anySave.轮回者?.效果 ?? anySave.角色?.效果 ?? [],
-    身体: anySave.轮回者?.身体 ?? anySave.角色?.身体,
-    背包: anySave.轮回者?.背包 ?? anySave.角色?.背包,
-    装备: anySave.轮回者?.装备 ?? anySave.角色?.装备,
-    功法: anySave.轮回者?.功法 ?? anySave.角色?.功法,
-    修炼: anySave.轮回者?.修炼 ?? anySave.角色?.修炼,
-    大道: anySave.轮回者?.大道 ?? anySave.角色?.大道,
-    技能: anySave.轮回者?.技能 ?? anySave.角色?.技能,
-  };
 
   return saveData;
 }
@@ -354,9 +336,9 @@ export function validateGameData(
   }
 
   if (context === 'creation') {
-    const loc = (saveData as any)?.轮回者?.位置 ?? (saveData as any)?.角色?.位置;
+    const loc = (saveData as any)?.角色?.位置;
     if (!loc || typeof loc !== 'object') errors.push('角色.位置 缺失');
-    const realm = (saveData as any)?.轮回者?.属性?.境界 ?? (saveData as any)?.角色?.属性?.境界;
+    const realm = (saveData as any)?.角色?.属性?.境界;
     if (!realm || typeof realm !== 'object') errors.push('角色.属性.境界 缺失');
   }
 

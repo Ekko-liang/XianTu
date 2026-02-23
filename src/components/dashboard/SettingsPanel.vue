@@ -51,7 +51,7 @@
               <select v-model="settings.theme" class="setting-select" @change="onSettingChange">
                 <option value="light">{{ t('明亮') }}</option>
                 <option value="dark">{{ t('暗黑') }}</option>
-                <option value="xiantu">{{ t('主神') }}</option>
+                <option value="xiantu">{{ t('仙途') }}</option>
                 <option value="auto">{{ t('跟随系统') }}</option>
               </select>
             </div>
@@ -120,11 +120,11 @@
           <h4 class="section-title">🎮 {{ t('游戏功能') }}</h4>
         </div>
         <div class="settings-list">
-          <!-- 代号修改 -->
+          <!-- 道号修改 -->
           <div class="setting-item setting-item-full" v-if="currentPlayerName">
             <div class="setting-info">
-              <label class="setting-name">{{ t('修改代号') }}</label>
-              <span class="setting-desc">{{ t('修改当前轮回者显示名称') }}</span>
+              <label class="setting-name">{{ t('修改道号') }}</label>
+              <span class="setting-desc">{{ t('修改当前角色的名字') }}</span>
             </div>
             <div class="setting-control-full" style="display: flex; gap: 0.5rem">
               <input
@@ -159,8 +159,8 @@
 
           <div class="setting-item">
             <div class="setting-info">
-              <label class="setting-name">{{ t('评级分层地图') }}</label>
-              <span class="setting-desc">{{ t('按轮回评级分层记录世界地图，旧存档开启后将自动迁移') }}</span>
+              <label class="setting-name">{{ t('境界分层地图') }}</label>
+              <span class="setting-desc">{{ t('按角色境界分别记录世界地图，旧存档开启后将自动迁移') }}</span>
             </div>
             <div class="setting-control">
               <label class="setting-switch">
@@ -173,7 +173,7 @@
           <div class="setting-item setting-item-full">
             <div class="setting-info">
               <label class="setting-name">{{ t('自定义行动选项提示词') }}</label>
-                <span class="setting-desc">{{
+              <span class="setting-desc">{{
                 t('指导AI生成特定风格的行动选项（可选，留空使用默认）')
               }}</span>
             </div>
@@ -181,7 +181,7 @@
               <textarea
                 v-model="uiStore.actionOptionsPrompt"
                 class="setting-textarea"
-                :placeholder="t('例如：多生成侦查和协作类选项，减少正面冲突选项...')"
+                :placeholder="t('例如：多生成修炼和探索类选项，减少战斗选项...')"
                 rows="3"
               ></textarea>
             </div>
@@ -351,16 +351,13 @@ const onLanguageChange = () => {
   toast.success('语言设置已更新');
 };
 
-const MAP_LAYER_SETTING_KEY = '评级分层地图';
-const LEGACY_MAP_LAYER_SETTING_KEY = '境界分层地图';
-
-// 代号修改相关
+// 道号修改相关
 const newPlayerName = ref('');
 const currentPlayerName = computed(() => {
   return gameStateStore.character?.名字 || '';
 });
 
-// 更新玩家代号
+// 更新玩家道号
 const updatePlayerName = async () => {
   if (!newPlayerName.value || newPlayerName.value === currentPlayerName.value) {
     return;
@@ -378,11 +375,11 @@ const updatePlayerName = async () => {
       await characterStore.saveToSlot(currentSlotName);
     }
 
-    toast.success(`代号已修改为「${newPlayerName.value}」`);
+    toast.success(`道号已修改为「${newPlayerName.value}」`);
     newPlayerName.value = ''; // 清空输入框
   } catch (error) {
-    console.error('修改代号失败:', error);
-    toast.error('修改代号失败，请重试');
+    console.error('修改道号失败:', error);
+    toast.error('修改道号失败，请重试');
   }
 };
 
@@ -396,7 +393,7 @@ const settings = reactive({
   // 游戏设置
   fastAnimations: false,
   splitResponseGeneration: false,  // 默认关闭分步生成
-  realmLayeredMap: false, // 评级分层地图开关
+  realmLayeredMap: false, // 境界分层地图开关
 
   // 🔞 成人内容（仅酒馆环境可用；非酒馆环境将被忽略/隐藏）
   enableNsfwMode: true,
@@ -482,12 +479,6 @@ const loadSettings = async () => {
     if (savedSettings) {
       const parsed = JSON.parse(savedSettings);
       Object.assign(settings, parsed);
-      if (typeof (parsed as any).realmLayeredMap !== 'boolean') {
-        const savedLayeredMap = (parsed as any)?.[MAP_LAYER_SETTING_KEY] ?? (parsed as any)?.[LEGACY_MAP_LAYER_SETTING_KEY];
-        if (typeof savedLayeredMap === 'boolean') {
-          settings.realmLayeredMap = savedLayeredMap;
-        }
-      }
       debug.log('设置面板', '设置加载成功', parsed);
     } else {
       debug.log('设置面板', '使用默认设置');
@@ -499,12 +490,10 @@ const loadSettings = async () => {
       currentStoreSettings = {};
     }
     // 注意这里如果不加触发，可能会导致 UI 不渲染，强刷保证赋值
-    const storeLayeredMap = currentStoreSettings[MAP_LAYER_SETTING_KEY] ?? currentStoreSettings[LEGACY_MAP_LAYER_SETTING_KEY];
-    if (storeLayeredMap !== settings.realmLayeredMap) {
+    if (currentStoreSettings['境界分层地图'] !== settings.realmLayeredMap) {
       gameStateStore.userSettings = {
         ...currentStoreSettings,
-        [MAP_LAYER_SETTING_KEY]: settings.realmLayeredMap,
-        [LEGACY_MAP_LAYER_SETTING_KEY]: settings.realmLayeredMap,
+        '境界分层地图': settings.realmLayeredMap,
       };
     }
 
@@ -537,8 +526,7 @@ const saveSettings = async () => {
     }
     gameStateStore.userSettings = {
       ...currentStoreSettings,
-      [MAP_LAYER_SETTING_KEY]: settings.realmLayeredMap,
-      [LEGACY_MAP_LAYER_SETTING_KEY]: settings.realmLayeredMap,
+      '境界分层地图': settings.realmLayeredMap,
     };
 
     debug.log('设置面板', '设置已保存到localStorage', settings);
@@ -729,7 +717,7 @@ const exportSettings = () => {
         timestamp: new Date().toISOString(),
         version: '3.7.4',
         userAgent: navigator.userAgent,
-        gameVersion: '主神空间 v3.7.4'
+        gameVersion: '仙途 v3.7.4'
       }
     };
 
@@ -739,7 +727,7 @@ const exportSettings = () => {
     const link = document.createElement('a');
     link.href = URL.createObjectURL(dataBlob);
     const dateStr = new Date().toISOString().split('T')[0];
-    link.download = `主神空间-设置备份-${dateStr}.json`;
+    link.download = `仙途-设置备份-${dateStr}.json`;
 
     document.body.appendChild(link);
     link.click();

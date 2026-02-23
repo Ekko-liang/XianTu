@@ -1,6 +1,6 @@
 <template>
   <div class="world-selection-container">
-    <div v-if="store.isLoading" class="loading-state">{{ $t('正在生成身份背景库...') }}</div>
+    <div v-if="store.isLoading" class="loading-state">{{ $t('正在推演诸天万界...') }}</div>
     <div v-else-if="store.error" class="error-state">{{ $t('天机紊乱') }}：{{ store.error }}</div>
 
     <div v-else class="world-layout">
@@ -13,7 +13,7 @@
             @click="isCustomModalVisible = true"
             class="action-item shimmer-on-hover"
           >
-            <span class="action-name">{{ $t('自定义背景') }}</span>
+            <span class="action-name">{{ $t('自定义世界') }}</span>
           </button>
           <button @click="handleAIGenerate" class="action-item shimmer-on-hover">
             <span class="action-name">{{ $t('AI推演') }}</span>
@@ -24,7 +24,7 @@
           <div v-if="worldsList.length === 0" class="no-worlds-message">
             <div class="no-worlds-icon">🌌</div>
             <div class="no-worlds-text">
-              {{ store.isLocalCreation ? $t('暂无本地背景数据') : $t('暂无云端背景数据') }}
+              {{ store.isLocalCreation ? $t('暂无本地世界数据') : $t('暂无云端世界数据') }}
             </div>
             <div v-if="!store.isLocalCreation" class="no-worlds-hint">
               {{ $t('请检查网络连接或联系管理员') }}
@@ -53,12 +53,12 @@
         </div>
       </div>
 
-      <!-- 右侧面板：背景详情 + 副本生成选项 -->
+      <!-- 右侧面板：世界详情 + 地图生成选项 -->
       <div class="details-container">
         <div v-if="activeWorld" class="world-details">
           <div class="details-header">
             <h2 class="details-title">{{ activeWorld.name }}</h2>
-            <button class="map-settings-btn" @click="showMapOptions = !showMapOptions" :title="$t('副本生成选项')">
+            <button class="map-settings-btn" @click="showMapOptions = !showMapOptions" :title="$t('地图生成选项')">
               <Settings :size="16" />
               <span class="btn-text">{{ $t('设置') }}</span>
             </button>
@@ -67,11 +67,11 @@
 
           <!-- 地图生成选项（移入右侧详情内，避免整体高度溢出） -->
           <div class="map-options" v-show="showMapOptions">
-            <div class="map-options-header">{{ $t('副本规模配置') }}</div>
+            <div class="map-options-header">{{ $t('世界规模配置') }}</div>
 
-            <!-- 副本难度选择 -->
+            <!-- 修仙难度选择 -->
             <div class="difficulty-section">
-              <div class="difficulty-label">{{ $t('副本难度') }}</div>
+              <div class="difficulty-label">{{ $t('修仙难度') }}</div>
               <div class="difficulty-options">
                 <label
                   v-for="diff in difficultyOptions"
@@ -102,7 +102,7 @@
                 <span class="toggle-label">{{ $t('仅生成大陆（开局优化）') }}</span>
               </label>
               <div class="toggle-hint">
-                {{ worldConfig.generateOnlyContinents ? $t('开局先生成骨架信息，细节在副本中动态补全') : $t('开局生成完整副本信息（包含势力、地点和隐藏区域）') }}
+                {{ worldConfig.generateOnlyContinents ? $t('开局只生成大陆，势力和地点可在游戏中动态生成，减少token消耗') : $t('开局生成完整世界（包括势力、地点和秘境）') }}
               </div>
             </div>
 
@@ -181,14 +181,14 @@
           </div>
         </div>
         <div v-else class="placeholder">
-          {{ $t('请选择穿越前身份背景，以决定初始叙事基调。') }}
+          {{ $t('请择一方大千世界，以定道基。') }}
         </div>
       </div>
     </div>
 
     <CustomCreationModal
       :visible="isCustomModalVisible"
-      :title="$t('自定义背景')"
+      :title="$t('自定义世界')"
       :fields="customWorldFields"
       :validationFn="validateCustomWorld"
       @close="isCustomModalVisible = false"
@@ -198,7 +198,7 @@
     <!-- 编辑模态框 -->
     <CustomCreationModal
       :visible="isEditModalVisible"
-      :title="$t('编辑背景')"
+      :title="$t('编辑世界')"
       :fields="customWorldFields"
       :validationFn="validateCustomWorld"
       :initialData="editInitialData"
@@ -315,15 +315,15 @@ const worldsList = computed(() => {
 
 // 根据 types/index.ts 中的 World 接口定义字段
 const customWorldFields = [
-  { key: 'name', label: '背景名称', type: 'text', placeholder: '例如：退役侦察兵' },
-  { key: 'era', label: '时代背景', type: 'text', placeholder: '例如：近未来都市' },
-  { key: 'description', label: '背景描述', type: 'textarea', placeholder: '描述穿越前身份经历与能力侧重...' }
+  { key: 'name', label: '世界名称', type: 'text', placeholder: '例如：九霄界' },
+  { key: 'era', label: '时代背景', type: 'text', placeholder: '例如：仙道昌隆' },
+  { key: 'description', label: '世界描述', type: 'textarea', placeholder: '描述这个世界的背景故事、修炼体系特点等...' }
 ] as const;
 
 function validateCustomWorld(data: any) {
   const errors: Record<string, string> = {};
   if (!data.name?.trim()) {
-    errors.name = '背景名称不可为空';
+    errors.name = '世界名称不可为空';
   }
   return {
     valid: Object.keys(errors).length === 0,
@@ -345,10 +345,10 @@ async function handleCustomSubmit(data: any) {
     // await saveGameData(store.creationData); // NOTE: 持久化由Pinia插件自动处理
     handleSelectWorld(newWorld); // Auto-select the newly created world
     isCustomModalVisible.value = false;
-    toast.success(`自定义背景 "${newWorld.name}" 已成功保存！`);
+    toast.success(`自定义世界 "${newWorld.name}" 已成功保存！`);
   } catch (e) {
-    console.error('保存自定义背景失败:', e);
-    toast.error('保存自定义背景失败！');
+    console.error('保存自定义世界失败:', e);
+    toast.error('保存自定义世界失败！');
   }
 }
 

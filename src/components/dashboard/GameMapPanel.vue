@@ -38,22 +38,22 @@
         @click="activeRealmTab = tab"
       >{{ tab }}</button>
 
-      <!-- 生成当前评级地图按钮 -->
+      <!-- 生成当前境界地图按钮 -->
       <button
         v-if="playerRealm && !realmTabs.includes(playerRealm)"
         class="realm-tab-btn realm-tab-generate"
         :disabled="isGeneratingRealmMap"
         @click="generateCurrentRealmMap"
       >
-        {{ isGeneratingRealmMap ? '生成中...' : `+ 生成${playerRealm}评级地图` }}
+        {{ isGeneratingRealmMap ? '生成中...' : `+ 生成${playerRealm}地图` }}
       </button>
 
-      <!-- 重新生成当前评级地图按钮（仅在当前 Tab 有地图时显示） -->
+      <!-- 重新生成当前境界地图按钮（仅在当前 Tab 有地图时显示） -->
       <button
         v-if="currentRealmHasMap"
         class="realm-tab-btn realm-tab-regenerate"
         :disabled="isGeneratingRealmMap"
-        :title="`重新生成【${currentRealmKey}】评级地图（会覆盖当前地图）`"
+        :title="`重新生成【${currentRealmKey}】境界地图（会覆盖当前地图）`"
         @click="confirmRegenerateRealmMap"
       >
         {{ isGeneratingRealmMap ? '重新生成中...' : `重新生成${currentRealmKey}地图` }}
@@ -73,7 +73,7 @@
 
       <!-- 当地图集为空时的引导提示 -->
       <span v-if="realmTabs.length === 0 && !playerRealm" class="realm-tab-hint">
-        请先在游戏中获取轮回评级信息
+        请先在游戏中获取境界信息
       </span>
     </div>
 
@@ -82,7 +82,7 @@
       <div v-if="showRegenerateConfirm" class="realm-regen-overlay" @click.self="showRegenerateConfirm = false">
         <div class="realm-regen-dialog">
           <h3>⚠️ 重新生成确认</h3>
-          <p>将重新生成【{{ currentRealmKey }}】评级的世界地图，<br/>当前已有的地点、势力数据将被覆盖，是否继续？</p>
+          <p>将重新生成【{{ currentRealmKey }}】境界的世界地图，<br/>当前已有的地点、势力数据将被覆盖，是否继续？</p>
           <div class="realm-regen-actions">
             <button class="realm-regen-cancel" @click="showRegenerateConfirm = false">取消</button>
             <button class="realm-regen-confirm" @click="doRegenerateRealmMap">确认重新生成</button>
@@ -160,7 +160,7 @@
           <strong>安全等级：</strong>{{ selectedLocation.danger_level }}
         </div>
         <div v-if="selectedLocation.suitable_for" class="location-detail">
-          <strong>适合评级：</strong>{{ selectedLocation.suitable_for }}
+          <strong>适合境界：</strong>{{ selectedLocation.suitable_for }}
         </div>
         <div v-if="selectedLocation.controlled_by" class="location-detail">
           <strong>控制势力：</strong>{{ selectedLocation.controlled_by }}
@@ -224,7 +224,7 @@
       </div>
       <div class="popup-content">
         <p class="location-type">大陆</p>
-        <p class="location-desc">{{ selectedContinent.description || '广袤的副本区域，蕴含资源与威胁。' }}</p>
+        <p class="location-desc">{{ selectedContinent.description || '广袤的修仙大陆，蕴含无尽机缘与危险。' }}</p>
 
         <div v-if="selectedContinent.气候" class="location-detail">
           <strong>气候：</strong>{{ selectedContinent.气候 }}
@@ -263,30 +263,30 @@
           <Mountain :size="16" class="legend-icon mountain" />
           <span>名山大川</span>
         </div>
-        <!-- 阵营势力 -->
+        <!-- 宗门势力 -->
         <div class="legend-item">
           <Building2 :size="16" class="legend-icon faction" />
-          <span>阵营势力</span>
+          <span>宗门势力</span>
         </div>
-        <!-- 据点聚落 -->
+        <!-- 城镇坊市 -->
         <div class="legend-item">
           <Store :size="16" class="legend-icon town" />
-          <span>据点聚落</span>
+          <span>城镇坊市</span>
         </div>
-        <!-- 资源区域 -->
+        <!-- 洞天福地 -->
         <div class="legend-item">
           <Sparkles :size="16" class="legend-icon blessed" />
-          <span>资源区域</span>
+          <span>洞天福地</span>
         </div>
-        <!-- 特殊区域 -->
+        <!-- 奇珍异地 -->
         <div class="legend-item">
           <Gem :size="16" class="legend-icon treasure" />
-          <span>特殊区域</span>
+          <span>奇珍异地</span>
         </div>
-        <!-- 高危区域 -->
+        <!-- 凶险之地 -->
         <div class="legend-item">
           <AlertTriangle :size="16" class="legend-icon danger" />
-          <span>高危区域</span>
+          <span>凶险之地</span>
         </div>
         <!-- 其他特殊 -->
         <div class="legend-item">
@@ -396,9 +396,10 @@ import { normalizeLocationsData, normalizeContinentBounds } from '@/utils/coordi
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { toast } from '@/utils/toast';
 import { EnhancedWorldGenerator, generateRealmMap } from '@/utils/worldGeneration/enhancedWorldGenerator';
+import { isTavernEnv } from '@/utils/tavern';
 import type { WorldLocation } from '@/types/location';
 import type { GameCoordinates } from '@/types/gameMap';
-import type { WorldInfo } from '@/types/game';
+import type { NpcProfile, GameTime, WorldInfo } from '@/types/game';
 import type { RegionMap } from '@/types/gameMap';
 import RegionMapPanel from './RegionMapPanel.vue';
 import { generateRegionMap, type RegionNpcLocationHint } from '@/utils/worldGeneration/regionMapGenerator';
@@ -416,9 +417,6 @@ const emit = defineEmits<{
 }>();
 
 const gameStateStore = useGameStateStore();
-const MAP_LAYER_SETTING_KEY = '评级分层地图';
-const LEGACY_MAP_LAYER_SETTING_KEY = '境界分层地图';
-const isMissionPhase = computed(() => gameStateStore.gamePhase === 'mission');
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 const mapContainerRef = ref<HTMLDivElement | null>(null);
 const mapManager = ref<GameMapManager | null>(null);
@@ -447,13 +445,8 @@ const mapDensity = ref<MapDensity>('normal');
 // ─── 境界地图集状态 ────────────────────────────────────────────────────────────
 /** 当前激活的境界 Tab（如 "练气期"） */
 const activeRealmTab = ref<string>('');
-/** 评级分层地图功能开关（读自 userSettings，兼容旧键） */
-const realmMapEnabled = computed(() => {
-  // 副本期统一使用“当前副本临时地图”，不与评级地图集混用
-  if (isMissionPhase.value) return false;
-  const settings = (gameStateStore.userSettings as any) || {};
-  return !!(settings?.[MAP_LAYER_SETTING_KEY] ?? settings?.[LEGACY_MAP_LAYER_SETTING_KEY]);
-});
+/** 境界分层地图功能开关（读自 userSettings） */
+const realmMapEnabled = computed(() => !!(gameStateStore.userSettings as any)?.['境界分层地图']);
 /** 已生成的境界 Tab 名称列表 */
 const realmTabs = computed(() => {
   if (!realmMapEnabled.value) return [];
@@ -484,35 +477,13 @@ const currentRealmHasMap = computed(() => {
 });
 /** 当前玩家境界名称 */
 const playerRealm = computed(() => {
-  const r = (gameStateStore.reincarnator as any) || {};
-  if (typeof r?.level === 'string' && r.level.trim()) {
-    return `${r.level.trim()}级`;
-  }
   const attrs = gameStateStore.attributes as any;
-  return attrs?.['评级']?.['名称']
-    || attrs?.['境界']?.['名称']
-    || (typeof attrs?.['评级'] === 'string' ? attrs['评级'] : '')
-    || (typeof attrs?.['境界'] === 'string' ? attrs['境界'] : '')
-    || '';
+  return attrs?.['境界']?.['名称'] || (typeof attrs?.['境界'] === 'string' ? attrs['境界'] : '') || '';
 });
 /** 境界地图生成中状态 */
 const isGeneratingRealmMap = ref(false);
 
 const REALM_ORDER_HINTS: Array<{ token: string; rank: number }> = [
-  { token: 'SSS', rank: 7 },
-  { token: 'SS', rank: 6 },
-  { token: 'S', rank: 5 },
-  { token: 'A', rank: 4 },
-  { token: 'B', rank: 3 },
-  { token: 'C', rank: 2 },
-  { token: 'D', rank: 1 },
-  { token: '新人', rank: 1 },
-  { token: '初级轮回者', rank: 2 },
-  { token: '中级轮回者', rank: 3 },
-  { token: '高级轮回者', rank: 4 },
-  { token: '精英轮回者', rank: 5 },
-  { token: '传说轮回者', rank: 6 },
-  { token: '超越者', rank: 7 },
   { token: '凡人', rank: 0 },
   { token: '练气', rank: 1 },
   { token: '筑基', rank: 2 },
@@ -538,8 +509,6 @@ const REALM_ORDER_HINTS: Array<{ token: string; rank: number }> = [
 const getRealmOrderRank = (realmName: string): number => {
   const raw = String(realmName || '').trim();
   if (!raw) return -1;
-  if (raw.includes('SSS')) return 7;
-  if (raw.includes('SS')) return 6;
   let best = -1;
   for (const item of REALM_ORDER_HINTS) {
     if (raw.includes(item.token)) {
@@ -550,14 +519,6 @@ const getRealmOrderRank = (realmName: string): number => {
 };
 
 const extractNpcRealmText = (npcData: any): string => {
-  const directRank = npcData?.评级;
-  if (typeof directRank === 'string') return directRank.trim();
-  if (directRank && typeof directRank === 'object') {
-    const level = String(directRank?.名称 || directRank?.level || '').trim();
-    const star = String(directRank?.阶段 || directRank?.star || '').trim();
-    return [level, star].filter(Boolean).join('');
-  }
-
   const directRealm = npcData?.境界;
   if (typeof directRealm === 'string') return directRealm.trim();
   if (directRealm && typeof directRealm === 'object') {
@@ -709,16 +670,7 @@ const collectHistoricalMapContext = (targetRealm: string) => {
  * - 旧模式：gameStateStore.worldInfo
  * - 境界分层模式：activeWorldInfo（来自 realmMapCollection）
  */
-const getMissionTemporaryWorldInfo = (): WorldInfo | null => {
-  const mission = gameStateStore.currentMission as any;
-  const temporaryWorld = mission?.临时状态?.副本地图;
-  return temporaryWorld && typeof temporaryWorld === 'object' ? (temporaryWorld as WorldInfo) : null;
-};
-
 const getCurrentWorldInfo = (): WorldInfo | null => {
-  if (isMissionPhase.value) {
-    return getMissionTemporaryWorldInfo() ?? gameStateStore.worldInfo;
-  }
   if (realmMapEnabled.value) return activeWorldInfo.value;
   return gameStateStore.worldInfo;
 };
@@ -729,23 +681,6 @@ const getCurrentWorldInfo = (): WorldInfo | null => {
  * - 境界分层模式：写回当前激活境界对应的 realmMapCollection[key]
  */
 const saveCurrentWorldInfo = (nextWorldInfo: WorldInfo): boolean => {
-  if (isMissionPhase.value) {
-    const mission = gameStateStore.currentMission as any;
-    if (!mission || typeof mission !== 'object') {
-      toast.error('当前无副本上下文，无法保存副本地图');
-      return false;
-    }
-    const temporaryState = mission.临时状态 && typeof mission.临时状态 === 'object' ? { ...mission.临时状态 } : {};
-    gameStateStore.setCurrentMission({
-      ...mission,
-      临时状态: {
-        ...temporaryState,
-        副本地图: nextWorldInfo,
-      },
-    } as any);
-    return true;
-  }
-
   if (!realmMapEnabled.value) {
     gameStateStore.updateState('worldInfo', nextWorldInfo);
     return true;
@@ -753,7 +688,7 @@ const saveCurrentWorldInfo = (nextWorldInfo: WorldInfo): boolean => {
 
   const key = currentRealmKey.value || playerRealm.value;
   if (!key) {
-    toast.error('未找到当前评级地图，无法保存');
+    toast.error('未找到当前境界地图，无法保存');
     return false;
   }
 
@@ -977,11 +912,10 @@ const densityMultipliers: Record<MapDensity, { faction: number; location: number
   dense: { faction: 1.5, location: 1.5 },
 };
 
-const currentWorldInfo = computed(() => getCurrentWorldInfo());
-const worldName = computed(() => currentWorldInfo.value?.世界名称 || (gameStateStore.currentMission as any)?.name || '副本世界');
-const worldBackground = computed(() => currentWorldInfo.value?.世界背景 || (gameStateStore.currentMission as any)?.description || '');
+const worldName = computed(() => activeWorldInfo.value?.世界名称 || '修仙界');
+const worldBackground = computed(() => activeWorldInfo.value?.世界背景 || '');
 const mapRenderConfig = computed(() => {
-  const mapConfig = (currentWorldInfo.value as any)?.['地图配置'];
+  const mapConfig = (activeWorldInfo.value as any)?.['地图配置'];
   const width = Number(mapConfig?.width) || 10000;
   const height = Number(mapConfig?.height) || 10000;
   const tileSize = Math.max(80, Math.round(Math.min(width, height) / 80));
@@ -1155,7 +1089,7 @@ const resolvePlayerCoordinates = (locationData: any): GameCoordinates | null => 
 
 // 检查地图是否有内容 (地点或势力)
 const hasMapContent = computed(() => {
-  const wi = currentWorldInfo.value;
+  const wi = activeWorldInfo.value;
   if (!wi) return false;
   const hasLocations = wi.地点信息?.length > 0;
   const hasFactions = wi.势力信息?.length > 0;
@@ -1166,24 +1100,18 @@ const hasMapContent = computed(() => {
 const locationTypeNames: Record<string, string> = {
   // 英文类型（兼容旧数据）
   natural_landmark: '名山大川',
-  sect_power: '阵营势力',
-  city_town: '据点聚落',
-  blessed_land: '资源区域',
-  treasure_land: '特殊区域',
-  dangerous_area: '高危区域',
+  sect_power: '宗门势力',
+  city_town: '城镇坊市',
+  blessed_land: '洞天福地',
+  treasure_land: '奇珍异地',
+  dangerous_area: '凶险之地',
   special_other: '其他特殊',
   // 中文类型（新数据）
   '名山大川': '名山大川',
-  '阵营势力': '阵营势力',
-  '宗门势力': '阵营势力',
-  '据点聚落': '据点聚落',
-  '城镇坊市': '据点聚落',
-  '资源区域': '资源区域',
-  '洞天福地': '资源区域',
-  '特殊区域': '特殊区域',
-  '奇珍异地': '特殊区域',
-  '高危区域': '高危区域',
-  '凶险之地': '高危区域',
+  '城镇坊市': '城镇坊市',
+  '洞天福地': '洞天福地',
+  '奇珍异地': '奇珍异地',
+  '凶险之地': '凶险之地',
   '其他特殊': '其他特殊',
 };
 
@@ -1195,16 +1123,7 @@ const getLocationTypeName = (type: string): string => {
  * 判断是否为势力地点
  */
 const isFactionLocation = (location: any): boolean => {
-  return location.类型 === '阵营势力' ||
-         location.类型 === '本地组织' ||
-         location.类型 === '反抗军' ||
-         location.类型 === '企业财团' ||
-         location.类型 === '调查局' ||
-         location.类型 === '幸存者据点' ||
-         location.类型 === '幸存者阵营' ||
-         location.类型 === '轮回者队伍' ||
-         location.类型 === '敌对轮回者' ||
-         location.类型 === '修仙宗门' ||
+  return location.类型 === '修仙宗门' ||
          location.类型 === '魔道宗门' ||
          location.类型 === '修仙世家' ||
          location.类型 === '散修联盟' ||
@@ -1441,9 +1360,9 @@ watch(
 // 🔥 修复：使用浅层监听 + 长度检查，避免深度监听导致的无限循环
 watch(
   () => [
-    currentWorldInfo.value?.大陆信息?.length,
-    currentWorldInfo.value?.势力信息?.length,
-    currentWorldInfo.value?.地点信息?.length,
+    activeWorldInfo.value?.大陆信息?.length,
+    activeWorldInfo.value?.势力信息?.length,
+    activeWorldInfo.value?.地点信息?.length,
     activeRealmTab.value, // Tab 切换时也触发重渲染
   ],
   (newLengths, oldLengths) => {
@@ -1461,14 +1380,14 @@ watch(
 );
 
 /**
- * 生成当前评级的世界地图（评级地图集模式专用）
+ * 生成当前境界的世界地图（境界地图集模式专用）
  */
 const generateCurrentRealmMap = async (overwrite = false) => {
   const realm = overwrite
     ? (currentRealmKey.value || playerRealm.value)
     : (playerRealm.value || currentRealmKey.value);
   if (!realm) {
-    toast.error('无法获取当前评级信息');
+    toast.error('无法获取当前境界信息');
     return;
   }
 
@@ -1476,7 +1395,7 @@ const generateCurrentRealmMap = async (overwrite = false) => {
   isGeneratingRealmMap.value = true;
 
   try {
-    toast.info(`正在为【${realm}】评级生成专属地图...`);
+    toast.info(`正在为【${realm}】境界生成专属地图...`);
     const attrs = gameStateStore.attributes as any;
     const charInfo = gameStateStore.character as any;
     const existingWorldInfo = getCurrentWorldInfo() ?? gameStateStore.worldInfo;
@@ -1491,10 +1410,10 @@ const generateCurrentRealmMap = async (overwrite = false) => {
 
     const result = await generateRealmMap({
       playerRealm: realm,
-      // 用世界背景提供等级体系上下文（AI 从中推断挑战层级）
+      // 用世界背景提供境界体系上下文（AI 从中推断完整修炼序列）
       playerRealmContext: existingWorldInfo?.世界背景 || realm,
       playerBackground: charInfo?.['背景'] || charInfo?.['出身'] || '',
-      playerFaction: charInfo?.['阵营'] || charInfo?.['宗门'] || attrs?.['阵营'] || attrs?.['宗门'] || '',
+      playerFaction: charInfo?.['宗门'] || attrs?.['宗门'] || '',
       playerLocation: (gameStateStore.location as any)?.['描述'] || '',
       worldName: existingWorldInfo?.世界名称,
       worldBackground: existingWorldInfo?.世界背景,
@@ -1515,7 +1434,7 @@ const generateCurrentRealmMap = async (overwrite = false) => {
       gameStateStore.realmMapCollection = col;
       activeRealmTab.value = realm;
       await loadMapData({ silent: true, reset: true });
-      toast.success(`【${realm}】评级地图生成完成！`);
+      toast.success(`【${realm}】境界地图生成完成！`);
     } else {
       toast.error('地图生成失败：' + (result.errors?.join(', ') || '未知错误'));
     }
@@ -1543,8 +1462,8 @@ const doRegenerateRealmMap = async () => {
 };
 
 /**
- * 旧存档自动迁移：当第一次开启评级分层地图模式时，
- * 将现有的 worldInfo 作为"当前评级"的初始地图导入地图集
+ * 旧存档自动迁移：当第一次开启境界分层地图模式时，
+ * 将现有的 worldInfo 作为"当前境界"的初始地图导入地图集
  */
 watch(
   () => realmMapEnabled.value,
@@ -1557,12 +1476,12 @@ watch(
     const wi = gameStateStore.worldInfo;
     if (!wi || (!wi.势力信息?.length && !wi.地点信息?.length)) return;
 
-    // 以当前玩家评级为 key（若没有则用 "初始评级"）
-    const key = playerRealm.value || '初始评级';
+    // 以当前玩家境界为 key（若没有则用 "初始境界"）
+    const key = playerRealm.value || '初始境界';
     const newCol: Record<string, WorldInfo> = { [key]: wi };
     gameStateStore.realmMapCollection = newCol;
     activeRealmTab.value = key;
-    toast.info(`已将现有地图迁移至【${key}】评级地图集`);
+    toast.info(`已将现有地图迁移至【${key}】境界地图集`);
     console.log('[境界地图] 旧存档自动迁移完成', key);
   },
   { immediate: true }
@@ -1582,7 +1501,6 @@ const initializeMap = async () => {
   mapStatus.value = '开始生成地图内容...';
 
   try {
-    const missionContext = isMissionPhase.value ? (gameStateStore.currentMission as any) : null;
     const continentCount = worldInfo.大陆信息?.length || 3;
     const multiplier = densityMultipliers[mapDensity.value];
     const factionCount = Math.max(3, Math.round(continentCount * 2 * multiplier.faction));
@@ -1599,22 +1517,25 @@ const initializeMap = async () => {
 
     console.log(`[地图] 密度: ${mapDensity.value}, 势力: ${factionCount}, 地点: ${locationCount}`);
 
+    // 🔥 随机判断是否生成合欢宗（30%概率，仅酒馆环境）
+    const shouldGenerateHehuan = isTavernEnv() && Math.random() < 0.3;
+    if (shouldGenerateHehuan) {
+      console.log('[地图] 🎲 随机触发合欢宗彩蛋');
+    }
+
     // 创建世界生成器
     const generator = new EnhancedWorldGenerator({
-      worldName: missionContext?.name || worldInfo.世界名称,
-      worldBackground: missionContext?.description || worldInfo.世界背景,
-      worldEra: worldInfo.世界纪元 || '轮回纪元',
+      worldName: worldInfo.世界名称,
+      worldBackground: worldInfo.世界背景,
+      worldEra: worldInfo.世界纪元 || '修真盛世',
       factionCount: factionCount,
       locationCount: locationCount,
       secretRealmsCount: secretRealmsCount,
       continentCount: continentCount,
       mapConfig: mapConfig,
-      missionWorldType: missionContext?.worldType,
-      missionDifficulty: missionContext?.difficulty,
-      missionName: missionContext?.name,
-      gamePhase: gameStateStore.gamePhase,
       maxRetries: 3,
       retryDelay: 1000,
+      enableHehuanEasterEgg: shouldGenerateHehuan, // 🔥 根据随机结果决定是否生成合欢宗
       onStreamChunk: (chunk: string) => {
         // 更新生成状态显示
         mapStatus.value = chunk;
@@ -1637,6 +1558,86 @@ const initializeMap = async () => {
       // 更新游戏状态（境界分层模式下写回当前境界地图）
       if (!saveCurrentWorldInfo(updatedWorldInfo)) {
         return;
+      }
+
+      // 🔥 如果触发了合欢宗彩蛋，创建灰夫人NPC
+      if (shouldGenerateHehuan) {
+        const hehuanSect = (result.worldInfo.势力信息 || []).find(
+          (f: any) => String(f.名称 || f.name || '').includes('合欢')
+        );
+        const sectName = hehuanSect?.名称 || (hehuanSect as any)?.name || '合欢宗';
+        const gameTime = gameStateStore.gameTime as GameTime;
+        const greyLady: NpcProfile = {
+          名字: "灰夫人(合欢圣女)",
+          性别: "女",
+          出生日期: { 年: (gameTime?.年 || 1000) - 200, 月: 1, 日: 1 },
+          种族: "人族",
+          出生: "合欢宗",
+          外貌描述: "身材极度丰满，拥有夸张的丰乳肥臀，腰肢纤细如蛇。面容妖媚，眼神含春，举手投足间散发着惊人的魅惑力。身着轻薄纱衣，曼妙身姿若隐若现。",
+          性格特征: ["平易近人", "开放", "双性恋", "M体质", "S体质", "痴女(潜在)"],
+          境界: { 名称: "金丹", 阶段: "圆满", 当前进度: 0, 下一级所需: 100, 突破描述: "阴阳调和，丹破婴生" },
+          灵根: { name: "天阴灵根", tier: "天品" } as any,
+          天赋: [{ name: "合欢圣体", description: "天生媚骨，极适合双修，采补效果翻倍" }] as any,
+          先天六司: { 根骨: 8, 灵性: 9, 悟性: 8, 气运: 7, 魅力: 10, 心性: 5 },
+          属性: {
+            气血: { 当前: 5000, 上限: 5000 },
+            灵气: { 当前: 8000, 上限: 8000 },
+            神识: { 当前: 3000, 上限: 3000 },
+            寿元上限: 500
+          },
+          与玩家关系: "陌生人",
+          好感度: 10,
+          当前位置: { 描述: `${sectName}驻地` },
+          势力归属: sectName,
+          人格底线: [],
+          记忆: [
+            "我是合欢宗的圣女，人称灰夫人。",
+            "我的真实姓名是一个秘密，只有真正征服我的人才能知道。",
+            "我渴望体验世间极致的快乐与痛苦，无论是给予还是接受。"
+          ],
+          当前外貌状态: "衣衫半解，媚眼如丝",
+          当前内心想法: "观察着周围的人，寻找能让我感兴趣的猎物",
+          背包: { 灵石: { 下品: 5000, 中品: 500, 上品: 50, 极品: 0 }, 物品: {} },
+          实时关注: true,
+          私密信息: {
+            是否为处女: true,
+            身体部位: [
+              { 部位名称: "后庭", 特征描述: "九曲回廊，紧致幽深，内壁褶皱繁复，仿佛能吞噬一切", 敏感度: 80, 开发度: 0, 特殊印记: "未开发", 反应描述: "稍有触碰便轻颤，呼吸凌乱", 偏好刺激: "缓慢深入与节奏变化", 禁忌: "粗暴扩张" },
+              { 部位名称: "阴道", 特征描述: "春水玉壶，名器天成，常年湿润，紧致如初", 敏感度: 90, 开发度: 0, 特殊印记: "白虎", 反应描述: "情绪一动便春水泛滥", 偏好刺激: "前戏充足与温热指探", 禁忌: "敷衍草率" },
+              { 部位名称: "腰部", 特征描述: "七寸盘蛇，柔若无骨，可做出任何高难度姿势", 敏感度: 70, 开发度: 0 },
+              { 部位名称: "手", 特征描述: "纤手观音，指若削葱，灵活多变，擅长挑逗", 敏感度: 60, 开发度: 0 },
+              { 部位名称: "足", 特征描述: "玲珑鸳鸯，弓足如玉，脚趾圆润可爱，足弓优美", 敏感度: 85, 开发度: 0 },
+              { 部位名称: "嘴", 特征描述: "如意鱼唇，樱桃小口，舌头灵活，深喉天赋异禀", 敏感度: 75, 开发度: 0 },
+              { 部位名称: "胸部", 特征描述: "乳燕玉峰，波涛汹涌，乳晕粉嫩，乳头敏感易硬", 敏感度: 95, 开发度: 0 },
+            ],
+            性格倾向: "开放且顺从(待调教)",
+            性取向: "双性恋",
+            性经验等级: "资深",
+            亲密节奏: "快慢随心，重视前戏与情绪引导",
+            亲密需求: "渴望征服与被征服的拉扯感",
+            安全偏好: "边界沟通+安全词+禁术防护",
+            避孕措施: "避孕丹/隔绝阵",
+            性癖好: ["吞精","BDSM", "足交", "乳交", "捆绑", "调教", "采补", "角色扮演", "支配", "被支配", "露出", "放尿", "凌辱", "刑具"],
+            亲密偏好: ["前戏充分", "情话引导", "视觉挑逗", "角色扮演", "掌控节奏"],
+            禁忌清单: ["毫无沟通", "粗暴撕扯", "当众羞辱"],
+            性渴望程度: 80,
+            当前性状态: "渴望",
+            体液分泌状态: "充沛",
+            性交总次数: 128,
+            性伴侣名单: [],
+            最近一次性行为时间: "无",
+            生育状态: { 是否可孕: true, 当前状态: "未怀孕" },
+            特殊体质: ["合欢圣体", "名器合集"]
+          }
+        };
+        const currentRelations = gameStateStore.relationships || {};
+        if (!currentRelations[greyLady.名字]) {
+          gameStateStore.updateState('relationships', {
+            ...currentRelations,
+            [greyLady.名字]: greyLady
+          });
+          console.log('[地图] 🎲 合欢宗彩蛋：已生成灰夫人NPC');
+        }
       }
 
       // 重新加载地图数据
@@ -1678,27 +1679,29 @@ const generateAdditionalContent = async () => {
   showGenerateModal.value = false;
 
   try {
-    const missionContext = isMissionPhase.value ? (gameStateStore.currentMission as any) : null;
     const mapConfig = (worldInfo as any)?.['地图配置'] || {
       width: mapRenderConfig.value.width,
       height: mapRenderConfig.value.height,
     };
 
+    // 🔥 随机判断是否生成合欢宗（30%概率，仅酒馆环境且生成势力时）
+    const shouldGenerateHehuan = factions && isTavernEnv() && Math.random() < 0.3;
+    if (shouldGenerateHehuan) {
+      console.log('[地图] 🎲 追加生成：随机触发合欢宗彩蛋');
+    }
+
     const generator = new EnhancedWorldGenerator({
-      worldName: missionContext?.name || worldInfo.世界名称,
-      worldBackground: missionContext?.description || worldInfo.世界背景,
-      worldEra: worldInfo.世界纪元 || '轮回纪元',
+      worldName: worldInfo.世界名称,
+      worldBackground: worldInfo.世界背景,
+      worldEra: worldInfo.世界纪元 || '修真盛世',
       factionCount: factions ? factionCount : 0,
       locationCount: locations ? locationCount : 0,
       secretRealmsCount: 0,
       continentCount: worldInfo.大陆信息?.length || 1,
       mapConfig: mapConfig,
-      missionWorldType: missionContext?.worldType,
-      missionDifficulty: missionContext?.difficulty,
-      missionName: missionContext?.name,
-      gamePhase: gameStateStore.gamePhase,
       maxRetries: 2,
       retryDelay: 500,
+      enableHehuanEasterEgg: shouldGenerateHehuan,
       existingFactions: worldInfo.势力信息?.map((f: any) => ({
         名称: f.名称 || f.name,
         位置: f.位置 || f.location,
@@ -1725,6 +1728,86 @@ const generateAdditionalContent = async () => {
 
       if (!saveCurrentWorldInfo(updatedWorldInfo)) {
         return;
+      }
+
+      // 🔥 如果触发了合欢宗彩蛋，创建灰夫人NPC
+      if (shouldGenerateHehuan) {
+        const hehuanSect = newFactions.find(
+          (f: any) => String(f.名称 || f.name || '').includes('合欢')
+        );
+        const sectName = hehuanSect?.名称 || (hehuanSect as any)?.name || '合欢宗';
+        const gameTime = gameStateStore.gameTime as GameTime;
+        const greyLady: NpcProfile = {
+          名字: "灰夫人(合欢圣女)",
+          性别: "女",
+          出生日期: { 年: (gameTime?.年 || 1000) - 200, 月: 1, 日: 1 },
+          种族: "人族",
+          出生: "合欢宗",
+          外貌描述: "身材极度丰满，拥有夸张的丰乳肥臀，腰肢纤细如蛇。面容妖媚，眼神含春，举手投足间散发着惊人的魅惑力。身着轻薄纱衣，曼妙身姿若隐若现。",
+          性格特征: ["平易近人", "开放", "双性恋", "M体质", "S体质", "痴女(潜在)"],
+          境界: { 名称: "金丹", 阶段: "圆满", 当前进度: 0, 下一级所需: 100, 突破描述: "阴阳调和，丹破婴生" },
+          灵根: { name: "天阴灵根", tier: "天品" } as any,
+          天赋: [{ name: "合欢圣体", description: "天生媚骨，极适合双修，采补效果翻倍" }] as any,
+          先天六司: { 根骨: 8, 灵性: 9, 悟性: 8, 气运: 7, 魅力: 10, 心性: 5 },
+          属性: {
+            气血: { 当前: 5000, 上限: 5000 },
+            灵气: { 当前: 8000, 上限: 8000 },
+            神识: { 当前: 3000, 上限: 3000 },
+            寿元上限: 500
+          },
+          与玩家关系: "陌生人",
+          好感度: 10,
+          当前位置: { 描述: `${sectName}驻地` },
+          势力归属: sectName,
+          人格底线: [],
+          记忆: [
+            "我是合欢宗的圣女，人称灰夫人。",
+            "我的真实姓名是一个秘密，只有真正征服我的人才能知道。",
+            "我渴望体验世间极致的快乐与痛苦，无论是给予还是接受。"
+          ],
+          当前外貌状态: "衣衫半解，媚眼如丝",
+          当前内心想法: "观察着周围的人，寻找能让我感兴趣的猎物",
+          背包: { 灵石: { 下品: 5000, 中品: 500, 上品: 50, 极品: 0 }, 物品: {} },
+          实时关注: true,
+          私密信息: {
+            是否为处女: true,
+            身体部位: [
+              { 部位名称: "后庭", 特征描述: "九曲回廊，紧致幽深，内壁褶皱繁复，仿佛能吞噬一切", 敏感度: 80, 开发度: 0, 特殊印记: "未开发", 反应描述: "稍有触碰便轻颤，呼吸凌乱", 偏好刺激: "缓慢深入与节奏变化", 禁忌: "粗暴扩张" },
+              { 部位名称: "阴道", 特征描述: "春水玉壶，名器天成，常年湿润，紧致如初", 敏感度: 90, 开发度: 0, 特殊印记: "白虎", 反应描述: "情绪一动便春水泛滥", 偏好刺激: "前戏充足与温热指探", 禁忌: "敷衍草率" },
+              { 部位名称: "腰部", 特征描述: "七寸盘蛇，柔若无骨，可做出任何高难度姿势", 敏感度: 70, 开发度: 0 },
+              { 部位名称: "手", 特征描述: "纤手观音，指若削葱，灵活多变，擅长挑逗", 敏感度: 60, 开发度: 0 },
+              { 部位名称: "足", 特征描述: "玲珑鸳鸯，弓足如玉，脚趾圆润可爱，足弓优美", 敏感度: 85, 开发度: 0 },
+              { 部位名称: "嘴", 特征描述: "如意鱼唇，樱桃小口，舌头灵活，深喉天赋异禀", 敏感度: 75, 开发度: 0 },
+              { 部位名称: "胸部", 特征描述: "乳燕玉峰，波涛汹涌，乳晕粉嫩，乳头敏感易硬", 敏感度: 95, 开发度: 0 },
+            ],
+            性格倾向: "开放且顺从(待调教)",
+            性取向: "双性恋",
+            性经验等级: "资深",
+            亲密节奏: "快慢随心，重视前戏与情绪引导",
+            亲密需求: "渴望征服与被征服的拉扯感",
+            安全偏好: "边界沟通+安全词+禁术防护",
+            避孕措施: "避孕丹/隔绝阵",
+            性癖好: ["BDSM", "足交", "乳交", "捆绑", "调教", "采补", "角色扮演", "支配", "被支配", "露出", "放尿", "凌辱", "刑具"],
+            亲密偏好: ["前戏充分", "情话引导", "视觉挑逗", "角色扮演", "掌控节奏"],
+            禁忌清单: ["毫无沟通", "粗暴撕扯", "当众羞辱"],
+            性渴望程度: 80,
+            当前性状态: "渴望",
+            体液分泌状态: "充沛",
+            性交总次数: 128,
+            性伴侣名单: [],
+            最近一次性行为时间: "无",
+            生育状态: { 是否可孕: true, 当前状态: "未怀孕" },
+            特殊体质: ["合欢圣体", "名器合集"]
+          }
+        };
+        const currentRelations = gameStateStore.relationships || {};
+        if (!currentRelations[greyLady.名字]) {
+          gameStateStore.updateState('relationships', {
+            ...currentRelations,
+            [greyLady.名字]: greyLady
+          });
+          console.log('[地图] 🎲 追加生成：合欢宗彩蛋已生成灰夫人NPC');
+        }
       }
 
       await loadMapData({ reset: true });
