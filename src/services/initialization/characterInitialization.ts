@@ -18,11 +18,18 @@ import { buildCharacterInitializationPrompt, buildCharacterSelectionsSummary } f
 import { validateGameData } from '@/utils/dataValidation';
 import { repairSaveData } from '@/utils/dataRepair';
 import { migrateSaveDataToLatest } from '@/utils/saveMigration';
+import { safeClone } from '@/utils/safeClone';
 // 移除未使用的旧生成器导入,改用增强版生成器
 // import { WorldGenerationConfig } from '@/utils/worldGeneration/gameWorldConfig';
 import { EnhancedWorldGenerator } from '@/utils/worldGeneration/enhancedWorldGenerator';
 // 导入本地数据库用于随机生成
 import { LOCAL_SPIRIT_ROOTS, LOCAL_ORIGINS } from '@/data/creationData';
+
+function isLikelyMobileDevice(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = String(navigator.userAgent || '').toLowerCase();
+  return /android|iphone|ipad|ipod|mobile|harmony/i.test(ua);
+}
 
 /**
  * 判断是否为随机灵根（辅助函数）
@@ -166,8 +173,8 @@ function prepareInitialData(baseInfo: CharacterBaseInfo, age: number): { saveDat
   // 直接使用 JSON 方式，因为 baseInfo 可能包含 Vue 响应式对象
   let processedBaseInfo: CharacterBaseInfo;
   try {
-    // 使用 JSON 序列化来移除响应式代理和不可序列化的属性
-    processedBaseInfo = JSON.parse(JSON.stringify(baseInfo));
+    // 使用安全克隆来移除响应式代理和不可序列化的属性
+    processedBaseInfo = safeClone(baseInfo);
     console.log('[初始化流程] JSON 序列化后的 processedBaseInfo.先天六司:', processedBaseInfo.先天六司);
   } catch (jsonError) {
     console.error('[角色初始化] JSON 序列化失败，使用原始对象', jsonError);
@@ -398,6 +405,15 @@ async function generateOpeningScene(saveData: SaveData, baseInfo: CharacterBaseI
   console.log('[初始化流程] 3. 生成开场剧情');
   const uiStore = useUIStore();
   const tavernEnv = isTavernEnv();
+  const isMobileDevice = isLikelyMobileDevice();
+  const effectiveUseStreaming = isMobileDevice ? false : useStreaming;
+  const effectiveGenerateMode: 'generate' | 'generateRaw' = isMobileDevice ? 'generateRaw' : generateMode;
+  if (isMobileDevice && useStreaming) {
+    console.warn('[初始化流程] 检测到移动端环境，开局初始化强制关闭流式传输以规避 JSON 截断问题');
+  }
+  if (isMobileDevice && generateMode !== 'generateRaw') {
+    console.warn('[初始化流程] 检测到移动端环境，开局初始化强制使用 generateRaw 以规避酒馆标准 generate 链路兼容性问题');
+  }
   const nsfwEnabled = tavernEnv && Boolean((saveData as any).系统?.配置?.nsfwMode);
   const loadingHeaderHtml = nsfwEnabled
     ? '天道正在为你书写命运之章...<br/><span style="font-size: 0.85em; opacity: 0.8;">（法身数据生成中…）</span>'
@@ -496,13 +512,13 @@ async () => {
     // 🔥 [新架构] 使用 AIBidirectionalSystem 生成初始消息
     const aiSystem = AIBidirectionalSystem;
     const response = await aiSystem.generateInitialMessage(systemPrompt, userPrompt, {
-      useStreaming,
-      generateMode,
+      useStreaming: effectiveUseStreaming,
+      generateMode: effectiveGenerateMode,
       splitResponseGeneration,
-      onStreamChunk: (chunk: string) => {
+      onStreamChunk: effectiveUseStreaming ? (chunk: string) => {
         receivedChars += chunk.length;
         onStreamChunk(chunk);
-      },
+      } : undefined,
       onProgressUpdate: (status: string) => {
         // 分步生成时更新进度提示
         const statusWithChars = receivedChars > 0
@@ -513,7 +529,7 @@ async () => {
     });
 
     const elapsed = Date.now() - startTime;
-    console.log(`[初始化] ✅ AI生成完成,耗时: ${elapsed}ms, 流式模式: ${useStreaming}, 生成模式: ${generateMode}, 分步生成: ${splitResponseGeneration}`);
+    console.log(`[初始化] ✅ AI生成完成,耗时: ${elapsed}ms, 流式模式: ${effectiveUseStreaming}, 生成模式: ${effectiveGenerateMode}, 分步生成: ${splitResponseGeneration}`);
 
     // generateInitialMessage 内部已经解析，这里直接返回
     return response;

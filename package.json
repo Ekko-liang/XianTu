@@ -13,6 +13,9 @@
   "bugs": {
     "url": "https://github.com/qianye60/XianTu/issues"
   },
+  "engines": {
+    "node": ">=20 <23"
+  },
   "scripts": {
     "build": "webpack --mode production",
     "build:single": "webpack --mode production --env single",

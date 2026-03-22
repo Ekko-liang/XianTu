@@ -5,6 +5,7 @@
  */
 import { defineStore } from 'pinia';
 import { set, get, cloneDeep } from 'lodash';
+import { safeClone } from '@/utils/safeClone';
 import type {
   CharacterBaseInfo,
   PlayerAttributes,
@@ -276,7 +277,7 @@ export const useGameStateStore = defineStore('gameState', {
     loadFromSaveData(saveData: SaveData) {
       const v3 = (isSaveDataV3(saveData) ? saveData : migrateSaveDataToLatest(saveData).migrated) as any;
 
-      const deepCopy = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+      const deepCopy = <T>(value: T): T => safeClone(value);
 
       // V3 保存的元数据/联机/设置也读入到 store（用于后续保存回写）
       this.saveMeta = v3?.元数据 ? deepCopy(v3.元数据) : null;
@@ -485,7 +486,7 @@ export const useGameStateStore = defineStore('gameState', {
         return null;
       }
 
-      const deepCopy = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+      const deepCopy = <T>(value: T): T => safeClone(value);
 
       const techniqueProgress = buildTechniqueProgress(this.inventory);
       const currentTechniqueId = (this.cultivationTechnique as any)?.物品ID ?? null;

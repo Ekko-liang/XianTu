@@ -23,6 +23,7 @@ import { updateMasteredSkills } from '@/utils/masteredSkillsCalculator'; // <-- 
 import { updateStatusEffects } from '@/utils/statusEffectManager'; // <-- 导入状态效果管理工具
 import { detectLegacySaveData, isSaveDataV3, migrateSaveDataToLatest, extractSaveDisplayInfo } from '@/utils/saveMigration';
 import { validateSaveDataV3 } from '@/utils/saveValidationV3';
+import { safeClone } from '@/utils/safeClone';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import SaveMigrationModal from '@/components/dashboard/components/SaveMigrationModal.vue';
 import type { World} from '@/types';
@@ -90,7 +91,7 @@ function filterSaveDataForCloud(saveData: SaveData | null): SaveData | null {
   if (!saveData) return null;
 
   // 深拷贝以避免修改原始数据
-  const filtered = JSON.parse(JSON.stringify(saveData)) as SaveData;
+  const filtered = safeClone(saveData) as SaveData;
 
   // 🔥 移除叙事历史（太大了，且云存档不需要）
   // - V3: 系统.历史.叙事
@@ -397,7 +398,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
   const commitMetadataToStorage = async (): Promise<void> => {
     try {
       // 🔥 新架构：只保存元数据，不保存庞大的存档数据
-      const metadataRoot = JSON.parse(JSON.stringify(rootState.value));
+      const metadataRoot = safeClone(rootState.value);
       Object.values(metadataRoot.角色列表).forEach((profile: any) => {
         if (profile.存档列表) {
           Object.values(profile.存档列表).forEach((slot: any) => {
@@ -1396,7 +1397,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
         const updatedSkills = updateMasteredSkills(currentSaveData);
         // 同步到当前内存态，避免"已掌握技能"UI需要重载才更新
         try {
-          gameStateStore.masteredSkills = JSON.parse(JSON.stringify(updatedSkills)) as any;
+          gameStateStore.masteredSkills = safeClone(updatedSkills) as any;
           if (gameStateStore.skillState && typeof gameStateStore.skillState === 'object') {
             (gameStateStore.skillState as any).掌握技能 = gameStateStore.masteredSkills;
           }
@@ -1704,7 +1705,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
         境界: playerAttributes?.境界?.名称 || '凡人',
         位置: playerLocation?.描述 || '未知',
         // 深拷贝存档数据
-        存档数据: JSON.parse(JSON.stringify(currentSaveData))
+        存档数据: safeClone(currentSaveData)
       };
 
       // 计算修为进度
@@ -2178,7 +2179,7 @@ export const useCharacterStore = defineStore('characterV3', () => {
       throw new Error(`找不到当前激活的存档槽位: ${active.存档槽位}`);
     }
 
-    const rolledBackData = JSON.parse(JSON.stringify(lastConversationData));
+    const rolledBackData = safeClone(lastConversationData);
     activeSlot.存档数据 = rolledBackData;
     activeSlot.保存时间 = new Date().toISOString();
 

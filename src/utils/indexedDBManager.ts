@@ -1,5 +1,6 @@
 // src/utils/indexedDBManager.ts
 import type { LocalStorageRoot, SaveData } from '@/types/game';
+import { safeClone } from '@/utils/safeClone';
 
 /**
  * @fileoverview
@@ -126,7 +127,7 @@ export async function saveData(key: string, data: any): Promise<void> {
     const objectStore = transaction.objectStore(STORE_NAME);
     const request = objectStore.put({
       id: key,
-      data: JSON.parse(JSON.stringify(data)), // 清理数据
+      data: safeClone(data),
       timestamp: new Date().toISOString(),
     });
     request.onsuccess = () => resolve();

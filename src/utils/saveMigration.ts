@@ -1,6 +1,7 @@
 import type { SaveData, GameTime, EventSystem } from '@/types/game';
 import type { SaveDataV3 } from '@/types/saveSchemaV3';
 import { normalizeBackpackCurrencies } from '@/utils/currencySystem';
+import { safeClone } from '@/utils/safeClone';
 
 export type SaveMigrationIssue =
   | 'legacy-root-keys'
@@ -147,7 +148,7 @@ const LEGACY_ROOT_KEYS = [
 
 const REQUIRED_V3_KEYS = ['元数据', '角色', '社交', '世界', '系统'] as const;
 
-const deepClone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+const deepClone = <T>(value: T): T => safeClone(value);
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === 'object' && !Array.isArray(value);

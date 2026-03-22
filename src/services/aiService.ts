@@ -749,7 +749,11 @@ class AIService {
         if (this.isAborted) {
           throw new Error('请求已被取消');
         }
-        return await tavernHelper.generate(options);
+        const nativeOptions = { ...options } as Record<string, unknown>;
+        if (!options.should_stream) {
+          delete nativeOptions.onStreamChunk;
+        }
+        return await tavernHelper.generate(nativeOptions);
       });
     } catch (error) {
       throw this.toUserFacingError(error);
@@ -771,7 +775,11 @@ class AIService {
         if (this.isAborted) {
           throw new Error('请求已被取消');
         }
-        return await tavernHelper.generateRaw(options);
+        const nativeOptions = { ...options } as Record<string, unknown>;
+        if (!options.should_stream) {
+          delete nativeOptions.onStreamChunk;
+        }
+        return await tavernHelper.generateRaw(nativeOptions);
       });
       return String(result);
     } catch (error) {
