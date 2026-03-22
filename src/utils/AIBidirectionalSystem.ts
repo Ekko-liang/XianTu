@@ -154,6 +154,54 @@ class AIBidirectionalSystemClass {
     ].join('\n');
   }
 
+  private extractUserIntentText(userMessage: string): string {
+    const raw = String(userMessage || '').trim();
+    if (!raw) return '';
+    const match = raw.match(/<行动趋向>([\s\S]*?)<\/行动趋向>/);
+    return (match ? match[1] : raw).trim();
+  }
+
+  private isNarrativeCorrectionRequest(userMessage: string): boolean {
+    const intent = this.extractUserIntentText(userMessage);
+    if (!intent) return false;
+
+    const metaReference = /(前文|上文|前面|刚才|上一段|上回合|这段剧情|上一段剧情|剧情|设定|逻辑|人设|世界观|承接|不合理|矛盾|穿帮|吃书)/;
+    const correctionAction = /(修正|纠正|重写|改写|回退|回滚|撤回|改成|重新来|重来|忽略刚才|别按刚才|不要按刚才|应该是|不应该|与.*不符|不对)/;
+    const explicitCorrection = /(这段不合理|剧情不合理|逻辑不通|前后矛盾|请修正|请重写|按前文|按设定|请改成|OOC[:：])/i;
+
+    return explicitCorrection.test(intent) || (metaReference.test(intent) && correctionAction.test(intent));
+  }
+
+  private buildNarrativeCorrectionPrompt(
+    userMessage: string,
+    latestNarrative: string,
+    shortTermMemory: string[]
+  ): string {
+    const intent = this.extractUserIntentText(userMessage) || '（未提供）';
+    const latestScene = String(latestNarrative || '').trim() || '（无）';
+    const recentEvents = Array.isArray(shortTermMemory) && shortTermMemory.length > 0
+      ? shortTermMemory.slice(-3).join('\n')
+      : '（无）';
+
+    return [
+      '# 本回合优先模式：剧情纠错',
+      '玩家本回合不是在世界内说台词，而是在场外指出前文剧情/逻辑问题。你必须先处理纠错，再决定是否推进剧情。',
+      '## 玩家纠错原文',
+      intent,
+      '## 最近叙事',
+      latestScene,
+      '## 最近事件',
+      recentEvents,
+      '## 处理协议（必须遵守）',
+      '- 先用存档数据、最近事件、世界规则核对玩家指出的问题。',
+      '- 若问题成立或部分成立：立即停止延续错误叙事，回到最近自洽节点继续写，把错误内容视为待修正草稿，不要当成既成事实。',
+      '- 修正时不要让NPC直接回应“这段不合理/请修正”等场外话，也不要把这些话写成角色对白。',
+      '- 若玩家要求的修正与存档或世界规则冲突：拒绝错误修正，但必须把因果讲清楚，不能假装没看到。',
+      '- 本回合目标是恢复一致性，不是逞强推进；宁可少推进，也要先把逻辑修顺。',
+      '- tavern_commands 必须与修正后的叙事一致，禁止沿用被纠错剧情对应的错误状态变化。'
+    ].join('\n');
+  }
+
   private normalizeEventConfig(config: any): { enabled: boolean; minYears: number; maxYears: number; customPrompt: string } {
     const enabled = config?.启用随机事件 !== false;
     const minYears = Math.max(1, Number(config?.最小间隔年 ?? 1));
@@ -762,6 +810,13 @@ ${stateJsonString}
       const userActionForAI = (userMessage && userMessage.toString().trim()) || '继续当前活动';
       console.log('[AI双向系统] 用户输入 userMessage:', userMessage);
       console.log('[AI双向系统] 处理后 userActionForAI:', userActionForAI);
+      const latestNarrative = Array.isArray(v3?.系统?.历史?.叙事)
+        ? String(v3.系统.历史.叙事[v3.系统.历史.叙事.length - 1]?.content || '')
+        : '';
+      const isNarrativeCorrection = this.isNarrativeCorrectionRequest(userMessage);
+      const narrativeCorrectionPrompt = isNarrativeCorrection
+        ? this.buildNarrativeCorrectionPrompt(userMessage, latestNarrative, shortTermMemoryForPrompt)
+        : '';
 
       // 构建注入消息列表
       const injects: Array<{ content: string; role: 'system' | 'assistant' | 'user'; depth: number; position: 'in_chat' | 'none' }> = [
@@ -778,6 +833,14 @@ ${stateJsonString}
         depth: 3,
         position: 'in_chat',
       });
+      if (narrativeCorrectionPrompt) {
+        injects.push({
+          content: narrativeCorrectionPrompt,
+          role: 'system',
+          depth: 3,
+          position: 'in_chat',
+        });
+      }
 
       // 如果有短期记忆，作为独立的 assistant 消息发送
       const memoryToSend = (typeof shortTermMemoryForPrompt !== 'undefined' ? shortTermMemoryForPrompt : shortTermMemory) as string[];
@@ -992,10 +1055,22 @@ ${stateJsonString}
 `.trim();
         };
 
-        const buildSplitInjects = (systemPrompt: string, includeShortTermMemory: boolean = false) => {
+        const buildSplitInjects = (
+          systemPrompt: string,
+          includeShortTermMemory: boolean = false,
+          correctionPrompt: string = ''
+        ) => {
           const splitInjects: Array<{ content: string; role: 'system' | 'assistant' | 'user'; depth: number; position: 'in_chat' | 'none' }> = [
             { content: systemPrompt, role: 'system', depth: 4, position: 'in_chat' }
           ];
+          if (correctionPrompt) {
+            splitInjects.push({
+              content: correctionPrompt,
+              role: 'system',
+              depth: 3,
+              position: 'in_chat',
+            });
+          }
           // 🔥 只在第1步注入短期记忆，避免重复
           const memoryToSend = (typeof shortTermMemoryForPrompt !== 'undefined' ? shortTermMemoryForPrompt : shortTermMemory) as string[];
           if (includeShortTermMemory && memoryToSend.length > 0) {
@@ -1026,7 +1101,7 @@ ${stateJsonString}
         // ========== 第1步：正文生成（失败重试1次） ==========
         options?.onProgressUpdate?.('分步生成：第1步（正文）…');
         const systemPromptStep1 = await buildSplitSystemPrompt(1);
-        const injectsStep1 = buildSplitInjects(systemPromptStep1, true);
+        const injectsStep1 = buildSplitInjects(systemPromptStep1, true, narrativeCorrectionPrompt);
         let step1Text = '';
         for (let attempt = 1; attempt <= 2; attempt++) {
           try {
@@ -1050,7 +1125,7 @@ ${stateJsonString}
         // ========== 第2步：指令生成（COT已合并到提示词中，可选开启） ==========
         options?.onProgressUpdate?.('分步生成：第2步（指令生成）…');
         const systemPromptStep2 = await buildSplitSystemPrompt(2);
-        const injectsStep2 = buildSplitInjects(systemPromptStep2, false);
+        const injectsStep2 = buildSplitInjects(systemPromptStep2, false, narrativeCorrectionPrompt);
 
         const step2UserInput = `
 【用户本次操作】
