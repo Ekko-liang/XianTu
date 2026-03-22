@@ -11,7 +11,7 @@ import { toast } from './toast';
 import { useGameStateStore } from '@/stores/gameStateStore';
 import { useCharacterStore } from '@/stores/characterStore'; // 导入角色商店
 import { useUIStore } from '@/stores/uiStore';
-import type { GM_Response } from '@/types/AIGameMaster';
+import type { GM_Response, TavernCommand } from '@/types/AIGameMaster';
 import type { CharacterProfile, StateChangeLog, SaveData, GameTime, StateChange, GameMessage, StatusEffect, EventSystem, GameEvent } from '@/types/game';
 import { updateMasteredSkills } from './masteredSkillsCalculator';
 import {  assembleSystemPrompt } from './prompts/promptAssembler';
@@ -343,6 +343,26 @@ class AIBidirectionalSystemClass {
       .filter((opt) => opt.length > 0);
   }
 
+  private readBoolFlag(value: unknown, defaultValue: boolean): boolean {
+    if (typeof value === 'boolean') return value;
+    if (value && typeof value === 'object' && 'value' in (value as any)) {
+      return (value as any).value === true;
+    }
+    return defaultValue;
+  }
+
+  private isActionOptionsEnabled(uiStore: unknown): boolean {
+    // Pinia store fields are usually unwrapped, but keep a safe fallback for non-reactive access.
+    const raw = (uiStore as any)?.enableActionOptions;
+    return this.readBoolFlag(raw, true);
+  }
+
+  private getCommandProtectionMode(uiStore: unknown): 'strict' | 'skeleton' {
+    const raw = (uiStore as any)?.commandProtectionMode;
+    const value = typeof raw === 'string' ? raw : (raw && typeof raw === 'object' && 'value' in (raw as any) ? (raw as any).value : undefined);
+    return value === 'skeleton' ? 'skeleton' : 'strict';
+  }
+
   /**
    * 文本优化：调用AI对生成的文本进行润色
    * @param text 原始文本
@@ -424,6 +444,7 @@ class AIBidirectionalSystemClass {
     const gameStateStore = useGameStateStore();
     const tavernHelper = getTavernHelper();
     const uiStore = useUIStore();
+    const actionOptionsEnabled = this.isActionOptionsEnabled(uiStore);
     const shouldAbort = () => options?.shouldAbort?.() ?? false;
 
     // 检查AI服务可用性（酒馆或自定义API）
@@ -441,6 +462,17 @@ class AIBidirectionalSystemClass {
     // 1. 获取当前存档数据
     options?.onProgressUpdate?.('获取存档数据…');
     const saveData = gameStateStore.toSaveData();
+
+    // 🔥 对话前创建快照（轻量级，不含叙事历史）
+    if (saveData) {
+      const characterStore = useCharacterStore();
+      const active = characterStore.rootState.当前激活存档;
+      if (active) {
+        const { createSnapshot } = await import('@/utils/snapshotManager');
+        createSnapshot(active.角色ID, active.存档槽位, saveData);
+      }
+    }
+
     if (!saveData) {
       // 🔥 特殊处理联机模式：检查是否是联机模式导致的数据不完整
       const onlineState = gameStateStore.onlineState as any;
@@ -634,7 +666,7 @@ class AIBidirectionalSystemClass {
       const stateJsonString = JSON.stringify(buildNarrativeState());
 
       const activePrompts: string[] = [];
-      if (uiStore.enableActionOptions) {
+      if (actionOptionsEnabled) {
         activePrompts.push('actionOptions');
       }
 
@@ -938,7 +970,7 @@ ${narrativeStateJson}
           const sanitizedBusinessRulesPrompt = tavernEnv ? businessRulesPrompt : stripNsfwContent(businessRulesPrompt);
           sections.push(sanitizedBusinessRulesPrompt, sanitizedDataDefinitionsPrompt, textFormatsPrompt, worldStandardsPrompt);
 
-          if (uiStore.enableActionOptions) {
+          if (actionOptionsEnabled) {
             const actionOptionsPrompt = await getPrompt('actionOptions');
             const customPromptSection = uiStore.actionOptionsPrompt
               ? `**用户自定义要求**：${uiStore.actionOptionsPrompt}\n\n请严格按以上要求生成行动选项。`
@@ -1030,8 +1062,9 @@ ${step1Text}
 请按"分步生成（第2步）"规则输出 JSON。
 `.trim();
 
-        // 🔥 第2步指令生成：统一使用用户选择的流式设置，失败重试1次
-        const step2Streaming = useStreaming;
+        // 🔥 第2步指令生成：可单独控制是否流式（部分API不支持流式）
+        // - 总开关 useStreaming=false 时，强制关闭第2步流式
+        const step2Streaming = !!apiStore.aiGenerationSettings?.splitStep2Streaming && useStreaming;
         const step2UsageType: APIUsageType = hasInstructionApi ? 'instruction_generation' : 'main';
         const step2ForceJson = aiService.isForceJsonEnabled(step2UsageType);
         let parsedStep2: GM_Response | null = null;
@@ -1046,7 +1079,7 @@ ${step1Text}
               usageType: step2UsageType,
               onStreamChunk: undefined,
             });
-            parsedStep2 = this.parseAIResponse(String(step2Response), step2ForceJson);
+            parsedStep2 = this.parseAIResponse(String(step2Response), step2ForceJson, actionOptionsEnabled);
             if (parsedStep2.tavern_commands && parsedStep2.tavern_commands.length > 0) break;
             parsedStep2 = null;
           } catch (e) {
@@ -1061,7 +1094,7 @@ ${step1Text}
           text: step1Text,
           mid_term_memory: parsedStep2.mid_term_memory || '',
           tavern_commands: parsedStep2.tavern_commands || [],
-          action_options: uiStore.enableActionOptions ? this.sanitizeActionOptionsForDisplay(parsedStep2.action_options || []) : []
+          action_options: actionOptionsEnabled ? this.sanitizeActionOptionsForDisplay(parsedStep2.action_options || []) : []
         };
       } else if (tavernHelper) {
         // 酒馆模式
@@ -1094,7 +1127,7 @@ ${step1Text}
         // 🔥 获取主API的强JSON模式设置
         const mainForceJson = aiService.isForceJsonEnabled('main');
         try {
-          gmResponse = this.parseAIResponse(response, mainForceJson);
+          gmResponse = this.parseAIResponse(response, mainForceJson, actionOptionsEnabled);
         } catch (parseError) {
         console.error('[AI双向系统] 响应解析失败，尝试容错处理:', parseError);
 
@@ -1151,16 +1184,12 @@ ${step1Text}
           }
         }
 
-        // 🔥 确保 action_options 不为空
-        if (!extractedActionOptions || extractedActionOptions.length === 0) {
+        // 🔥 action_options：仅在启用时兜底默认；关闭时保持为空，避免“关不掉”的体验
+        if (!actionOptionsEnabled) {
+          extractedActionOptions = [];
+        } else if (!extractedActionOptions || extractedActionOptions.length === 0) {
           console.warn('[AI双向系统] ⚠️ 容错模式：action_options为空，使用默认选项');
-          extractedActionOptions = [
-            '继续当前活动',
-            '观察周围环境',
-            '与附近的人交谈',
-            '查看自身状态',
-            '稍作休息调整'
-          ];
+          extractedActionOptions = ['继续当前活动', '观察周围环境', '与附近的人交谈', '查看自身状态', '稍作休息调整'];
         }
 
         gmResponse = {
@@ -1201,7 +1230,7 @@ ${step1Text}
         text: '（AI生成失败）',
         mid_term_memory: '',
         tavern_commands: [],
-        action_options: ['重试当前操作', '查看自身状态', '稍作休息']
+        action_options: actionOptionsEnabled ? ['重试当前操作', '查看自身状态', '稍作休息'] : []
       };
     }
 
@@ -1274,8 +1303,8 @@ ${step1Text}
             if (changeSummary) note += `。状态变更：${changeSummary}`;
             if (snippet) note += `。异动概述：${snippet}`;
 
-            const { appendTravelNote } = await import('@/services/onlineTravel');
-            await appendTravelNote(sessionId, note, {
+            const { tryPostTravelNoteWithQueue } = await import('@/services/onlineLogQueue');
+            await tryPostTravelNoteWithQueue(sessionId, note, {
               place,
               action,
               snippet,
@@ -1305,6 +1334,7 @@ ${step1Text}
   ): Promise<GM_Response> {
     const tavernHelper = getTavernHelper();
     const uiStore = useUIStore();
+    const actionOptionsEnabled = this.isActionOptionsEnabled(uiStore);
 
     // 检查AI服务可用性（酒馆或自定义API）
     if (!tavernHelper) {
@@ -1458,8 +1488,8 @@ ${step1Text}
 请按"分步生成（开局-第2步）"规则输出 JSON。
         `.trim();
 
-        // 🔥 第2步指令生成：统一使用用户选择的流式设置，失败重试1次
-        const step2StreamingInitial = useStreaming;
+        // 🔥 第2步指令生成：可单独控制是否流式（部分API不支持流式）
+        const step2StreamingInitial = !!apiStore.aiGenerationSettings?.splitStep2Streaming && useStreaming;
         const initStep2UsageType: APIUsageType = hasInstructionApi ? 'instruction_generation' : 'main';
         const initStep2ForceJson = aiService.isForceJsonEnabled(initStep2UsageType);
         options?.onProgressUpdate?.('分步生成：第2步（指令生成）…');
@@ -1475,7 +1505,7 @@ ${step1Text}
               usageType: initStep2UsageType,
               onStreamChunk: undefined,
             });
-            parsedStep2 = this.parseAIResponse(String(step2Response), initStep2ForceJson);
+            parsedStep2 = this.parseAIResponse(String(step2Response), initStep2ForceJson, actionOptionsEnabled);
             if (parsedStep2.tavern_commands && parsedStep2.tavern_commands.length > 0) break;
             parsedStep2 = null;
           } catch (e) {
@@ -1498,7 +1528,7 @@ ${step1Text}
           text: step1Text,
           mid_term_memory: parsedStep2.mid_term_memory || '',
           tavern_commands: parsedStep2.tavern_commands || [],
-          action_options: uiStore.enableActionOptions
+          action_options: actionOptionsEnabled
             ? this.sanitizeActionOptionsForDisplay(parsedStep2.action_options?.length ? parsedStep2.action_options : defaultInitialActionOptions)
             : []
         };
@@ -1593,7 +1623,7 @@ ${step1Text}
         // 🔥 获取主API的强JSON模式设置
         const initMainForceJson = aiService.isForceJsonEnabled('main');
         try {
-          gmResponse = this.parseAIResponse(String(response), initMainForceJson);
+          gmResponse = this.parseAIResponse(String(response), initMainForceJson, actionOptionsEnabled);
         } catch (parseError) {
           console.error('[AI双向系统] 初始消息解析失败，尝试容错处理:', parseError);
 
@@ -1658,15 +1688,11 @@ ${step1Text}
           } catch { /* 忽略 */ }
 
           // 确保不为空
-          if (!extractedActionOptions || extractedActionOptions.length === 0) {
+          if (!actionOptionsEnabled) {
+            extractedActionOptions = [];
+          } else if (!extractedActionOptions || extractedActionOptions.length === 0) {
             console.warn('[AI双向系统] ⚠️ 初始消息：action_options为空，使用默认选项');
-            extractedActionOptions = [
-              '四处走动熟悉环境',
-              '查看自身状态',
-              '与附近的人交谈',
-              '寻找修炼之地',
-              '打听周围消息'
-            ];
+            extractedActionOptions = ['四处走动熟悉环境', '查看自身状态', '与附近的人交谈', '寻找修炼之地', '打听周围消息'];
           }
 
           gmResponse = {
@@ -1753,7 +1779,7 @@ ${step1Text}
     // 🔥 先修复数据格式，确保所有字段正确
     const { repairSaveData } = await import('./dataRepair');
     const repairedData = repairSaveData(currentSaveData);
-    const saveData = cloneDeep(repairedData);
+    let saveData = cloneDeep(repairedData);
     const changes: StateChange[] = [];
 
     const behavior = {
@@ -1880,77 +1906,115 @@ ${step1Text}
       return { saveData, stateChanges: { changes, timestamp: new Date().toISOString() }, onlineLogPosted: false };
     }
 
+    const uiStore = useUIStore();
+    const protectionMode = this.getCommandProtectionMode(uiStore);
+
     // 🔥 新增：预处理指令以修复常见的AI错误
     const preprocessedCommands = this._preprocessCommands(response.tavern_commands);
 
-    // 🔥 步骤1：验证并清理指令格式
-    const { validateCommands, cleanCommands } = await import('./commandValidator');
-    const validation = validateCommands(preprocessedCommands);
-
-    // 🔥 步骤2：验证指令值的格式，过滤掉格式错误的指令
-    const { validateAndRepairCommandValue } = await import('./commandValueValidator');
-    const validCommands: any[] = [];
+    // 🔥 步骤1：指令格式校验（路径/字段/只读保护） + 指令值校验（结构完整性）
+    // 重要：两者都通过的指令才允许执行，避免“只校验但仍执行”的漏网风险
+    const validCommands: TavernCommand[] = [];
     const rejectedCommands: Array<{ command: any; errors: string[] }> = [];
+    const validationWarnings: string[] = [];
 
-    preprocessedCommands.forEach((cmd, index) => {
-      const valueValidation = validateAndRepairCommandValue(cmd);
-      if (!valueValidation.valid) {
-        console.error(`[AI双向系统] ❌ 拒绝执行指令[${index}]，格式错误:`, valueValidation.errors);
-        rejectedCommands.push({
-          command: cmd,
-          errors: valueValidation.errors
-        });
-      } else {
-        validCommands.push(cmd);
+    if (protectionMode === 'skeleton') {
+      const allowedRoots = ['元数据', '角色', '社交', '世界', '系统'] as const;
+      const isV3Path = (p: string) => allowedRoots.some((root) => p === root || p.startsWith(`${root}.`));
+      const forbiddenPrefixes = ['社交.记忆', '系统.历史.叙事'];
+      const validActions = new Set(['set', 'add', 'push', 'delete', 'pull']);
+
+      preprocessedCommands.forEach((cmd, index) => {
+        if (!cmd || typeof cmd !== 'object') {
+          rejectedCommands.push({ command: cmd, errors: [`指令${index}: 不是对象`] });
+          return;
+        }
+        const action = String((cmd as any).action || '').trim();
+        const key = String((cmd as any).key || '').trim();
+        if (!validActions.has(action)) {
+          rejectedCommands.push({ command: cmd, errors: [`指令${index}: action 无效（${action}）`] });
+          return;
+        }
+        if (!key) {
+          rejectedCommands.push({ command: cmd, errors: [`指令${index}: key 为空`] });
+          return;
+        }
+        if (!isV3Path(key)) {
+          rejectedCommands.push({ command: cmd, errors: [`指令${index}: key 必须以 元数据/角色/社交/世界/系统 开头（当前: ${key}）`] });
+          return;
+        }
+        if (forbiddenPrefixes.some((p) => key === p || key.startsWith(`${p}.`))) {
+          rejectedCommands.push({ command: cmd, errors: [`指令${index}: 禁止AI直接操作系统自动字段（${key}）`] });
+          return;
+        }
+        if (action === 'delete' && allowedRoots.includes(key as any)) {
+          rejectedCommands.push({ command: cmd, errors: [`指令${index}: 禁止删除存档骨干根节点（${key}）`] });
+          return;
+        }
+        validCommands.push({ action, key, value: (cmd as any).value } as TavernCommand);
+      });
+    } else {
+      const { validateCommand, cleanCommands } = await import('./commandValidator');
+      const { validateAndRepairCommandValue } = await import('./commandValueValidator');
+
+      preprocessedCommands.forEach((cmd, index) => {
+        const formatResult = validateCommand(cmd, index);
+        validationWarnings.push(...formatResult.warnings);
+        if (!formatResult.valid) {
+          rejectedCommands.push({ command: cmd, errors: formatResult.errors });
+          return;
+        }
+
+        // 仅在“看起来像指令对象”时做 value 校验；否则按格式错误处理
+        try {
+          const valueResult = validateAndRepairCommandValue(cmd as TavernCommand);
+          if (!valueResult.valid) {
+            rejectedCommands.push({
+              command: cmd,
+              errors: valueResult.errors.map((e) => `指令${index}: ${e}`),
+            });
+            return;
+          }
+        } catch (e) {
+          rejectedCommands.push({
+            command: cmd,
+            errors: [`指令${index}: value 校验异常: ${e instanceof Error ? e.message : String(e)}`],
+          });
+          return;
+        }
+
+        validCommands.push(cmd as TavernCommand);
+      });
+
+      if (validationWarnings.length > 0) {
+        validationWarnings.forEach((warn) => console.warn(`[AI双向系统] ${warn}`));
       }
-    });
 
-    // 记录被拒绝的指令
+      // 🔥 步骤2：清理指令，移除多余字段（只处理通过验证的指令）
+      const cleanedCommands = cleanCommands(validCommands);
+      validCommands.length = 0;
+      cleanedCommands.forEach((c) => validCommands.push(c));
+    }
+
+    // 记录被拒绝的指令（格式/只读保护/value 完整性）
     if (rejectedCommands.length > 0) {
-      console.error(`[AI双向系统] 共拒绝 ${rejectedCommands.length} 条格式错误的指令`);
+      console.error(`[AI双向系统] 共拒绝 ${rejectedCommands.length} 条无效指令（已拦截，不会执行）`);
       rejectedCommands.forEach(({ command, errors }) => {
         changes.unshift({
-          key: '❌ 格式错误（已拒绝）',
+          key: '❌ 无效指令（已拒绝）',
           action: 'validation_error',
           oldValue: undefined,
           newValue: {
             command: JSON.stringify(command, null, 2),
-            errors: errors
-          }
+            errors,
+          },
         });
       });
     }
 
-    if (!validation.valid) {
-      console.error('[AI双向系统] 指令格式验证失败:', validation.errors);
-      validation.errors.forEach(err => console.error(`  - ${err}`));
-
-      // 将验证错误添加到changes数组顶部
-      if (validation.invalidCommands && validation.invalidCommands.length > 0) {
-        validation.invalidCommands.forEach(({ command, errors }) => {
-          changes.unshift({
-            key: '❌ 错误指令',
-            action: 'validation_error',
-            oldValue: undefined,
-            newValue: {
-              command: JSON.stringify(command, null, 2),
-              errors: errors
-            }
-          });
-        });
-      }
-    }
-
-    if (validation.warnings.length > 0) {
-      validation.warnings.forEach(warn => console.warn(`[AI双向系统] ${warn}`));
-    }
-
-    // 🔥 步骤3：清理指令，移除多余字段（只处理通过验证的指令）
-    const cleanedCommands = cleanCommands(validCommands);
-
     // 🔥 步骤4：对指令排序，确保 set 上限的操作先于 set/add 当前值的操作
     // 这样突破时先改上限再改当前值，避免当前值被错误限制
-    const sortedCommands = [...cleanedCommands].sort((a, b) => {
+    const sortedCommands = [...validCommands].sort((a, b) => {
       const isASetMax = a.action === 'set' && a.key.endsWith('.上限');
       const isBSetMax = b.action === 'set' && b.key.endsWith('.上限');
       if (isASetMax && !isBSetMax) return -1;
@@ -1964,6 +2028,11 @@ ${step1Text}
     let onlineLogPostedCount = 0;
     const isOnlineServerLogCommand = (cmd: any): boolean =>
       cmd && cmd.action === 'push' && typeof cmd.key === 'string' && cmd.key === '系统.联机.服务器日志';
+
+    const saveDataSnapshotBeforeCommands = cloneDeep(saveData);
+    const commandAppliedChanges: StateChange[] = [];
+    const commandErrorChanges: StateChange[] = [];
+    let hadExecutionError = false;
 
     for (const command of sortedCommands) {
       if (abortRequested()) {
@@ -2004,8 +2073,8 @@ ${step1Text}
               const trimmed = note.trim();
               if (trimmed) {
                 const safeNote = trimmed.slice(0, 600);
-                const { appendTravelNote } = await import('@/services/onlineTravel');
-                await appendTravelNote(sessionId, safeNote, meta);
+                const { tryPostTravelNoteWithQueue } = await import('@/services/onlineLogQueue');
+                await tryPostTravelNoteWithQueue(sessionId, safeNote, meta);
                 onlineLogPosted = true;
               }
             }
@@ -2016,9 +2085,9 @@ ${step1Text}
         }
 
         const oldValue = get(saveData, command.key);
-        this.executeCommand(command, saveData);
+        this.executeCommand(command, saveData, protectionMode);
         const newValue = get(saveData, command.key);
-        changes.push({
+        commandAppliedChanges.push({
           key: command.key,
           action: command.action,
           oldValue: this._summarizeValueForChangeLog(command.key, oldValue, command.action),
@@ -2026,7 +2095,8 @@ ${step1Text}
         });
       } catch (error) {
         console.error(`[AI双向系统] 指令执行失败:`, command, error);
-        changes.unshift({
+        hadExecutionError = true;
+        commandErrorChanges.unshift({
           key: '? 执行失败',
           action: 'execution_error',
           oldValue: undefined,
@@ -2035,6 +2105,56 @@ ${step1Text}
             error: error instanceof Error ? error.message : String(error)
           }
         });
+      }
+    }
+
+    // 🔥 步骤5：执行后安全校验（仅在结构完全损坏时回滚，防止存档被破坏）
+    const applyMode = (() => {
+      try {
+        const raw = localStorage.getItem('command-apply-mode');
+        if (raw === 'atomic' || raw === 'atomic_on_invalid_state' || raw === 'best_effort') return raw;
+      } catch { /* noop */ }
+      return 'best_effort' as const;
+    })();
+
+    const { validateSaveDataV3 } = await import('@/utils/saveValidationV3');
+    const postValidation = validateSaveDataV3(saveData as any);
+
+    // best_effort 模式：只有致命错误（结构完全损坏）才回滚
+    // atomic 模式：任何错误或执行失败都回滚
+    const shouldRollback =
+      postValidation.criticalErrors.length > 0 ||
+      (applyMode === 'atomic' && (hadExecutionError || !postValidation.isValid));
+
+    if (shouldRollback) {
+      const reason =
+        postValidation.criticalErrors.length > 0
+          ? '存档结构严重损坏（已自动回滚）'
+          : 'atomic 模式下出现执行错误（已自动回滚）';
+
+      console.error('[AI双向系统] ❌ 指令集回滚:', reason, postValidation.criticalErrors);
+      saveData = saveDataSnapshotBeforeCommands;
+
+      if (commandErrorChanges.length > 0) {
+        changes.unshift(...commandErrorChanges);
+      }
+
+      changes.unshift({
+        key: '❌ 指令已回滚',
+        action: 'rollback',
+        oldValue: undefined,
+        newValue: {
+          mode: applyMode,
+          reason,
+          validationErrors: postValidation.criticalErrors,
+        },
+      });
+    } else {
+      if (commandErrorChanges.length > 0) {
+        changes.unshift(...commandErrorChanges);
+      }
+      if (commandAppliedChanges.length > 0) {
+        changes.push(...commandAppliedChanges);
       }
     }
 
@@ -2420,6 +2540,26 @@ ${saveDataJson}`;
       if (trimmed === '记忆') return '社交.记忆';
       if (trimmed.startsWith('记忆.')) return `社交.记忆.${trimmed.slice('记忆.'.length)}`;
 
+      // legacy relationship shortcuts -> V3 (see docs/save-schema-v3.md)
+      if (trimmed === '人物关系' || trimmed === '关系') return '社交.关系';
+      if (trimmed.startsWith('人物关系.')) return `社交.关系.${trimmed.slice('人物关系.'.length)}`;
+      if (trimmed.startsWith('关系.')) return `社交.关系.${trimmed.slice('关系.'.length)}`;
+      if (trimmed === '关系矩阵' || trimmed === '关系网') return '社交.关系矩阵';
+      if (trimmed.startsWith('关系矩阵.')) return `社交.关系矩阵.${trimmed.slice('关系矩阵.'.length)}`;
+      if (trimmed.startsWith('关系网.')) return `社交.关系矩阵.${trimmed.slice('关系网.'.length)}`;
+
+      // other common legacy shortcuts -> V3 (align with V3 schema mapping table)
+      if (trimmed === '宗门系统' || trimmed === '宗门') return '社交.宗门';
+      if (trimmed.startsWith('宗门系统.')) return `社交.宗门.${trimmed.slice('宗门系统.'.length)}`;
+      if (trimmed.startsWith('宗门.')) return `社交.宗门.${trimmed.slice('宗门.'.length)}`;
+      if (trimmed === '世界信息' || trimmed === '世界') return '世界.信息';
+      if (trimmed.startsWith('世界信息.')) return `世界.信息.${trimmed.slice('世界信息.'.length)}`;
+      if (trimmed.startsWith('世界.')) return trimmed; // keep world root as-is if already V3-like
+      if (trimmed === '叙事历史' || trimmed === '历史.叙事') return '系统.历史.叙事';
+      if (trimmed.startsWith('叙事历史.')) return `系统.历史.叙事.${trimmed.slice('叙事历史.'.length)}`;
+      if (trimmed === '系统配置') return '系统.配置';
+      if (trimmed.startsWith('系统配置.')) return `系统.配置.${trimmed.slice('系统配置.'.length)}`;
+
       // legacy attribute shortcuts -> V3
       if (trimmed === '声望' || trimmed.startsWith('声望.')) return `角色.属性.${trimmed}`;
       if (trimmed === '气血' || trimmed.startsWith('气血.')) return `角色.属性.${trimmed}`;
@@ -2465,13 +2605,146 @@ ${saveDataJson}`;
       }));
     };
 
+    // 防误伤：AI 常把“更新NPC字段”写成整体 set `社交.关系.某人 = { 好感度: ... }`，
+    // 这会覆盖并丢失原有字段，导致“人物不新增/人物消失/数据结构异常”。
+    // 这里统一把整体 set 拆成字段级 set，避免覆盖整对象。
+    const expandNpcWholeSet = (cmd: any): any[] | null => {
+      if (!cmd || typeof cmd !== 'object' || Array.isArray(cmd)) return null;
+      if ((cmd as any).action !== 'set') return null;
+      if (typeof (cmd as any).key !== 'string') return null;
+      const key = String((cmd as any).key);
+      if (!/^社交\.关系\.[^\.]+$/.test(key)) return null;
+      const value = (cmd as any).value;
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+
+      const npcNameFromKey = key.split('.')[2];
+      const obj = value as Record<string, any>;
+      const expanded: any[] = [];
+
+      if (!Object.prototype.hasOwnProperty.call(obj, '名字') && npcNameFromKey) {
+        expanded.push({ action: 'set', key: `${key}.名字`, value: npcNameFromKey });
+      }
+
+      for (const [k, v] of Object.entries(obj)) {
+        expanded.push({ action: 'set', key: `${key}.${k}`, value: v });
+      }
+
+      if (expanded.length > 0) {
+        console.warn(`[AI双向系统] 预处理: 将整体 set "${key}" 拆分为 ${expanded.length} 条字段 set，避免覆盖丢字段。`);
+      }
+      return expanded;
+    };
+
+    // 兼容：AI 把“新增NPC”写成 `set 社交.关系 = { 张三: {...}, 李四: {...} }`
+    // 该写法会被指令保护拒绝（禁止整体 set 社交.关系），因此在这里拆分为逐个 NPC 的 set。
+    const expandSocialRelationsWholeSet = (cmd: any): any[] | null => {
+      if (!cmd || typeof cmd !== 'object' || Array.isArray(cmd)) return null;
+      if ((cmd as any).action !== 'set') return null;
+      if (typeof (cmd as any).key !== 'string') return null;
+      const key = String((cmd as any).key);
+      if (key !== '社交.关系') return null;
+      const value = (cmd as any).value;
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+
+      const expanded: any[] = [];
+      for (const [npcName, npcValue] of Object.entries(value as Record<string, any>)) {
+        if (!npcName || typeof npcName !== 'string') continue;
+        if (!npcValue || typeof npcValue !== 'object') continue;
+        // 直接拆成字段 set，避免完整覆盖导致缺字段/被校验拒绝
+        const expandedNpc = expandNpcWholeSet({ action: 'set', key: `社交.关系.${npcName}`, value: npcValue });
+        if (expandedNpc) expanded.push(...expandedNpc);
+        else expanded.push({ action: 'set', key: `社交.关系.${npcName}`, value: npcValue });
+      }
+
+      if (expanded.length > 0) {
+        console.warn(`[AI双向系统] 预处理: 将整体 set "社交.关系" 拆分为 ${expanded.length} 条 NPC set，避免被保护拒绝。`);
+      }
+      return expanded;
+    };
+
+    // 兼容：AI 把“新增NPC”写成 `push 社交.关系`（但社交.关系 是对象，不是数组，会导致执行时报错）
+    const expandSocialRelationsPush = (cmd: any): any[] | null => {
+      if (!cmd || typeof cmd !== 'object' || Array.isArray(cmd)) return null;
+      if ((cmd as any).action !== 'push') return null;
+      if (typeof (cmd as any).key !== 'string') return null;
+      const key = String((cmd as any).key);
+      if (key !== '社交.关系') return null;
+      const value = (cmd as any).value;
+      if (!value) return null;
+
+      // 情况1：push 一个 NPC 对象（包含名字/性别/出生日期之一）
+      if (typeof value === 'object' && !Array.isArray(value)) {
+        const maybeNpcName = (value as any).名字;
+        if (typeof maybeNpcName === 'string' && maybeNpcName.trim()) {
+          const expandedNpc = expandNpcWholeSet({ action: 'set', key: `社交.关系.${maybeNpcName.trim()}`, value });
+          return expandedNpc || [{ action: 'set', key: `社交.关系.${maybeNpcName.trim()}`, value }];
+        }
+      }
+
+      // 情况2：push 一个 { 张三: {...} } 的对象（当作关系字典）
+      if (typeof value === 'object' && !Array.isArray(value)) {
+        const expanded = expandSocialRelationsWholeSet({ action: 'set', key: '社交.关系', value });
+        if (expanded) return expanded;
+      }
+
+      return null;
+    };
+
+    // 兼容：AI 把“NPC记忆/关系变更”等写成 `push 社交.关系.某人`（少了 .记忆 / .关系矩阵 等后缀）
+    // - string -> 视为 NPC 记忆：push 到 `社交.关系.<NPC>.记忆`
+    // - object -> 视为 NPC 部分/完整数据：转为 set 并继续走 NPC 拆分逻辑
+    const expandNpcRootPush = (cmd: any): any[] | null => {
+      if (!cmd || typeof cmd !== 'object' || Array.isArray(cmd)) return null;
+      if ((cmd as any).action !== 'push') return null;
+      if (typeof (cmd as any).key !== 'string') return null;
+      const key = String((cmd as any).key);
+      if (!/^社交\.关系\.[^\.]+$/.test(key)) return null;
+
+      const npcName = key.split('.')[2];
+      const value = (cmd as any).value;
+
+      if (typeof value === 'string') {
+        return [{ action: 'push', key: `社交.关系.${npcName}.记忆`, value }];
+      }
+
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        const toSet = { action: 'set', key: `社交.关系.${npcName}`, value };
+        const expandedNpc = expandNpcWholeSet(toSet);
+        return expandedNpc || [toSet];
+      }
+
+      return null;
+    };
+
+    // 兼容：AI 把“NPC好感变化”写成 `add 社交.关系.<NPC> 10`
+    // 规则：当 add 目标是 NPC 根对象时，默认改写为 add 到 .好感度
+    const expandNpcRootAdd = (cmd: any): any[] | null => {
+      if (!cmd || typeof cmd !== 'object' || Array.isArray(cmd)) return null;
+      if ((cmd as any).action !== 'add') return null;
+      if (typeof (cmd as any).key !== 'string') return null;
+      const key = String((cmd as any).key);
+      if (!/^社交\.关系\.[^\.]+$/.test(key)) return null;
+
+      const npcName = key.split('.')[2];
+      const value = (cmd as any).value;
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        return [{ action: 'add', key: `社交.关系.${npcName}.好感度`, value }];
+      }
+
+      return null;
+    };
+
     const out: any[] = [];
 
-    for (const cmd of commands) {
+    // 使用队列逐条预处理，确保“展开出来的新指令”也会继续经过后续纠错与拆分
+    const queue: any[] = [...commands];
+    while (queue.length > 0) {
+      const cmd = queue.shift();
+
       // Expand legacy format first (may turn 1 object into N commands).
       const expanded = expandLegacySetState(cmd);
       if (expanded) {
-        out.push(...expanded);
+        queue.unshift(...expanded);
         continue;
       }
 
@@ -2486,6 +2759,37 @@ ${saveDataJson}`;
           console.warn(`[AI双向系统] 预处理: key 纠正 "${(cmd as any).key}" -> "${normalized}"`);
           (cmd as any).key = normalized;
         }
+      }
+
+      const expandedRelations = expandSocialRelationsWholeSet(cmd);
+      if (expandedRelations) {
+        queue.unshift(...expandedRelations);
+        continue;
+      }
+
+      const expandedRelationsPush = expandSocialRelationsPush(cmd);
+      if (expandedRelationsPush) {
+        queue.unshift(...expandedRelationsPush);
+        continue;
+      }
+
+      const expandedNpcRootPush = expandNpcRootPush(cmd);
+      if (expandedNpcRootPush) {
+        queue.unshift(...expandedNpcRootPush);
+        continue;
+      }
+
+      const expandedNpcRootAdd = expandNpcRootAdd(cmd);
+      if (expandedNpcRootAdd) {
+        queue.unshift(...expandedNpcRootAdd);
+        continue;
+      }
+
+      // 先做 NPC 整体 set 拆分（避免后续校验把它当作“完整NPC覆盖”而拒绝/或导致覆盖丢字段）
+      const expandedNpc = expandNpcWholeSet(cmd);
+      if (expandedNpc) {
+        queue.unshift(...expandedNpc);
+        continue;
       }
 
       // 修复: set 元数据.时间 时缺少小时/分钟（补齐为 0，避免时间显示异常）
@@ -2602,9 +2906,28 @@ ${saveDataJson}`;
 
     const techniqueName = typeof repaired.名称 === 'string' && repaired.名称.trim() ? repaired.名称.trim() : '未知功法';
 
+    // 🔥 补齐功法物品基础字段（否则会在 commandValueValidator 中被拒绝，导致“背包没新增功法”）
+    if (typeof repaired.物品ID !== 'string' || !repaired.物品ID.trim()) {
+      repaired.物品ID = `gongfa_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    } else {
+      repaired.物品ID = repaired.物品ID.trim();
+    }
+
+    repaired.类型 = '功法';
+
+    if (!repaired.品质 || typeof repaired.品质 !== 'object') {
+      repaired.品质 = { quality: '凡', grade: 0 };
+    } else {
+      if (typeof repaired.品质.quality !== 'string' || !repaired.品质.quality.trim()) repaired.品质.quality = '凡';
+      if (typeof repaired.品质.grade !== 'number' || !Number.isFinite(repaired.品质.grade)) repaired.品质.grade = 0;
+    }
+
+    if (typeof repaired.数量 !== 'number' || !Number.isFinite(repaired.数量)) repaired.数量 = 1;
+    if (repaired.描述 === undefined) repaired.描述 = `一部名为《${techniqueName}》的功法。`;
+
     const progress =
       typeof repaired.修炼进度 === 'number' && Number.isFinite(repaired.修炼进度) ? repaired.修炼进度 : 0;
-    repaired.修炼进度 = progress;
+    repaired.修炼进度 = Math.max(0, Math.min(100, progress));
 
     if (!Array.isArray(repaired.功法技能)) {
       repaired.功法技能 = [];
@@ -2626,10 +2949,10 @@ ${saveDataJson}`;
       console.warn(`[AI双向系统] 预处理: 功法 "${techniqueName}" 缺少功法技能，已自动补齐基础技能以防报错。`);
       repaired.功法技能 = [
         {
-          技能名称: `${techniqueName}·运功`,
-          技能描述: `运转${techniqueName}的基础法门，凝聚灵气并稳固气机。`,
+          技能名称: `${techniqueName}·入门运功`,
+          技能描述: `运转《${techniqueName}》的基础法门，凝聚灵气并稳固气机。`,
           熟练度要求: 0,
-          消耗: '灵气10'
+          消耗: '灵气10%'
         }
       ];
     }
@@ -2655,7 +2978,11 @@ ${saveDataJson}`;
     return repaired;
   }
 
-  private executeCommand(command: { action: string; key: string; value?: unknown }, saveData: SaveData): void {
+  private executeCommand(
+    command: { action: string; key: string; value?: unknown },
+    saveData: SaveData,
+    protectionMode: 'strict' | 'skeleton' = 'strict'
+  ): void {
     const { action, key, value } = command;
 
     if (!action || !key) {
@@ -2680,17 +3007,58 @@ ${saveDataJson}`;
       }
     }
 
+    // 🔥 保护NPC骨干结构：当 AI 直接写入社交.关系.<NPC名> 的子路径时，确保该NPC根对象存在且至少具备名字
+    const segments = path.split('.');
+    const isNpcSubPath = segments[0] === '社交' && segments[1] === '关系' && typeof segments[2] === 'string' && !!segments[2].trim();
+    if (isNpcSubPath && action !== 'delete') {
+      const npcName = segments[2].trim();
+      if (!playerName || npcName !== playerName) {
+        // 确保 社交.关系 是对象
+        const relationsRoot = get(saveData, '社交.关系');
+        if (!isPlainObject(relationsRoot)) {
+          set(saveData, '社交.关系', {});
+        }
+
+        const npcRootPath = `社交.关系.${npcName}`;
+        const existingNpc = get(saveData, npcRootPath);
+        if (protectionMode === 'strict') {
+          const gameTime = (saveData as any)?.元数据?.时间;
+          // 仅在缺失/明显无效时才补齐，避免每条指令都重复修复造成额外开销
+          if (!isPlainObject(existingNpc)) {
+            const [ok, repaired] = validateAndRepairNpcProfile({ 名字: npcName }, gameTime);
+            if (ok && repaired) set(saveData, npcRootPath, repaired);
+          } else {
+            const name = typeof (existingNpc as any).名字 === 'string' ? (existingNpc as any).名字.trim() : '';
+            if (!name) {
+              const [ok, repaired] = validateAndRepairNpcProfile({ ...(existingNpc as any), 名字: npcName }, gameTime);
+              if (ok && repaired) set(saveData, npcRootPath, repaired);
+            }
+          }
+        } else {
+          // skeleton：只保证是对象 + 有名字，不做重度修复/覆盖
+          if (!isPlainObject(existingNpc)) {
+            set(saveData, npcRootPath, { 名字: npcName });
+          } else {
+            const name = typeof (existingNpc as any).名字 === 'string' ? (existingNpc as any).名字.trim() : '';
+            if (!name) set(saveData, `${npcRootPath}.名字`, npcName);
+          }
+        }
+      }
+    }
+
     // 🔥 保护关键数组字段，防止被设为 null
-    const arrayFields = [
-      // V3
-      '角色.效果',
-      '社交.任务.当前任务列表',
-      '社交.记忆.短期记忆',
-      '社交.记忆.中期记忆',
-      '社交.记忆.长期记忆',
-      '社交.记忆.隐式中期记忆',
-      '系统.历史.叙事',
-    ];
+    const arrayFields =
+      protectionMode === 'strict'
+        ? [
+            '角色.效果',
+            '社交.任务.当前任务列表',
+            '社交.记忆.短期记忆',
+            '社交.记忆.中期记忆',
+            '社交.记忆.长期记忆',
+            '社交.记忆.隐式中期记忆',
+            '系统.历史.叙事',
+          ]
+        : ['角色.效果', '社交.记忆.短期记忆', '社交.记忆.中期记忆', '社交.记忆.长期记忆', '社交.记忆.隐式中期记忆', '系统.历史.叙事'];
     // 精确匹配：路径必须完全等于数组字段，或者是数组元素（如 状态效果[0]）但不是其子属性
     const isArrayField = arrayFields.some(field => {
       // 完全匹配
@@ -2716,45 +3084,59 @@ ${saveDataJson}`;
     if (action === 'set') {
       const segments = path.split('.');
 
-      // 🔥 保护关键模块：使用合并而非覆盖，防止 AI 的 set 操作意外清空数据
-      const protectedModulePaths = [
-        '角色.背包',
-        '角色.功法',
-        '角色.技能',
-        '角色.大道',
-        '角色.修炼',
-        '角色.属性',
-        '角色.身份',
-        '社交.记忆',
-        '社交.宗门',
-      ];
-      if (protectedModulePaths.includes(path) && isPlainObject(value)) {
-        const existing = get(saveData, path);
-        if (isPlainObject(existing)) {
-          const merged = mergePlainObjectsReplacingArrays(existing, value);
-          console.log(`[AI双向系统] 保护模块 ${path}：使用合并而非覆盖`);
-          set(saveData, path, merged);
-          return;
+      if (protectionMode === 'strict') {
+        // 🔥 保护关键模块：使用合并而非覆盖，防止 AI 的 set 操作意外清空数据
+        const protectedModulePaths = [
+          '角色.背包',
+          '角色.功法',
+          '角色.技能',
+          '角色.大道',
+          '角色.修炼',
+          '角色.属性',
+          '角色.身份',
+          '社交.记忆',
+          '社交.宗门',
+        ];
+        if (protectedModulePaths.includes(path) && isPlainObject(value)) {
+          const existing = get(saveData, path);
+          if (isPlainObject(existing)) {
+            const merged = mergePlainObjectsReplacingArrays(existing, value);
+            console.log(`[AI双向系统] 保护模块 ${path}：使用合并而非覆盖`);
+            set(saveData, path, merged);
+            return;
+          }
         }
       }
 
       const isNpcRoot = segments.length === 3 && segments[0] === '社交' && segments[1] === '关系';
+      // 🔥 防止把 NPC 根对象写坏：根对象只能 set 为对象（字符串/数字会直接覆盖导致NPC消失）
+      if (isNpcRoot && !isPlainObject(value)) {
+        console.warn(`[AI双向系统] 阻止将 NPC 根对象 "${path}" set 为非对象值（${typeof value}），请改为设置具体字段。`);
+        return;
+      }
       if (isNpcRoot && isPlainObject(value)) {
         if (playerName && typeof (value as any).名字 === 'string' && (value as any).名字.trim() === playerName) {
           console.warn(`[AI双向系统] 阻止将玩家本人写入社交.关系: ${path}`);
           return;
         }
-        const existingNpc = get(saveData, path);
-        const baseNpc = isPlainObject(existingNpc) ? existingNpc : {};
-        const mergedNpc = mergePlainObjectsReplacingArrays(baseNpc, value);
-        if (typeof (mergedNpc as any).名字 !== 'string' || !(mergedNpc as any).名字) {
-          (mergedNpc as any).名字 = segments[2];
-        }
-        const gameTime = (saveData as any)?.元数据?.时间;
-        const [isValid, repairedNpc] = validateAndRepairNpcProfile(mergedNpc, gameTime);
-        if (isValid && repairedNpc) {
-          set(saveData, path, repairedNpc);
-          return;
+        if (protectionMode === 'strict') {
+          const existingNpc = get(saveData, path);
+          const baseNpc = isPlainObject(existingNpc) ? existingNpc : {};
+          const mergedNpc = mergePlainObjectsReplacingArrays(baseNpc, value);
+          if (typeof (mergedNpc as any).名字 !== 'string' || !(mergedNpc as any).名字) {
+            (mergedNpc as any).名字 = segments[2];
+          }
+          const gameTime = (saveData as any)?.元数据?.时间;
+          const [isValid, repairedNpc] = validateAndRepairNpcProfile(mergedNpc, gameTime);
+          if (isValid && repairedNpc) {
+            set(saveData, path, repairedNpc);
+            return;
+          }
+        } else {
+          // skeleton：不做重度修复，最多补齐名字，允许写入原始对象
+          if (typeof (value as any).名字 !== 'string' || !(value as any).名字) {
+            (value as any).名字 = segments[2];
+          }
         }
       }
     }
@@ -2852,6 +3234,48 @@ ${saveDataJson}`;
 
       default:
         throw new Error(`未知的操作类型: ${action}`);
+    }
+
+    // 🔥 功法进度镜像：UI/功法系统主要读取背包物品上的修炼进度/已解锁技能
+    // AI 往往只更新 `角色.功法.功法进度.<功法ID>.*`，导致“变量更新了，但功法面板还不动”。
+    // 仅在物品存在且类型为功法时同步，避免凭空创建背包物品。
+    if (action === 'set' || action === 'add' || action === 'push') {
+      const match = path.match(/^角色\.功法\.功法进度\.([^\.]+)\.(熟练度|已解锁技能)$/);
+      if (match) {
+        const itemId = match[1];
+        const field = match[2];
+        const itemPath = `角色.背包.物品.${itemId}`;
+        const item = get(saveData, itemPath);
+        if (isPlainObject(item) && (item as any).类型 === '功法') {
+          if (field === '熟练度') {
+            const updated = get(saveData, path);
+            const num = typeof updated === 'number' && Number.isFinite(updated) ? updated : 0;
+            const clamped = Math.max(0, Math.min(100, Math.round(num)));
+            if (clamped !== num) {
+              set(saveData, path, clamped);
+            }
+            set(saveData, `${itemPath}.修炼进度`, clamped);
+          } else if (field === '已解锁技能') {
+            const updated = get(saveData, path);
+            const list = Array.isArray(updated) ? updated : [];
+            const normalized = list
+              .filter((s) => typeof s === 'string')
+              .map((s) => sanitizeAITextForDisplay(s).trim())
+              .filter((s) => s.length > 0);
+            set(saveData, path, normalized);
+            set(saveData, `${itemPath}.已解锁技能`, normalized);
+          }
+        }
+      }
+    }
+
+    // 🔥 实时同步位置到 gameStateStore
+    if (path === '角色.位置' || path.startsWith('角色.位置.')) {
+      const gameStateStore = useGameStateStore();
+      const newLocation = get(saveData, '角色.位置');
+      if (newLocation) {
+        gameStateStore.updateLocation(newLocation);
+      }
     }
   }
 
@@ -2992,7 +3416,7 @@ ${saveDataJson}`;
     return summary;
   }
 
-  private parseAIResponse(rawResponse: string, forceJsonMode: boolean = false): GM_Response {
+  private parseAIResponse(rawResponse: string, forceJsonMode: boolean = false, enableActionOptions: boolean = true): GM_Response {
     if (!rawResponse || typeof rawResponse !== 'string') {
       throw new Error('AI响应为空或格式错误');
     }
@@ -3018,29 +3442,25 @@ ${saveDataJson}`;
         value: cmd.value
       }));
 
-      let actionOptions = Array.isArray(obj.action_options) ? obj.action_options :
-                          Array.isArray(obj.行动选项) ? obj.行动选项 : [];
+      let actionOptions: unknown[] = [];
+      if (enableActionOptions) {
+        actionOptions = Array.isArray(obj.action_options) ? obj.action_options :
+                        Array.isArray(obj.行动选项) ? obj.行动选项 : [];
+      }
 
-      actionOptions = actionOptions.filter((opt: unknown) =>
-        typeof opt === 'string' && opt.trim().length > 0
-      );
+      const filtered = (Array.isArray(actionOptions) ? actionOptions : []).filter((opt: unknown) => typeof opt === 'string' && opt.trim().length > 0);
 
-      if (actionOptions.length === 0) {
+      let normalized = filtered as string[];
+      if (enableActionOptions && normalized.length === 0) {
         console.warn('[parseAIResponse] ⚠️ action_options为空，使用默认选项');
-        actionOptions = [
-          '继续当前活动',
-          '观察周围环境',
-          '与附近的人交谈',
-          '查看自身状态',
-          '稍作休息调整'
-        ];
+        normalized = ['继续当前活动', '观察周围环境', '与附近的人交谈', '查看自身状态', '稍作休息调整'];
       }
 
       return {
         text: String(obj.text || obj.叙事文本 || obj.narrative || ''),
         mid_term_memory: String(obj.mid_term_memory || obj.中期记忆 || obj.memory || ''),
         tavern_commands: tavernCommands,
-        action_options: this.sanitizeActionOptionsForDisplay(actionOptions)
+        action_options: enableActionOptions ? this.sanitizeActionOptionsForDisplay(normalized) : []
       };
     };
 

@@ -65,6 +65,14 @@
 
         <!-- 流式输出内容（生成时实时显示，优先级最高） -->
         <div v-if="isAIProcessing && streamingContent" class="streaming-narrative-content">
+          <div v-if="uiStore.lastSentUserIntentText" class="last-user-intent">
+            <div class="last-user-intent-header">
+              <span class="k">你的输入</span>
+              <span v-if="uiStore.lastSentUserIntentSource === 'action_option'" class="badge">来自行动推荐</span>
+              <span v-else-if="uiStore.lastSentUserIntentSource === 'mixed'" class="badge">含行动推荐</span>
+            </div>
+            <div class="last-user-intent-text">{{ uiStore.lastSentUserIntentText }}</div>
+          </div>
           <div class="streaming-text">
             <FormattedText :text="streamingContent" />
           </div>
@@ -75,14 +83,15 @@
           <div class="narrative-meta">
             <span class="narrative-time">{{ currentNarrative.time }}</span>
             <div class="meta-buttons">
-              <!-- 回滚按钮 -->
+              <!-- 快照回退按钮 -->
               <button
-                v-if="canRollback"
-                @click="rollbackToLastConversation"
-                class="header-action-btn rollback-btn"
-                :title="t('回滚到上次对话前的状态')"
+                v-if="snapshots.length > 0"
+                @click="rollbackToLastSnapshot"
+                class="header-action-btn snapshot-btn"
+                :title="t('回退到上一条对话')"
               >
-                <RotateCcw :size="20" />
+                <History :size="20" />
+                <span class="snapshot-count">{{ snapshots.length }}</span>
               </button>
 
               <button
@@ -111,6 +120,14 @@
                 <span class="update-count">{{ currentNarrativeStateChanges.length }}</span>
               </button>
             </div>
+          </div>
+          <div v-if="uiStore.lastSentUserIntentText" class="last-user-intent">
+            <div class="last-user-intent-header">
+              <span class="k">你的输入</span>
+              <span v-if="uiStore.lastSentUserIntentSource === 'action_option'" class="badge">来自行动推荐</span>
+              <span v-else-if="uiStore.lastSentUserIntentSource === 'mixed'" class="badge">含行动推荐</span>
+            </div>
+            <div class="last-user-intent-text">{{ uiStore.lastSentUserIntentText }}</div>
           </div>
           <div class="narrative-text">
             <FormattedText :text="currentNarrative.content" />
@@ -343,7 +360,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onActivated, onUnmounted, nextTick, computed, watch } from 'vue';
 import {
-  Send, Loader2, ChevronDown, ChevronRight, ScrollText, RotateCcw, Shield, BrainCircuit, Bell
+  Send, Loader2, ChevronDown, ChevronRight, ScrollText, RotateCcw, Shield, BrainCircuit, Bell, History
 } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 import { useI18n } from '@/i18n';
@@ -361,6 +378,7 @@ import { aiService } from '@/services/aiService';
 import { extractTextFromJsonResponse } from '@/utils/textSanitizer';
 import FormattedText from '@/components/common/FormattedText.vue';
 import { useGameStateStore } from '@/stores/gameStateStore';
+import { getSnapshots } from '@/utils/snapshotManager';
 import type {  CharacterProfile } from '@/types/game';
 import type { GM_Response } from '@/types/AIGameMaster'; // AIGameMaster.d.ts 仍然需要保留
 
@@ -421,11 +439,11 @@ const handleStreamChunk = (chunk: string) => {
       const thinkingStart = state.buffer.indexOf('<thinking>');
       if (thinkingStart === -1) {
         // 没有找到标签，检查是否可能是不完整的标签
-        if (state.buffer.length > 10 && !state.buffer.includes('<')) {
+        if (state.buffer.length > 8 && !state.buffer.includes('<')) {
           // 安全地输出所有内容作为正文
           uiStore.appendStreamingContent(state.buffer);
           state.buffer = '';
-        } else if (state.buffer.length > 50) {
+        } else if (state.buffer.length > 35) {
           // 缓冲区太长，输出前面的内容
           const safeLen = state.buffer.lastIndexOf('<');
           if (safeLen > 0) {
@@ -452,11 +470,11 @@ const handleStreamChunk = (chunk: string) => {
       const thinkingEnd = state.buffer.indexOf('</thinking>');
       if (thinkingEnd === -1) {
         // 没有找到结束标签，检查是否可能是不完整的标签
-        if (state.buffer.length > 11 && !state.buffer.includes('<')) {
+        if (state.buffer.length > 8 && !state.buffer.includes('<')) {
           // 安全地输出所有内容作为思维链
           uiStore.appendThinkingContent(state.buffer);
           state.buffer = '';
-        } else if (state.buffer.length > 100) {
+        } else if (state.buffer.length > 60) {
           // 缓冲区太长，输出前面的内容
           const safeLen = state.buffer.lastIndexOf('<');
           if (safeLen > 0) {
@@ -893,6 +911,87 @@ const rollbackToLastConversation = async () => {
   });
 };
 
+// 快照相关
+const showSnapshotMenu = ref(false);
+const snapshots = computed(() => {
+  const active = characterStore.rootState.当前激活存档;
+  if (!active) return [];
+  return getSnapshots(active.角色ID, active.存档槽位).reverse();
+});
+
+const formatSnapshotTime = (timestamp: number) => {
+  const now = Date.now();
+  const diff = now - timestamp;
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return '刚刚';
+  if (minutes < 60) return `${minutes}分钟前`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}小时前`;
+  return new Date(timestamp).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+};
+
+const rollbackToSnapshot = async (snapshotId: string) => {
+  showSnapshotMenu.value = false;
+  const active = characterStore.rootState.当前激活存档;
+  if (!active) return;
+
+  uiStore.showRetryDialog({
+    title: '回退确认',
+    message: '确定要回退到此快照吗？当前进度将被替换。',
+    confirmText: '确认回退',
+    cancelText: '取消',
+    onConfirm: async () => {
+      try {
+        const { getSnapshot, restoreSnapshot } = await import('@/utils/snapshotManager');
+        const snap = getSnapshot(active.角色ID, active.存档槽位, snapshotId);
+        if (!snap) throw new Error('快照不存在');
+
+        const currentData = gameStateStore.toSaveData();
+        if (!currentData) throw new Error('无法获取当前数据');
+
+        const restored = restoreSnapshot(currentData, snap);
+        await gameStateStore.loadFromSaveData(restored);
+
+        const profile = characterStore.activeCharacterProfile;
+        if (profile?.模式 === '单机' && profile.存档列表) {
+          const slot = profile.存档列表[active.存档槽位];
+          if (slot) {
+            slot.存档数据 = restored;
+            const { saveSaveData } = await import('@/utils/indexedDBManager');
+            await saveSaveData(active.角色ID, active.存档槽位, restored);
+          }
+        }
+
+        uiStore.resetStreamingState();
+        uiStore.lastSentUserIntentText = '';
+
+        // 删除该快照及之后的所有快照
+        const { getSnapshots } = await import('@/utils/snapshotManager');
+        const allSnapshots = getSnapshots(active.角色ID, active.存档槽位);
+        const snapIndex = allSnapshots.findIndex(s => s.id === snapshotId);
+        if (snapIndex !== -1) {
+          const { deleteSnapshotsFrom } = await import('@/utils/snapshotManager');
+          deleteSnapshotsFrom(active.角色ID, active.存档槽位, snapIndex);
+        }
+
+        toast.success('已回退到快照');
+      } catch (error) {
+        console.error('回退失败:', error);
+        toast.error(`回退失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      }
+    },
+    onCancel: () => {}
+  });
+};
+
+// 回退到最后一条快照
+const rollbackToLastSnapshot = async () => {
+  if (snapshots.value.length === 0) return;
+  const lastSnapshot = snapshots.value[snapshots.value.length - 1];
+  await rollbackToSnapshot(lastSnapshot.id);
+};
+
+
 // 扁平化的行动列表，用于简化UI显示
 const flatActions = computed(() => {
   const actions: ActionItem[] = [];
@@ -1269,6 +1368,8 @@ const retryAIResponse = async (
 
 // 存储原始流式内容（用于解析完整JSON）
 const rawStreamingContent = ref('');
+// 记录最近一次点击的行动推荐（用于判定“发送来源/被覆盖”）
+const lastSelectedActionOption = ref('');
 
 // 检查动作是否可撤回
 const isUndoableAction = (action: { type?: string }): boolean => {
@@ -1315,9 +1416,18 @@ const removeActionFromQueue = async (index: number) => {
   }
 };
 
-// 选择行动选项（只填充到输入框，不自动发送，防止误触）
+// 选择行动选项（默认替换输入框内容）
 const selectActionOption = (option: string) => {
-  inputText.value = option;
+  const trimmed = (option || '').trim();
+  if (!trimmed) return;
+
+  lastSelectedActionOption.value = trimmed;
+  inputText.value = trimmed;
+
+  nextTick(() => {
+    inputRef.value?.focus?.();
+    adjustTextareaHeight();
+  });
 };
 
 const sendMessage = async () => {
@@ -1363,9 +1473,21 @@ const sendMessage = async () => {
     }
   }
 
-  const userMessage = inputText.value.trim();
-  console.log('[前端] 用户输入 inputText.value:', inputText.value);
-  console.log('[前端] 处理后 userMessage:', userMessage);
+	  const userMessage = inputText.value.trim();
+	  console.log('[前端] 用户输入 inputText.value:', inputText.value);
+	  console.log('[前端] 处理后 userMessage:', userMessage);
+
+	  // 🔍 仅用于UI展示：记录本回合“实际发送给AI”的用户输入（不写入存档/记忆）
+	  uiStore.lastSentUserIntentText = userMessage;
+	  if (lastSelectedActionOption.value && userMessage === lastSelectedActionOption.value) {
+	    uiStore.lastSentUserIntentSource = 'action_option';
+	  } else if (lastSelectedActionOption.value && userMessage.includes(lastSelectedActionOption.value)) {
+	    uiStore.lastSentUserIntentSource = 'mixed';
+	  } else if (userMessage) {
+	    uiStore.lastSentUserIntentSource = 'manual';
+	  } else {
+	    uiStore.lastSentUserIntentSource = 'unknown';
+	  }
 
   // 获取动作队列中的文本
   const actionQueueText = actionQueue.getActionPrompt();
@@ -2066,6 +2188,76 @@ const syncGameState = async () => {
 </script>
 
 <style scoped>
+/* 快照回退样式 */
+.rollback-group {
+  position: relative;
+  display: flex;
+  gap: 4px;
+}
+
+.snapshot-btn {
+  position: relative;
+}
+
+.snapshot-count {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #3b82f6;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.snapshot-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  min-width: 200px;
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 100;
+}
+
+.snapshot-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.snapshot-item:hover {
+  background: var(--color-surface-hover);
+}
+
+.snapshot-item:last-child {
+  border-bottom: none;
+}
+
+.snapshot-label {
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.snapshot-time {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
 /* 命令日志弹窗样式 */
 .command-log-overlay {
   position: fixed;
@@ -2498,6 +2690,47 @@ const syncGameState = async () => {
   border: 1px solid var(--color-border);
   border-radius: 8px;
   animation: fadeIn 0.3s ease-in;
+}
+
+/* 用户本回合输入展示（仅UI；不进入记忆/存档） */
+.last-user-intent {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px dashed var(--color-border);
+  border-radius: 10px;
+  background: rgba(var(--color-primary-rgb), 0.05);
+}
+
+.last-user-intent-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+}
+
+.last-user-intent-header .k {
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.last-user-intent-header .badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.last-user-intent-text {
+  white-space: pre-wrap;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
 }
 
 .streaming-text,
