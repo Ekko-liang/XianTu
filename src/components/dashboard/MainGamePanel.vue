@@ -734,7 +734,11 @@ const currentNarrative = computed(() => {
 
   // 优先从短期记忆获取文本内容
   let content = '';
-  if (shortTermMemory && shortTermMemory.length > 0) {
+  if (latestMessageText.value) {
+    content = latestMessageText.value;
+  } else if (pendingNarrativeText.value) {
+    content = pendingNarrativeText.value;
+  } else if (shortTermMemory && shortTermMemory.length > 0) {
     // 短期记忆使用push添加，最新的在末尾
     const latestMemory = shortTermMemory[shortTermMemory.length - 1];
     content = latestMemory.replace(/^【.*?】\s*/, ''); // 移除时间前缀
@@ -818,6 +822,7 @@ const saveImageToGallery = () => {
 };
 
 const latestMessageText = ref<string | null>(null); // 用于存储单独的text部分
+const pendingNarrativeText = ref<string | null>(null);
 
 // 短期记忆设置 - 可配置
 const maxShortTermMemories = ref(5); // 默认5条，与记忆中心同步
@@ -1579,6 +1584,9 @@ const sendMessage = async () => {
 
   // 用户消息只作为行动趋向提示词，不添加到记忆中
   const resetSnapshot = aiResetToken;
+  latestMessageText.value = null;
+  pendingNarrativeText.value = '天道感应中...';
+  uiStore.clearCurrentMessageStateChanges();
   uiStore.setAIProcessing(true);
   persistAIProcessingState();
 
@@ -1690,11 +1698,13 @@ const sendMessage = async () => {
 
       // 优先从结构化响应中获取最准确的文本
       if (gmResp?.text && typeof gmResp.text === 'string') {
+        pendingNarrativeText.value = null;
         finalText = gmResp.text;
         console.log('[AI响应处理] 使用 gmResponse.text 作为最终文本，长度:', finalText.length);
       } else if (streamingContent.value) {
         // 如果以上都没有，使用流式输出的最终结果作为备用
         // 🔥 从 JSON 响应中提取 text 字段
+        pendingNarrativeText.value = null;
         finalText = extractTextFromJsonResponse(streamingContent.value);
         console.log('[AI响应处理] 使用 streamingContent 提取后作为最终文本，长度:', finalText.length);
       } else {
@@ -1770,6 +1780,7 @@ const sendMessage = async () => {
       }
       console.error('[AI处理失败]', aiError);
       hasError = true;
+      pendingNarrativeText.value = null;
 
       // 显示错误提示
       const errorMsg = aiError instanceof Error ? aiError.message : '未知错误';
@@ -1819,6 +1830,7 @@ const sendMessage = async () => {
     }
     console.error('[AI交互] 处理失败:', error);
     hasError = true;
+    pendingNarrativeText.value = null;
 
     // 显示错误提示
     const errorMessage = error instanceof Error ? error.message : '未知错误';
@@ -1832,6 +1844,7 @@ const sendMessage = async () => {
     uiStore.setCurrentGenerationId(null);
     persistAIProcessingState();
   } finally {
+    pendingNarrativeText.value = null;
     // 🔥 兜底机制：确保状态一定被清除
     if (isAIProcessing.value) {
       console.warn('[AI响应处理] finally块：状态未清除，强制清除（兜底）');
