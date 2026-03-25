@@ -33,7 +33,7 @@
             </button>
           </div>
           <textarea
-            v-model="editingValue"
+            v-model="editingText"
             class="form-textarea"
             :class="{ 'has-error': jsonError }"
             rows="10"
@@ -88,6 +88,7 @@ const emit = defineEmits<{
 }>()
 
 const localEditingItem = ref<EditingItem>({ type: '', key: '', value: '' })
+const editingText = ref('')
 const selectedType = ref<'string' | 'number' | 'boolean' | 'object' | 'array'>('string')
 const jsonError = ref('')
 
@@ -100,31 +101,20 @@ const valueTypes = [
   { value: 'array', label: '数组' }
 ]
 
-const editingValue = computed({
-  get: () => {
-    if (!localEditingItem.value) return ''
-    const value = localEditingItem.value.value
-
-    if (typeof value === 'object' && value !== null) {
-      return JSON.stringify(value, null, 2)
-    }
-    return String(value ?? '')
-  },
-  set: (value: string) => {
-    if (localEditingItem.value) {
-      localEditingItem.value.value = value
-      validateJSON()
-    }
+const serializeValueForEditing = (value: EditingItem['value']) => {
+  if (typeof value === 'object' && value !== null) {
+    return JSON.stringify(value, null, 2)
   }
-})
+  return String(value ?? '')
+}
 
 // 预览数据
 const previewData = computed(() => {
-  if (jsonError.value || !editingValue.value) return null
+  if (jsonError.value || !editingText.value) return null
 
   try {
     if (selectedType.value === 'object' || selectedType.value === 'array') {
-      const parsed = JSON.parse(editingValue.value)
+      const parsed = JSON.parse(editingText.value)
       return JSON.stringify(parsed, null, 2)
     }
     return null
@@ -136,7 +126,7 @@ const previewData = computed(() => {
 // 是否可以保存
 const canSave = computed(() => {
   return localEditingItem.value.key.trim() !== '' &&
-         editingValue.value.trim() !== '' &&
+         editingText.value.trim() !== '' &&
          !jsonError.value
 })
 
@@ -144,13 +134,13 @@ const canSave = computed(() => {
 const validateJSON = () => {
   jsonError.value = ''
 
-  if (!editingValue.value.trim()) {
+  if (!editingText.value.trim()) {
     return
   }
 
   if (selectedType.value === 'object' || selectedType.value === 'array') {
     try {
-      const parsed = JSON.parse(editingValue.value)
+      const parsed = JSON.parse(editingText.value)
 
       if (selectedType.value === 'array' && !Array.isArray(parsed)) {
         jsonError.value = '期望是数组类型，但解析结果不是数组'
@@ -168,22 +158,22 @@ const selectValueType = (type: typeof selectedType.value) => {
   selectedType.value = type
 
   // 自动填充默认值
-  if (!editingValue.value) {
+  if (!editingText.value) {
     switch (type) {
       case 'string':
-        editingValue.value = ''
+        editingText.value = ''
         break
       case 'number':
-        editingValue.value = '0'
+        editingText.value = '0'
         break
       case 'boolean':
-        editingValue.value = 'true'
+        editingText.value = 'true'
         break
       case 'object':
-        editingValue.value = '{}'
+        editingText.value = '{}'
         break
       case 'array':
-        editingValue.value = '[]'
+        editingText.value = '[]'
         break
     }
   }
@@ -234,32 +224,32 @@ const handleSave = () => {
   // 更新 localEditingItem 的值为正确的类型
   try {
     console.log('=== [Modal诊断] 开始保存 ===')
-    console.log('[Modal-1] editingValue.value (原始字符串):', editingValue.value)
+    console.log('[Modal-1] editingText.value (原始字符串):', editingText.value)
     console.log('[Modal-2] selectedType:', selectedType.value)
 
-    let finalValue: any = editingValue.value
+    let finalValue: any = editingText.value
 
     switch (selectedType.value) {
       case 'number':
-        finalValue = Number(editingValue.value)
+        finalValue = Number(editingText.value)
         if (isNaN(finalValue)) {
           jsonError.value = '无效的数字格式'
           return
         }
         break
       case 'boolean':
-        finalValue = editingValue.value.toLowerCase() === 'true'
+        finalValue = editingText.value.toLowerCase() === 'true'
         break
       case 'object':
       case 'array':
-        console.log('[Modal-3] 解析前的JSON字符串:', editingValue.value)
-        finalValue = JSON.parse(editingValue.value)
+        console.log('[Modal-3] 解析前的JSON字符串:', editingText.value)
+        finalValue = JSON.parse(editingText.value)
         console.log('[Modal-4] 解析后的对象:', finalValue)
         console.log('[Modal-5] 解析后的JSON:', JSON.stringify(finalValue))
         break
       case 'string':
       default:
-        finalValue = editingValue.value
+        finalValue = editingText.value
         break
     }
 
@@ -285,11 +275,16 @@ const detectValueType = (value: any) => {
 watch(() => props.editingItem, (newItem) => {
   if (newItem) {
     localEditingItem.value = { ...newItem }
+    editingText.value = serializeValueForEditing(newItem.value)
     selectedType.value = detectValueType(newItem.value)
     jsonError.value = ''
     validateJSON()
   }
 }, { immediate: true })
+
+watch(editingText, () => {
+  validateJSON()
+})
 </script>
 
 <style scoped>

@@ -344,16 +344,6 @@ const saveVariable = async (item: EditingItem) => {
   try {
     const { key, value } = item
 
-    // 解析JSON字符串（如果是对象类型）
-    let parsedValue = value
-    if (typeof value === 'string' && (value.trim().startsWith('{') || value.trim().startsWith('['))) {
-      try {
-        parsedValue = JSON.parse(value)
-      } catch {
-        // 如果解析失败，保持原字符串
-      }
-    }
-
     // ✅ 直接对 V3 五域 SaveData 打补丁，然后重新 loadFromSaveData（避免派生字段覆盖）
     const current = gameStateStore.toSaveData()
     if (!current) {
@@ -362,7 +352,7 @@ const saveVariable = async (item: EditingItem) => {
     }
     const v3 = isSaveDataV3(current) ? current : migrateSaveDataToLatest(current as any).migrated
     const next = JSON.parse(JSON.stringify(v3))
-    lodashSet(next, key, parsedValue)
+    lodashSet(next, key, value)
     gameStateStore.loadFromSaveData(next as any)
     await gameStateStore.saveGame()
 
