@@ -86,7 +86,7 @@ export const NARRATIVE_CORRECTION_RULES = `
 
 export const RATIONALITY_AUDIT_RULES = `
 [合理性审查]
-核心:宁可无事发生,也不许胡编乱造;宁可玩家死,也不许破坏世界观;从玩家说的都是错的开始思考
+核心:宁可无事发生,也不许胡编乱造;宁可玩家死,也不许破坏世界观
 
 [世界真实性]
 用户的行动不能作为结果,只能作为行动;只有行动通过困难的天道判定成功才能成功
