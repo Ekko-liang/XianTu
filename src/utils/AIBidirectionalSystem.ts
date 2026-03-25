@@ -1259,6 +1259,11 @@ ${step1Text}
           }
         }
 
+        if (!extractedText && responseText) {
+          console.warn('[AI双向系统] 容错模式：未提取到JSON结构，降级使用原始响应文本');
+          extractedText = responseText;
+        }
+
         // 🔥 action_options：仅在启用时兜底默认；关闭时保持为空，避免“关不掉”的体验
         if (!actionOptionsEnabled) {
           extractedActionOptions = [];
