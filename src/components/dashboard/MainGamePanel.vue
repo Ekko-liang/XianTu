@@ -1220,6 +1220,12 @@ const recentMemories = computed(() => {
 });
 
 // AI响应结构验证
+const buildFallbackMidTermMemory = (text: string): string => {
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  if (!normalized) return '';
+  return normalized.length > 120 ? `${normalized.slice(0, 120)}…` : normalized;
+};
+
 const validateAIResponse = (response: unknown): { isValid: boolean; errors: string[] } => {
   const errors: string[] = [];
 
@@ -1236,11 +1242,15 @@ const validateAIResponse = (response: unknown): { isValid: boolean; errors: stri
     errors.push('缺少有效的text字段');
   }
 
-  // 检查mid_term_memory字段（必须）
-  if (!resp.mid_term_memory || typeof resp.mid_term_memory !== 'string') {
-    errors.push('缺少必要的mid_term_memory字段（中期记忆总结）');
-  } else if (resp.mid_term_memory.trim().length === 0) {
-    errors.push('mid_term_memory字段不能为空');
+  // mid_term_memory 缺失时允许使用 text 自动回填。
+  // AIBidirectionalSystem.processGmResponse 已支持为空时兜底补隐式中期记忆，
+  // 这里不应把整条响应误判为格式错误。
+  if (typeof resp.mid_term_memory !== 'string' || resp.mid_term_memory.trim().length === 0) {
+    const fallback = typeof resp.text === 'string' ? buildFallbackMidTermMemory(resp.text) : '';
+    if (fallback) {
+      resp.mid_term_memory = fallback;
+      console.warn('[AI响应校验] mid_term_memory 缺失，已使用 text 自动回填');
+    }
   }
 
   // 检查tavern_commands字段（可选）
