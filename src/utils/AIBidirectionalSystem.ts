@@ -3065,6 +3065,29 @@ ${saveDataJson}`;
     }
 
     const path = key.toString();
+    const shouldNormalizePlayerHp =
+      path === '角色.属性'
+      || path === '角色.属性.气血'
+      || path.startsWith('角色.属性.气血.');
+    const normalizePlayerHpFloor = () => {
+      const hpPath = '角色.属性.气血';
+      const hpData = get(saveData, hpPath) as { 当前?: unknown; 上限?: unknown } | undefined;
+      if (!hpData || typeof hpData !== 'object') return;
+
+      const rawMax = Number(hpData.上限);
+      const normalizedMax = Number.isFinite(rawMax) ? Math.max(1, Math.round(rawMax)) : 1;
+      const rawCurrent = Number(hpData.当前);
+      const normalizedCurrent = Number.isFinite(rawCurrent)
+        ? Math.min(normalizedMax, Math.max(1, Math.round(rawCurrent)))
+        : Math.min(normalizedMax, 1);
+
+      if (hpData.上限 !== normalizedMax) {
+        set(saveData, `${hpPath}.上限`, normalizedMax);
+      }
+      if (hpData.当前 !== normalizedCurrent) {
+        set(saveData, `${hpPath}.当前`, normalizedCurrent);
+      }
+    };
     const allowedRoots = ['元数据', '角色', '社交', '世界', '系统'] as const;
     const isV3Path = allowedRoots.some((root) => path === root || path.startsWith(`${root}.`));
     if (!isV3Path) {
@@ -3309,6 +3332,10 @@ ${saveDataJson}`;
 
       default:
         throw new Error(`未知的操作类型: ${action}`);
+    }
+
+    if (shouldNormalizePlayerHp) {
+      normalizePlayerHpFloor();
     }
 
     // 🔥 功法进度镜像：UI/功法系统主要读取背包物品上的修炼进度/已解锁技能

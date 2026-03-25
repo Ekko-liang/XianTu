@@ -392,6 +392,24 @@ interface StateChangeLog {
   }>;
 }
 
+type SaveDataSnapshot = {
+  角色?: {
+    属性?: {
+      气血?: {
+        当前?: number | string;
+        上限?: number | string;
+      };
+      寿元上限?: number;
+    };
+    身份?: {
+      出生日期?: Parameters<typeof calculateAgeFromBirthdate>[0];
+    };
+  };
+  元数据?: {
+    时间?: Parameters<typeof calculateAgeFromBirthdate>[1];
+  };
+};
+
 
 // --- 计算属性：从当前叙述中安全地获取状态变更列表 ---
 const currentNarrativeStateChanges = computed(() => {
@@ -1430,6 +1448,48 @@ const selectActionOption = (option: string) => {
   });
 };
 
+const getPlayerCurrentHp = (saveData: SaveDataSnapshot | null | undefined): number | null => {
+  const current = Number(saveData?.角色?.属性?.气血?.当前);
+  return Number.isFinite(current) ? current : null;
+};
+
+const getPlayerMaxHp = (saveData: SaveDataSnapshot | null | undefined): number => {
+  const maxHp = Number(saveData?.角色?.属性?.气血?.上限);
+  if (!Number.isFinite(maxHp) || maxHp <= 0) return 1;
+  return Math.max(1, Math.round(maxHp));
+};
+
+const isPlayerLifespanExhausted = (saveData: SaveDataSnapshot | null | undefined): boolean => {
+  const birthDate = saveData?.角色?.身份?.出生日期;
+  const gameTime = saveData?.元数据?.时间;
+  const lifespanLimit = saveData?.角色?.属性?.寿元上限;
+
+  if (!birthDate || !gameTime || typeof lifespanLimit !== 'number') {
+    return false;
+  }
+
+  return calculateAgeFromBirthdate(birthDate, gameTime) >= lifespanLimit;
+};
+
+const revivePlayerOnMessageIfNeeded = async (saveData: SaveDataSnapshot | null | undefined): Promise<boolean> => {
+  const currentHp = getPlayerCurrentHp(saveData);
+  if (currentHp === null || currentHp > 0) return false;
+
+  const maxHp = getPlayerMaxHp(saveData);
+  const revivedHp = Math.min(maxHp, Math.max(1, Math.ceil(maxHp * 0.3)));
+
+  gameStateStore.updateState('attributes.气血.当前', revivedHp);
+  gameStateStore.updateState('attributes.气血.上限', maxHp);
+
+  const latestSaveData = gameStateStore.toSaveData();
+  if (latestSaveData) {
+    await characterStore.updateSaveDataDirectly(latestSaveData);
+  }
+
+  toast.info(`角色从濒死中缓过一口气，已恢复至 ${revivedHp}/${maxHp} 气血。`);
+  return true;
+};
+
 const sendMessage = async () => {
   if (!inputText.value.trim()) return;
   if (isAIProcessing.value) {
@@ -1444,21 +1504,14 @@ const sendMessage = async () => {
   // 检查角色死亡状态
   const saveData = gameStateStore.toSaveData();
   if (saveData) {
-    // 检查气血
-    if ((saveData as any).角色?.属性?.气血?.当前 !== undefined && (saveData as any).角色.属性.气血.当前 <= 0) {
-      toast.error('角色已死亡，气血耗尽。无法继续游戏，请重新开始或复活角色。');
-      return;
+    const currentHp = getPlayerCurrentHp(saveData);
+    if (currentHp !== null && currentHp <= 0) {
+      await revivePlayerOnMessageIfNeeded(saveData);
     }
-    // 检查寿命（通过出生日期计算当前年龄，与寿元上限比较）
-    const birthDate = (saveData as any).角色?.身份?.出生日期;
-    const gameTime = (saveData as any).元数据?.时间;
-    const lifespanLimit = (saveData as any).角色?.属性?.寿元上限;
-    if (birthDate && gameTime && typeof lifespanLimit === 'number') {
-      const currentAge = calculateAgeFromBirthdate(birthDate, gameTime);
-      if (currentAge >= lifespanLimit) {
-        toast.error('角色已死亡，寿元耗尽。无法继续游戏，请重新开始或复活角色。');
-        return;
-      }
+
+    if (isPlayerLifespanExhausted(saveData)) {
+      toast.error('角色已死亡，寿元耗尽。无法继续游戏，请重新开始或复活角色。');
+      return;
     }
   }
 
@@ -1687,19 +1740,12 @@ const sendMessage = async () => {
       // 检查角色死亡状态（在状态更新后）
       const currentSaveData = gameStateStore.toSaveData();
       if (currentSaveData) {
-        // 检查气血
-        if (currentSaveData.属性?.气血?.当前 !== undefined && currentSaveData.属性.气血.当前 <= 0) {
-          toast.error('角色已死亡，气血耗尽');
+        if ((getPlayerCurrentHp(currentSaveData) ?? 1) <= 0) {
+          toast.warning('角色气血已跌穿底线，下次发送消息时将自动恢复至30%气血上限。');
         }
-        // 检查寿命（通过出生日期计算当前年龄，与寿元上限比较）
-        const birthDate2 = (currentSaveData as any).角色?.身份?.出生日期;
-        const gameTime2 = (currentSaveData as any).元数据?.时间;
-        const lifespanLimit2 = currentSaveData.属性?.寿元上限;
-        if (birthDate2 && gameTime2 && typeof lifespanLimit2 === 'number') {
-          const currentAge2 = calculateAgeFromBirthdate(birthDate2, gameTime2);
-          if (currentAge2 >= lifespanLimit2) {
-            toast.error('角色已死亡，寿元耗尽');
-          }
+
+        if (isPlayerLifespanExhausted(currentSaveData)) {
+          toast.error('角色已死亡，寿元耗尽');
         }
       }
     } else if (aiResponse) {
