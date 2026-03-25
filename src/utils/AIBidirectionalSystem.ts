@@ -897,9 +897,9 @@ ${stateJsonString}
    - 如果你出现在有NPC的地方，他们会**惊讶/警惕**
    - 修士会感知到空间波动，凡人会觉得你"不知从哪冒出来的"
    - 高境界修士可能会察觉你身上的"异界气息"
-3. **NPC内心戏要充足**：
-   - 描写NPC看到陌生人突然出现时的心理活动
-   - 根据NPC性格决定反应：警惕、好奇、敌意、友善等
+3. **NPC反应要具体**：
+   - 通过动作、语言、神态、站位变化来表现警惕、好奇、敌意、友善等反应
+   - 不要依赖直接描写NPC心理活动
 4. **不要假设任何既有关系**：
    - 不要继承世界主人与NPC的好感度或互动历史
    - 你需要从零开始与这个世界的NPC建立关系
@@ -1306,12 +1306,8 @@ ${step1Text}
       }
     } catch (error) {
       console.error('[AI双向系统] AI生成失败:', error);
-      gmResponse = {
-        text: '（AI生成失败）',
-        mid_term_memory: '',
-        tavern_commands: [],
-        action_options: actionOptionsEnabled ? ['重试当前操作', '查看自身状态', '稍作休息'] : []
-      };
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`AI生成失败: ${message}`);
     }
 
     // 3. 执行AI指令
