@@ -1319,7 +1319,7 @@ const retryAIResponse = async (
 **重要：以下3个字段都是必需的，缺一不可！**
 
 {
-  "text": "Narrative text(中文简体，字数越多越好1000-3000，往用户趋向去尝试行动)",
+  "text": "Narrative text(中文简体，1500-2000字；按标准玄幻小说章节推进，不强求单章闭环；玩家输入是方向，可自动补足低价值细节；不要替玩家做重大决定)",
   "mid_term_memory": "Brief summary",
   "tavern_commands": [{"action": "Action", "key": "key.path", "value": Value/List}]
 }
